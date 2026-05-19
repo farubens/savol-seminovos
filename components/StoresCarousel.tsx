@@ -1,29 +1,11 @@
-﻿"use client";
+"use client";
 
-import { useEffect, useRef, useState, type PointerEvent } from "react";
+import { useMemo, useRef, type PointerEvent } from "react";
 import { ArrowRight, ChevronLeft, ChevronRight, MapPin, Navigation, Phone } from "lucide-react";
-
-type ApiStore = {
-  id: number;
-  slug: string;
-  brand: string;
-  name: string;
-  address: string;
-  phone: string;
-  vehiclesCount: number;
-  storeUrl: string;
-  mapUrl: string;
-};
-
-type ApiResponse = {
-  items?: ApiStore[];
-};
-
-const API_URL = "/api/lojas?per_page=18";
+import { useHomeSessionData } from "@/components/HomeSessionDataProvider";
 
 export function StoresCarousel() {
-  const [stores, setStores] = useState<ApiStore[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { stores, loading } = useHomeSessionData();
   const sliderRef = useRef<HTMLDivElement | null>(null);
   const dragState = useRef({
     pointerId: -1,
@@ -31,28 +13,7 @@ export function StoresCarousel() {
     startX: 0,
     startScrollLeft: 0
   });
-
-  useEffect(() => {
-    const controller = new AbortController();
-    const timeoutId = window.setTimeout(() => controller.abort(), 7000);
-
-    fetch(API_URL, { signal: controller.signal })
-      .then((response) => (response.ok ? response.json() : ({ items: [] } as ApiResponse)))
-      .then((json: ApiResponse) => {
-        const items = Array.isArray(json.items) ? json.items : [];
-        setStores(items);
-      })
-      .catch(() => setStores([]))
-      .finally(() => {
-        window.clearTimeout(timeoutId);
-        setLoading(false);
-      });
-
-    return () => {
-      window.clearTimeout(timeoutId);
-      controller.abort();
-    };
-  }, []);
+  const visibleStores = useMemo(() => stores, [stores]);
 
   const scrollByStep = (direction: "left" | "right") => {
     const slider = sliderRef.current;
@@ -102,9 +63,24 @@ export function StoresCarousel() {
       </div>
 
       <div className="store-showcase-wrap">
-        <button type="button" className="store-nav-btn" aria-label="Deslizar para a esquerda" onClick={() => scrollByStep("left")}>
-          <ChevronLeft size={18} />
-        </button>
+        <div className="store-showcase-nav">
+          <button
+            type="button"
+            className="store-nav-btn store-nav-btn--prev"
+            aria-label="Deslizar para a esquerda"
+            onClick={() => scrollByStep("left")}
+          >
+            <ChevronLeft size={18} />
+          </button>
+          <button
+            type="button"
+            className="store-nav-btn store-nav-btn--next"
+            aria-label="Deslizar para a direita"
+            onClick={() => scrollByStep("right")}
+          >
+            <ChevronRight size={18} />
+          </button>
+        </div>
 
         <div
           className="store-showcase-slider"
@@ -125,7 +101,7 @@ export function StoresCarousel() {
               </article>
             ))}
 
-          {!loading && !stores.length && (
+          {!loading && !visibleStores.length && (
             <article className="store-showcase-card store-showcase-empty">
               <h3>Sem lojas para exibir</h3>
               <p>Não foi possível carregar as unidades da API no momento.</p>
@@ -133,7 +109,7 @@ export function StoresCarousel() {
           )}
 
           {!loading &&
-            stores.map((store) => (
+            visibleStores.map((store) => (
               <article className="store-showcase-card" key={store.id}>
                 <div className="store-showcase-content">
                   <p className="store-brand">{store.brand}</p>
@@ -173,13 +149,7 @@ export function StoresCarousel() {
               </article>
             ))}
         </div>
-
-        <button type="button" className="store-nav-btn" aria-label="Deslizar para a direita" onClick={() => scrollByStep("right")}>
-          <ChevronRight size={18} />
-        </button>
       </div>
     </section>
   );
 }
-
-

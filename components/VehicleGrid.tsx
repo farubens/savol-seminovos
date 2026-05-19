@@ -1,57 +1,14 @@
-﻿"use client";
+"use client";
 
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import { LayoutGrid, List, Sparkles } from "lucide-react";
+import { useHomeSessionData } from "@/components/HomeSessionDataProvider";
 import { VehicleOfferCard } from "@/components/VehicleOfferCard";
 
-type ApiVehicle = {
-  id: number;
-  name: string;
-  subtitle: string;
-  image: string;
-  url: string;
-  year: string;
-  transmission: string;
-  fuel: string;
-  km: string;
-  store: string;
-  oldPrice: string;
-  price: string;
-  qualityTag: string;
-};
-
-type ApiResponse = {
-  items?: ApiVehicle[];
-};
-
-const apiUrl = "/api/veiculos?per_page=8";
-
 export function VehicleGrid() {
-  const [vehicles, setVehicles] = useState<ApiVehicle[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { vehicles, loading } = useHomeSessionData();
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-
-  useEffect(() => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 7000);
-
-    fetch(apiUrl, { signal: controller.signal })
-      .then((response) => (response.ok ? response.json() : { items: [] }))
-      .then((json: ApiResponse) => {
-        const items = Array.isArray(json.items) ? json.items.slice(0, 8) : [];
-        setVehicles(items);
-      })
-      .catch(() => setVehicles([]))
-      .finally(() => {
-        clearTimeout(timeoutId);
-        setLoading(false);
-      });
-
-    return () => {
-      clearTimeout(timeoutId);
-      controller.abort();
-    };
-  }, []);
+  const featuredVehicles = useMemo(() => vehicles.slice(0, 8), [vehicles]);
 
   return (
     <div className="offer-section">
@@ -93,7 +50,7 @@ export function VehicleGrid() {
         </div>
       )}
 
-      {!loading && !vehicles.length && (
+      {!loading && !featuredVehicles.length && (
         <div className={viewMode === "grid" ? "offer-grid" : "offer-list"}>
           <article className="offer-card empty-state">
             <Sparkles size={20} />
@@ -103,14 +60,16 @@ export function VehicleGrid() {
         </div>
       )}
 
-      {!loading && Boolean(vehicles.length) && (
+      {!loading && Boolean(featuredVehicles.length) && (
         <div className={viewMode === "grid" ? "offer-grid" : "offer-list"}>
-          {vehicles.map((vehicle, index) => (
+          {featuredVehicles.map((vehicle, index) => (
             <VehicleOfferCard
               key={vehicle.id}
+              vehicleId={vehicle.id}
               name={vehicle.name}
               subtitle={vehicle.subtitle}
               image={vehicle.image}
+              gallery={vehicle.gallery}
               year={vehicle.year}
               transmission={vehicle.transmission}
               fuel={vehicle.fuel}
@@ -129,5 +88,3 @@ export function VehicleGrid() {
     </div>
   );
 }
-
-

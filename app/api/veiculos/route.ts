@@ -1,81 +1,40 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 const WP_BASE_URL = "https://palevioletred-lark-270684.hostingersite.com";
 const VEICULO_ENDPOINT = `${WP_BASE_URL}/wp-json/wp/v2/veiculo`;
-const MEDIA_ENDPOINT = `${WP_BASE_URL}/wp-json/wp/v2/media`;
 const DEFAULT_PER_PAGE = 12;
 const MAX_PER_PAGE = 24;
 const FALLBACK_IMAGE = "/images/hero-car.png";
-
-const TAXONOMIES = [
-  "veiculo_marca",
-  "veiculo_modelo",
-  "veiculo_versao",
-  "veiculo_cor",
-  "veiculo_cidade",
-  "veiculo_uf",
-  "veiculo_unidade"
-] as const;
-
-const VEHICLE_FIELDS = [
-  "id",
-  "title",
-  "slug",
-  "link",
-  "content",
-  "excerpt",
-  "featured_media",
-  "veiculo_marca",
-  "veiculo_modelo",
-  "veiculo_versao",
-  "veiculo_cor",
-  "veiculo_cidade",
-  "veiculo_uf",
-  "veiculo_unidade",
-  "all_meta",
-  "meta"
-].join(",");
-
-type TaxonomyName = (typeof TAXONOMIES)[number];
-
-type WpVehicle = {
-  id: number;
-  slug?: string;
-  link?: string;
-  featured_media?: number;
-  title?: {
-    raw?: string;
-    rendered?: string;
-  };
-  content?: {
-    raw?: string;
-    rendered?: string;
-  };
-  excerpt?: {
-    raw?: string;
-    rendered?: string;
-  };
-  veiculo_marca?: number[];
-  veiculo_modelo?: number[];
-  veiculo_versao?: number[];
-  veiculo_cor?: number[];
-  veiculo_cidade?: number[];
-  veiculo_uf?: number[];
-  veiculo_unidade?: number[];
-  all_meta?: Record<string, unknown>;
-  meta?: Record<string, unknown>;
-};
-
-type WpTaxonomyTerm = {
-  id: number;
-  name?: string;
-};
+const API_CACHE_TTL_MS = 2 * 60 * 1000;
+const WP_DEFAULT_USER = "fa.rubens@gmail.com";
+const WP_DEFAULT_APP_PASSWORD = "W9y4 bUld QOIG PV4u oIHo csrb";
 
 type WpMedia = {
   id: number;
   source_url?: string;
   media_details?: {
     sizes?: Record<string, { source_url?: string }>;
+  };
+};
+
+type WpTerm = {
+  id: number;
+  name?: string;
+  taxonomy?: string;
+};
+
+type WpVehicle = {
+  id: number;
+  slug?: string;
+  link?: string;
+  title?: { raw?: string; rendered?: string };
+  content?: { raw?: string; rendered?: string };
+  excerpt?: { raw?: string; rendered?: string };
+  all_meta?: Record<string, unknown>;
+  meta?: Record<string, unknown>;
+  _embedded?: {
+    "wp:featuredmedia"?: WpMedia[];
+    "wp:term"?: WpTerm[][];
   };
 };
 
@@ -86,6 +45,7 @@ type ApiVehicle = {
   name: string;
   subtitle: string;
   image: string;
+  gallery: string[];
   year: string;
   transmission: string;
   fuel: string;
@@ -101,6 +61,14 @@ type ApiVehicle = {
   city: string;
   uf: string;
 };
+
+type CachedVehicles = {
+  items: ApiVehicle[];
+  expiresAt: number;
+};
+
+let vehiclesCache: CachedVehicles | null = null;
+let vehiclesInFlight: Promise<ApiVehicle[]> | null = null;
 
 const TITLE_YEAR_REGEX = /\b((?:19|20)\d{2})(?:\s*[/-]\s*((?:19|20)\d{2}))?\b/;
 const CONTENT_YEAR_REGEX = /\bano[:\s]+((?:19|20)\d{2})(?:\s*[/-]\s*((?:19|20)\d{2}))?/i;
@@ -150,112 +118,6 @@ function normalizeForMatch(value: string): string {
     .replace(/[\u0300-\u036f]/g, "");
 }
 
-function getAuthHeaders(): HeadersInit {
-  const user = process.env.WP_API_USER?.trim();
-  const appPassword = process.env.WP_API_APP_PASSWORD?.trim();
-  if (!user || !appPassword) return {};
-
-  const token = Buffer.from(`${user}:${appPassword}`).toString("base64");
-  return { Authorization: `Basic ${token}` };
-}
-
-async function fetchJson<T>(url: string, init?: RequestInit): Promise<T | null> {
-  const response = await fetch(url, { ...init, cache: "no-store" });
-  if (!response.ok) return null;
-  return (await response.json()) as T;
-}
-
-function buildVehicleUrl(perPage: number, context?: "edit"): string {
-  const query = new URLSearchParams({
-    per_page: String(perPage),
-    _fields: VEHICLE_FIELDS
-  });
-  if (context) {
-    query.set("context", context);
-  }
-  return `${VEICULO_ENDPOINT}?${query.toString()}`;
-}
-
-async function fetchVehiclePosts(perPage: number, authHeaders: HeadersInit): Promise<WpVehicle[]> {
-  if (Object.keys(authHeaders).length) {
-    const editRows = await fetchJson<WpVehicle[]>(buildVehicleUrl(perPage, "edit"), { headers: authHeaders });
-    if (Array.isArray(editRows) && editRows.length) {
-      return editRows;
-    }
-  }
-
-  const viewRows = await fetchJson<WpVehicle[]>(buildVehicleUrl(perPage));
-  if (Array.isArray(viewRows)) {
-    return viewRows;
-  }
-
-  return [];
-}
-
-async function fetchTaxonomyLookup(taxonomy: TaxonomyName): Promise<Map<number, string>> {
-  const query = new URLSearchParams({
-    per_page: "100",
-    hide_empty: "false",
-    _fields: "id,name"
-  });
-  const url = `${WP_BASE_URL}/wp-json/wp/v2/${taxonomy}?${query.toString()}`;
-  const terms = await fetchJson<WpTaxonomyTerm[]>(url);
-  const lookup = new Map<number, string>();
-
-  for (const term of terms ?? []) {
-    lookup.set(term.id, cleanText(term.name));
-  }
-
-  return lookup;
-}
-
-async function fetchTaxonomiesLookup(): Promise<Record<TaxonomyName, Map<number, string>>> {
-  const results = await Promise.all(TAXONOMIES.map((taxonomy) => fetchTaxonomyLookup(taxonomy)));
-  return {
-    veiculo_marca: results[0],
-    veiculo_modelo: results[1],
-    veiculo_versao: results[2],
-    veiculo_cor: results[3],
-    veiculo_cidade: results[4],
-    veiculo_uf: results[5],
-    veiculo_unidade: results[6]
-  };
-}
-
-function firstFromIdList(ids: number[] | undefined, lookup: Map<number, string>): string {
-  if (!Array.isArray(ids) || !ids.length) return "";
-  return lookup.get(ids[0]) ?? "";
-}
-
-function pickImageFromMedia(media: WpMedia | null): string | null {
-  if (!media) return null;
-  const sizeCandidates = ["large", "medium_large", "medium", "thumbnail"];
-  for (const sizeKey of sizeCandidates) {
-    const url = media.media_details?.sizes?.[sizeKey]?.source_url;
-    if (url) return url;
-  }
-  return media.source_url ?? null;
-}
-
-async function fetchFeaturedMediaImage(mediaId: number): Promise<string | null> {
-  if (!mediaId) return null;
-  const url = `${MEDIA_ENDPOINT}/${mediaId}?_fields=id,source_url,media_details`;
-  const media = await fetchJson<WpMedia>(url);
-  return pickImageFromMedia(media);
-}
-
-async function fetchFirstImageByParent(postId: number): Promise<string | null> {
-  const query = new URLSearchParams({
-    parent: String(postId),
-    per_page: "1",
-    orderby: "id",
-    order: "asc",
-    _fields: "id,source_url,media_details"
-  });
-  const rows = await fetchJson<WpMedia[]>(`${MEDIA_ENDPOINT}?${query.toString()}`);
-  return pickImageFromMedia(rows?.[0] ?? null);
-}
-
 function toMetaString(value: unknown): string {
   if (value == null) return "";
   if (typeof value === "string") return value.trim();
@@ -279,22 +141,132 @@ function getMetaField(vehicle: WpVehicle, key: string): string {
   return "";
 }
 
-function extractYear(title: string, content: string, metaAno: string, metaAnoModelo: string): string {
-  if (metaAno && metaAnoModelo) {
-    return `${metaAno}/${metaAnoModelo}`;
+function parseGalleryUrls(rawValue: string): string[] {
+  if (!rawValue) return [];
+
+  const isLikelyImageUrl = (value: string) => {
+    if (!(value.startsWith("http://") || value.startsWith("https://"))) return false;
+    return /(\.jpg|\.jpeg|\.png|\.webp|\.gif|\.avif)(\?.*)?$/i.test(value);
+  };
+
+  const urls = rawValue
+    .split(/\r?\n/)
+    .map((item) => encodeURI(cleanText(item)))
+    .filter((item) => isLikelyImageUrl(item));
+  return Array.from(new Set(urls)).slice(0, 12);
+}
+
+function pickImageFromMedia(media: WpMedia | null): string | null {
+  if (!media) return null;
+  const sizeCandidates = ["large", "medium_large", "medium", "thumbnail"];
+  for (const sizeKey of sizeCandidates) {
+    const url = media.media_details?.sizes?.[sizeKey]?.source_url;
+    if (url) return url;
   }
+  return media.source_url ?? null;
+}
+
+function getEmbeddedImage(vehicle: WpVehicle): string | null {
+  const media = vehicle._embedded?.["wp:featuredmedia"]?.[0] ?? null;
+  return pickImageFromMedia(media);
+}
+
+function getEmbeddedTerm(vehicle: WpVehicle, taxonomy: string): string {
+  const groups = vehicle._embedded?.["wp:term"] ?? [];
+  for (const group of groups) {
+    for (const term of group) {
+      if (term.taxonomy === taxonomy && term.name) {
+        return cleanText(term.name);
+      }
+    }
+  }
+  return "";
+}
+
+function getAuthHeaders(): HeadersInit {
+  const user = process.env.WP_API_USER?.trim() || WP_DEFAULT_USER;
+  const appPassword = process.env.WP_API_APP_PASSWORD?.trim() || WP_DEFAULT_APP_PASSWORD;
+  if (!user || !appPassword) return {};
+
+  const token = Buffer.from(`${user}:${appPassword}`).toString("base64");
+  return { Authorization: `Basic ${token}` };
+}
+
+async function fetchJson<T>(url: string, init?: RequestInit): Promise<{ data: T | null; status: number }> {
+  const response = await fetch(url, {
+    ...init,
+    cache: "no-store",
+    headers: {
+      Accept: "application/json",
+      "User-Agent": "SavolNext/1.0",
+      ...(init?.headers ?? {})
+    }
+  });
+  if (!response.ok) return { data: null, status: response.status };
+  return { data: (await response.json()) as T, status: response.status };
+}
+
+function buildVehicleUrl(perPage: number, options?: { context?: "edit"; embed?: boolean }): string {
+  const query = new URLSearchParams({ per_page: String(perPage) });
+  if (options?.embed) query.set("_embed", "wp:featuredmedia,wp:term");
+  if (options?.context) query.set("context", options.context);
+  return `${VEICULO_ENDPOINT}?${query.toString()}`;
+}
+
+function buildVehicleBySlugUrl(slug: string, options?: { context?: "edit"; embed?: boolean }): string {
+  const query = new URLSearchParams({ slug });
+  if (options?.embed) query.set("_embed", "wp:featuredmedia,wp:term");
+  if (options?.context) query.set("context", options.context);
+  query.set("per_page", "1");
+  return `${VEICULO_ENDPOINT}?${query.toString()}`;
+}
+
+async function fetchVehiclePosts(perPage: number, authHeaders: HeadersInit): Promise<WpVehicle[]> {
+  if (Object.keys(authHeaders).length) {
+    const editResult = await fetchJson<WpVehicle[]>(buildVehicleUrl(perPage, { context: "edit", embed: true }), {
+      headers: authHeaders
+    });
+    if (Array.isArray(editResult.data) && editResult.data.length) return editResult.data;
+  }
+
+  const embeddedViewResult = await fetchJson<WpVehicle[]>(buildVehicleUrl(perPage, { embed: true }));
+  if (Array.isArray(embeddedViewResult.data) && embeddedViewResult.data.length) return embeddedViewResult.data;
+
+  const viewResult = await fetchJson<WpVehicle[]>(buildVehicleUrl(perPage));
+  if (Array.isArray(viewResult.data) && viewResult.data.length) return viewResult.data;
+
+  return [];
+}
+
+async function fetchVehicleBySlug(slug: string, authHeaders: HeadersInit): Promise<WpVehicle | null> {
+  if (!slug) return null;
+
+  if (Object.keys(authHeaders).length) {
+    const editResult = await fetchJson<WpVehicle[]>(buildVehicleBySlugUrl(slug, { context: "edit", embed: true }), {
+      headers: authHeaders
+    });
+    if (Array.isArray(editResult.data) && editResult.data.length) return editResult.data[0];
+  }
+
+  const embeddedViewResult = await fetchJson<WpVehicle[]>(buildVehicleBySlugUrl(slug, { embed: true }));
+  if (Array.isArray(embeddedViewResult.data) && embeddedViewResult.data.length) return embeddedViewResult.data[0];
+
+  const viewResult = await fetchJson<WpVehicle[]>(buildVehicleBySlugUrl(slug));
+  if (Array.isArray(viewResult.data) && viewResult.data.length) return viewResult.data[0];
+
+  return null;
+}
+
+function extractYear(title: string, content: string, metaAno: string, metaAnoModelo: string): string {
+  if (metaAno && metaAnoModelo) return `${metaAno}/${metaAnoModelo}`;
   if (metaAno) return metaAno;
   if (metaAnoModelo) return metaAnoModelo;
 
   const fromTitle = title.match(TITLE_YEAR_REGEX);
-  if (fromTitle) {
-    return fromTitle[2] ? `${fromTitle[1]}/${fromTitle[2]}` : fromTitle[1];
-  }
+  if (fromTitle) return fromTitle[2] ? `${fromTitle[1]}/${fromTitle[2]}` : fromTitle[1];
 
   const fromContent = content.match(CONTENT_YEAR_REGEX);
-  if (fromContent) {
-    return fromContent[2] ? `${fromContent[1]}/${fromContent[2]}` : fromContent[1];
-  }
+  if (fromContent) return fromContent[2] ? `${fromContent[1]}/${fromContent[2]}` : fromContent[1];
 
   return "Ano não informado";
 }
@@ -327,9 +299,7 @@ function extractTransmission(version: string, content: string, metaCambio: strin
 function formatKm(content: string, metaKm: string): string {
   if (metaKm) {
     const digits = metaKm.replace(/[^\d]/g, "");
-    if (digits) {
-      return `${new Intl.NumberFormat("pt-BR").format(Number(digits))} km`;
-    }
+    if (digits) return `${new Intl.NumberFormat("pt-BR").format(Number(digits))} km`;
   }
 
   const match = content.match(KM_REGEX);
@@ -356,37 +326,22 @@ function toCurrencyValue(raw: string): string {
 function extractPriceData(content: string, metaPrice: string): { oldPrice: string; price: string } {
   if (metaPrice) {
     const formatted = toCurrencyValue(metaPrice);
-    if (formatted) {
-      return {
-        oldPrice: "",
-        price: formatted
-      };
-    }
+    if (formatted) return { oldPrice: "", price: formatted };
   }
 
   const matches = [...content.matchAll(new RegExp(PRICE_REGEX, "gi"))];
-  if (!matches.length) {
-    return { oldPrice: "", price: "Preço sob consulta" };
-  }
+  if (!matches.length) return { oldPrice: "", price: "Preço sob consulta" };
 
   const values = matches.map((match) => toCurrencyValue(match[0])).filter(Boolean);
-  if (!values.length) {
-    return { oldPrice: "", price: "Preço sob consulta" };
-  }
+  if (!values.length) return { oldPrice: "", price: "Preço sob consulta" };
+  if (values.length === 1) return { oldPrice: "", price: values[0] };
 
-  if (values.length === 1) {
-    return { oldPrice: "", price: values[0] };
-  }
-
-  return {
-    oldPrice: `De ${values[0]}`,
-    price: values[values.length - 1]
-  };
+  return { oldPrice: `De ${values[0]}`, price: values[values.length - 1] };
 }
 
-function getQualityTag(content: string): string {
-  const source = normalizeForMatch(content);
-  if (source.includes("laudo cautelar aprovado")) return "Laudo aprovado";
+function getQualityTag(content: string, condition: string): string {
+  const source = normalizeForMatch(`${condition} ${content}`);
+  if (source.includes("laudo")) return "Laudo aprovado";
   if (source.includes("seminovo")) return "Seminovo";
   if (source.includes("garantia")) return "Com garantia";
   return "Disponível";
@@ -397,58 +352,41 @@ function buildStoreLabel(value: string): string {
   return value.replace(/\s*-\s*/g, " - ");
 }
 
+function parseBrandModelVersionFromTitle(title: string): { brand: string; model: string; version: string } {
+  const cleaned = cleanText(title.replace(TITLE_YEAR_REGEX, "").trim());
+  if (!cleaned) return { brand: "", model: "", version: "" };
+  const parts = cleaned.split(" ").filter(Boolean);
+  if (!parts.length) return { brand: "", model: "", version: "" };
+  if (parts.length === 1) return { brand: parts[0], model: "", version: "" };
+  if (parts.length === 2) return { brand: parts[0], model: parts[1], version: "" };
+  return { brand: parts[0], model: parts[1], version: parts.slice(2).join(" ") };
+}
+
 function buildName(brand: string, model: string, version: string, title: string): string {
-  if (brand && model) {
-    return version ? `${brand} ${model} ${version}`.trim() : `${brand} ${model}`.trim();
-  }
+  if (brand && model) return version ? `${brand} ${model} ${version}`.trim() : `${brand} ${model}`.trim();
   return title || "Veículo sem título";
 }
 
-function buildSubtitle(version: string, model: string): string {
+function buildSubtitle(version: string, model: string, excerpt: string): string {
   if (version) return version;
   if (model) return model;
+  if (excerpt) return excerpt;
   return "Versão não informada";
 }
 
-async function mapVehicle(
-  vehicle: WpVehicle,
-  lookups: Record<TaxonomyName, Map<number, string>>,
-  featuredCache: Map<number, string | null>,
-  parentCache: Map<number, string | null>
-): Promise<ApiVehicle> {
-  const brand = firstFromIdList(vehicle.veiculo_marca, lookups.veiculo_marca);
-  const model = firstFromIdList(vehicle.veiculo_modelo, lookups.veiculo_modelo);
-  const version = firstFromIdList(vehicle.veiculo_versao, lookups.veiculo_versao);
-  const color = firstFromIdList(vehicle.veiculo_cor, lookups.veiculo_cor);
-  const city = firstFromIdList(vehicle.veiculo_cidade, lookups.veiculo_cidade);
-  const uf = firstFromIdList(vehicle.veiculo_uf, lookups.veiculo_uf);
-  const store = firstFromIdList(vehicle.veiculo_unidade, lookups.veiculo_unidade);
-
+function mapVehicle(vehicle: WpVehicle): ApiVehicle {
   const title = cleanText(vehicle.title?.rendered ?? vehicle.title?.raw);
   const content = stripHtml(vehicle.content?.raw ?? vehicle.content?.rendered);
+  const excerpt = stripHtml(vehicle.excerpt?.raw ?? vehicle.excerpt?.rendered);
 
-  let image: string | null = null;
-  const featuredId = vehicle.featured_media ?? 0;
-
-  if (featuredId > 0) {
-    if (featuredCache.has(featuredId)) {
-      image = featuredCache.get(featuredId) ?? null;
-    } else {
-      const resolved = await fetchFeaturedMediaImage(featuredId);
-      featuredCache.set(featuredId, resolved);
-      image = resolved;
-    }
-  }
-
-  if (!image) {
-    if (parentCache.has(vehicle.id)) {
-      image = parentCache.get(vehicle.id) ?? null;
-    } else {
-      const resolved = await fetchFirstImageByParent(vehicle.id);
-      parentCache.set(vehicle.id, resolved);
-      image = resolved;
-    }
-  }
+  const fallbackFromTitle = parseBrandModelVersionFromTitle(title);
+  const brand = getEmbeddedTerm(vehicle, "veiculo_marca") || fallbackFromTitle.brand;
+  const model = getEmbeddedTerm(vehicle, "veiculo_modelo") || fallbackFromTitle.model;
+  const version = getEmbeddedTerm(vehicle, "veiculo_versao") || fallbackFromTitle.version;
+  const color = getEmbeddedTerm(vehicle, "veiculo_cor");
+  const city = getEmbeddedTerm(vehicle, "veiculo_cidade");
+  const uf = getEmbeddedTerm(vehicle, "veiculo_uf");
+  const store = getEmbeddedTerm(vehicle, "veiculo_unidade");
 
   const metaAno = getMetaField(vehicle, "ano");
   const metaAnoModelo = getMetaField(vehicle, "ano_modelo");
@@ -456,15 +394,22 @@ async function mapVehicle(
   const metaPrice = getMetaField(vehicle, "preco");
   const metaFuel = getMetaField(vehicle, "combustivel");
   const metaCambio = getMetaField(vehicle, "cambio");
+  const metaCondition = getMetaField(vehicle, "condicao");
+  const metaGalleryUrls = getMetaField(vehicle, "autosync_photo_urls");
   const priceData = extractPriceData(content, metaPrice);
+
+  const image = encodeURI(getEmbeddedImage(vehicle) ?? FALLBACK_IMAGE);
+  const galleryFromMeta = parseGalleryUrls(metaGalleryUrls);
+  const gallery = Array.from(new Set([image, ...galleryFromMeta].filter(Boolean)));
 
   return {
     id: vehicle.id,
     slug: vehicle.slug ?? String(vehicle.id),
-    url: vehicle.link ?? "#",
+    url: `/veiculos/${vehicle.slug ?? vehicle.id}`,
     name: buildName(brand, model, version, title),
-    subtitle: buildSubtitle(version, model),
-    image: image ?? FALLBACK_IMAGE,
+    subtitle: buildSubtitle(version, model, excerpt),
+    image,
+    gallery: gallery.length ? gallery : [FALLBACK_IMAGE],
     year: extractYear(title, content, metaAno, metaAnoModelo),
     transmission: extractTransmission(version, content, metaCambio),
     fuel: extractFuel(version, content, metaFuel),
@@ -472,7 +417,7 @@ async function mapVehicle(
     store: buildStoreLabel(store),
     oldPrice: priceData.oldPrice,
     price: priceData.price,
-    qualityTag: getQualityTag(content),
+    qualityTag: getQualityTag(content, metaCondition),
     brand: brand || "Marca não informada",
     model: model || "Modelo não informado",
     version: version || "Versão não informada",
@@ -483,24 +428,50 @@ async function mapVehicle(
 }
 
 export async function GET(request: NextRequest) {
-  try {
-    const perPageInput = toInt(request.nextUrl.searchParams.get("per_page"), DEFAULT_PER_PAGE);
-    const perPage = clamp(perPageInput, 1, MAX_PER_PAGE);
-    const authHeaders = getAuthHeaders();
+  const perPageInput = toInt(request.nextUrl.searchParams.get("per_page"), DEFAULT_PER_PAGE);
+  const perPage = clamp(perPageInput, 1, MAX_PER_PAGE);
+  const slug = cleanText(request.nextUrl.searchParams.get("slug") ?? "");
 
-    const [rows, lookups] = await Promise.all([fetchVehiclePosts(perPage, authHeaders), fetchTaxonomiesLookup()]);
-    if (!rows.length) {
-      return NextResponse.json({ items: [] satisfies ApiVehicle[] });
+  try {
+    if (slug) {
+      if (vehiclesCache?.items?.length) {
+        const fromCache = vehiclesCache.items.find((item) => item.slug === slug);
+        if (fromCache) return NextResponse.json({ items: [fromCache] });
+      }
+
+      const authHeaders = getAuthHeaders();
+      const row = await fetchVehicleBySlug(slug, authHeaders);
+      if (!row) return NextResponse.json({ items: [] });
+      return NextResponse.json({ items: [mapVehicle(row)] });
     }
 
-    const featuredCache = new Map<number, string | null>();
-    const parentCache = new Map<number, string | null>();
+    const now = Date.now();
+    if (vehiclesCache && vehiclesCache.expiresAt > now) {
+      return NextResponse.json({ items: vehiclesCache.items.slice(0, perPage) });
+    }
 
-    const items = await Promise.all(rows.map((row) => mapVehicle(row, lookups, featuredCache, parentCache)));
-    return NextResponse.json({ items });
+    if (!vehiclesInFlight) {
+      vehiclesInFlight = (async () => {
+        const authHeaders = getAuthHeaders();
+        const rows = await fetchVehiclePosts(MAX_PER_PAGE, authHeaders);
+        if (!rows.length) return [];
+
+        const items = rows.map(mapVehicle);
+        vehiclesCache = {
+          items,
+          expiresAt: Date.now() + API_CACHE_TTL_MS
+        };
+        return items;
+      })()
+        .catch(() => vehiclesCache?.items ?? [])
+        .finally(() => {
+          vehiclesInFlight = null;
+        });
+    }
+
+    const items = await vehiclesInFlight;
+    return NextResponse.json({ items: items.slice(0, perPage) });
   } catch {
-    return NextResponse.json({ items: [] satisfies ApiVehicle[] }, { status: 200 });
+    return NextResponse.json({ items: vehiclesCache?.items.slice(0, perPage) ?? [] }, { status: 200 });
   }
 }
-
-

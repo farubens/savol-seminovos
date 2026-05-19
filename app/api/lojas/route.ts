@@ -4,6 +4,9 @@ const WP_BASE_URL = "https://palevioletred-lark-270684.hostingersite.com";
 const UNIDADE_ENDPOINT = `${WP_BASE_URL}/wp-json/wp/v2/veiculo_unidade`;
 const DEFAULT_PER_PAGE = 12;
 const MAX_PER_PAGE = 30;
+const API_CACHE_TTL_MS = 2 * 60 * 1000;
+const WP_DEFAULT_USER = "fa.rubens@gmail.com";
+const WP_DEFAULT_APP_PASSWORD = "W9y4 bUld QOIG PV4u oIHo csrb";
 
 type WpUnidadeTerm = {
   id: number;
@@ -25,6 +28,14 @@ type ApiStore = {
   storeUrl: string;
   mapUrl: string;
 };
+
+type CachedStores = {
+  items: ApiStore[];
+  expiresAt: number;
+};
+
+let storesCache: CachedStores | null = null;
+let storesInFlight: Promise<ApiStore[]> | null = null;
 
 type StoreFallback = {
   phone: string;
@@ -125,7 +136,7 @@ const BRAND_LABELS: Array<[string, string]> = [
   ["volkswagen", "Volkswagen"],
   ["toyota", "Toyota"],
   ["peugeot", "Peugeot"],
-  ["citroen", "Citro«n"],
+  ["citroen", "Citroën"],
   ["abarth", "Abarth"],
   ["jetour", "Jetour"],
   ["mg motor", "MG Motor"],
@@ -174,17 +185,17 @@ function toMetaString(value: unknown): string {
 }
 
 function getAuthHeaders(): HeadersInit {
-  const user = process.env.WP_API_USER?.trim();
-  const appPassword = process.env.WP_API_APP_PASSWORD?.trim();
+  const user = process.env.WP_API_USER?.trim() || WP_DEFAULT_USER;
+  const appPassword = process.env.WP_API_APP_PASSWORD?.trim() || WP_DEFAULT_APP_PASSWORD;
   if (!user || !appPassword) return {};
   const token = Buffer.from(`${user}:${appPassword}`).toString("base64");
   return { Authorization: `Basic ${token}` };
 }
 
-async function fetchJson<T>(url: string, init?: RequestInit): Promise<T | null> {
+async function fetchJson<T>(url: string, init?: RequestInit): Promise<{ data: T | null; status: number }> {
   const response = await fetch(url, { ...init, cache: "no-store" });
-  if (!response.ok) return null;
-  return (await response.json()) as T;
+  if (!response.ok) return { data: null, status: response.status };
+  return { data: (await response.json()) as T, status: response.status };
 }
 
 function formatStoreName(value: string): string {
@@ -292,32 +303,50 @@ async function fetchStores(perPage: number, authHeaders: HeadersInit): Promise<W
     const editRows = await fetchJson<WpUnidadeTerm[]>(`${UNIDADE_ENDPOINT}?${editQuery.toString()}`, {
       headers: authHeaders
     });
-    if (Array.isArray(editRows) && editRows.length) return editRows;
+    if (Array.isArray(editRows.data) && editRows.data.length) return editRows.data;
   }
 
   const viewRows = await fetchJson<WpUnidadeTerm[]>(`${UNIDADE_ENDPOINT}?${query.toString()}`);
-  return Array.isArray(viewRows) ? viewRows : [];
+  return Array.isArray(viewRows.data) ? viewRows.data : [];
 }
 
 export async function GET(request: NextRequest) {
   try {
     const perPageInput = toInt(request.nextUrl.searchParams.get("per_page"), DEFAULT_PER_PAGE);
     const perPage = clamp(perPageInput, 1, MAX_PER_PAGE);
-    const authHeaders = getAuthHeaders();
-    const terms = await fetchStores(perPage, authHeaders);
+    const now = Date.now();
 
-    if (!terms.length) {
-      return NextResponse.json({ items: [] satisfies ApiStore[] });
+    if (storesCache && storesCache.expiresAt > now) {
+      return NextResponse.json({ items: storesCache.items.slice(0, perPage) });
     }
 
-    const items = terms
-      .map(mapTermToStore)
-      .sort((a, b) => b.vehiclesCount - a.vehiclesCount)
-      .slice(0, perPage);
+    if (!storesInFlight) {
+      storesInFlight = (async () => {
+        const authHeaders = getAuthHeaders();
+        const terms = await fetchStores(MAX_PER_PAGE, authHeaders);
+        if (!terms.length) return [];
 
-    return NextResponse.json({ items });
+        const items = terms
+          .map(mapTermToStore)
+          .sort((a, b) => b.vehiclesCount - a.vehiclesCount);
+
+        storesCache = {
+          items,
+          expiresAt: Date.now() + API_CACHE_TTL_MS
+        };
+
+        return items;
+      })()
+        .catch(() => storesCache?.items ?? [])
+        .finally(() => {
+          storesInFlight = null;
+        });
+    }
+
+    const items = await storesInFlight;
+    return NextResponse.json({ items: items.slice(0, perPage) });
   } catch {
-    return NextResponse.json({ items: [] satisfies ApiStore[] }, { status: 200 });
+    return NextResponse.json({ items: storesCache?.items.slice(0, clamp(toInt(request.nextUrl.searchParams.get("per_page"), DEFAULT_PER_PAGE), 1, MAX_PER_PAGE)) ?? [] }, { status: 200 });
   }
 }
 

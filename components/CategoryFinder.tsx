@@ -3,6 +3,9 @@
 import Image from "next/image";
 import { Bus, Car, CarFront, ChevronLeft, ChevronRight, Search, ShieldCheck, Sparkles, Truck } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useHomeSessionData } from "@/components/HomeSessionDataProvider";
+import type { ApiVehicle } from "@/types/home";
 
 type TabKey = "marca" | "categoria" | "unidade" | "eletricos" | "descrever";
 type IconKey = "hatch" | "suv" | "picape" | "sedan" | "esportivo" | "luxo" | "utilitarios";
@@ -21,19 +24,11 @@ type BrandItem = {
   logo: string;
 };
 
-type WpTerm = {
+type SelectOption = {
   id: number;
   name: string;
   slug?: string;
   count: number;
-};
-
-type ApiVehicleFilterItem = {
-  price?: string;
-};
-
-type ApiVehicleFilterResponse = {
-  items?: ApiVehicleFilterItem[];
 };
 
 const tabs: Array<{ key: TabKey; label: string }> = [
@@ -84,10 +79,6 @@ const brandLogoMap: Record<string, string> = {
   renault: "/images/brands/renault.svg"
 };
 
-const marcaApiUrl = "https://palevioletred-lark-270684.hostingersite.com/wp-json/wp/v2/veiculo_marca?per_page=100&hide_empty=true";
-const modeloApiUrl = "https://palevioletred-lark-270684.hostingersite.com/wp-json/wp/v2/veiculo_modelo?per_page=100&hide_empty=true";
-const filterPriceApiUrl = "/api/veiculos?per_page=24";
-
 function toSlug(value: string): string {
   return value
     .toLowerCase()
@@ -136,6 +127,15 @@ function buildPriceOptions(prices: number[]): number[] {
     sampled.push(uniqueSorted[index]);
   }
   return Array.from(new Set(sampled));
+}
+
+function parseLoosePrice(value: string): number | null {
+  const match = value.match(/(?:r\$\s*)?(\d{2,3}(?:[.\s]\d{3})+|\d{5,7})/i);
+  if (!match) return null;
+  const digits = match[1].replace(/[^\d]/g, "");
+  if (!digits) return null;
+  const parsed = Number(digits);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
 const bg = {
@@ -189,14 +189,13 @@ const cardsByTab: Record<Exclude<TabKey, "descrever" | "marca">, CategoryCardIte
 };
 
 export function CategoryFinder() {
+  const router = useRouter();
+  const { vehicles } = useHomeSessionData();
   const [activeTab, setActiveTab] = useState<TabKey>("marca");
-  const [brandItems, setBrandItems] = useState<BrandItem[]>(fallbackBrands);
-  const [marcaOptions, setMarcaOptions] = useState<WpTerm[]>([]);
-  const [modeloOptions, setModeloOptions] = useState<WpTerm[]>([]);
-  const [priceOptions, setPriceOptions] = useState<number[]>([]);
   const [selectedMarca, setSelectedMarca] = useState("all");
   const [selectedModelo, setSelectedModelo] = useState("all");
   const [selectedPrice, setSelectedPrice] = useState("all");
+  const [aiQuery, setAiQuery] = useState("");
   const [exampleIndex, setExampleIndex] = useState(0);
   const [typedLength, setTypedLength] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -206,61 +205,110 @@ export function CategoryFinder() {
     return activeTab === "categoria" || activeTab === "unidade" || activeTab === "eletricos" ? cardsByTab[activeTab] : [];
   }, [activeTab]);
 
-  useEffect(() => {
-    const controller = new AbortController();
+  const marcaOptions = useMemo<SelectOption[]>(() => {
+    const marcaMap = new Map<string, SelectOption>();
 
-    Promise.all([
-      fetch(marcaApiUrl, { signal: controller.signal }).then((response) => (response.ok ? response.json() : [])),
-      fetch(modeloApiUrl, { signal: controller.signal }).then((response) => (response.ok ? response.json() : [])),
-      fetch(filterPriceApiUrl, { signal: controller.signal }).then((response) =>
-        response.ok ? response.json() : ({ items: [] } as ApiVehicleFilterResponse)
-      )
-    ])
-      .then(([marcaJson, modeloJson, vehicleJson]) => {
-        const marcas = (marcaJson as WpTerm[]).filter((term) => term.count > 0);
-        const modelos = (modeloJson as WpTerm[]).filter((term) => term.count > 0);
-        setMarcaOptions(marcas);
-        setModeloOptions(modelos);
+    for (const vehicle of vehicles) {
+      const brandName = (vehicle.brand ?? "").trim();
+      if (!brandName) continue;
 
-        if (marcas.length) {
-          const mappedBrands = marcas.map((term) => {
-            const slug = term.slug || toSlug(term.name);
-            const logo = brandLogoMap[slug] ?? "/images/logo.png";
-            return {
-              id: `brand-${term.id}`,
-              name: term.name,
-              logo
-            } satisfies BrandItem;
-          });
-          setBrandItems(mappedBrands);
-        }
+      const slug = toSlug(brandName);
+      const current = marcaMap.get(slug);
+      if (current) {
+        current.count += 1;
+      } else {
+        marcaMap.set(slug, {
+          id: marcaMap.size + 1,
+          name: brandName,
+          slug,
+          count: 1
+        });
+      }
+    }
 
-        const items = Array.isArray((vehicleJson as ApiVehicleFilterResponse).items)
-          ? ((vehicleJson as ApiVehicleFilterResponse).items as ApiVehicleFilterItem[])
-          : [];
+    return Array.from(marcaMap.values()).sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+  }, [vehicles]);
 
-        const parsedPrices = items
-          .map((item) => parsePriceValue(item.price ?? ""))
-          .filter((value): value is number => typeof value === "number");
+  const modeloOptions = useMemo<SelectOption[]>(() => {
+    const modeloMap = new Map<string, SelectOption>();
+    const selectedBrandSlug = selectedMarca === "all" ? "" : selectedMarca;
 
-        const generatedPrices = buildPriceOptions(parsedPrices);
-        setPriceOptions(generatedPrices);
+    for (const vehicle of vehicles) {
+      const vehicleBrandSlug = toSlug((vehicle.brand ?? "").trim());
+      if (selectedBrandSlug && vehicleBrandSlug !== selectedBrandSlug) continue;
 
-        if (generatedPrices.length) {
-          const nearTwoHundred = generatedPrices.find((value) => value >= 200000) ?? generatedPrices[generatedPrices.length - 1];
-          setSelectedPrice(String(nearTwoHundred));
-        }
-      })
-      .catch(() => undefined);
+      const modelName = (vehicle.model ?? "").trim();
+      if (!modelName) continue;
 
-    return () => controller.abort();
-  }, []);
+      const slug = toSlug(modelName);
+      const current = modeloMap.get(slug);
+      if (current) {
+        current.count += 1;
+      } else {
+        modeloMap.set(slug, {
+          id: modeloMap.size + 1,
+          name: modelName,
+          slug,
+          count: 1
+        });
+      }
+    }
+
+    return Array.from(modeloMap.values()).sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+  }, [selectedMarca, vehicles]);
+
+  const brandItems = useMemo<BrandItem[]>(() => {
+    if (!marcaOptions.length) return fallbackBrands;
+
+    return marcaOptions.map((term) => {
+      const slug = term.slug || toSlug(term.name);
+      const logo = brandLogoMap[slug] ?? "/images/logo.png";
+      return {
+        id: `brand-${term.id}`,
+        name: term.name.toUpperCase(),
+        logo
+      };
+    });
+  }, [marcaOptions]);
+
+  const priceOptions = useMemo<number[]>(() => {
+    const parsedPrices = vehicles
+      .map((vehicle: ApiVehicle) => parsePriceValue(vehicle.price ?? ""))
+      .filter((value): value is number => typeof value === "number");
+
+    return buildPriceOptions(parsedPrices);
+  }, [vehicles]);
 
   useEffect(() => {
     if (selectedMarca === "all" && selectedModelo !== "all") {
       setSelectedModelo("all");
+      return;
     }
-  }, [selectedMarca, selectedModelo]);
+
+    if (selectedModelo !== "all" && !modeloOptions.some((modelo) => (modelo.slug || toSlug(modelo.name)) === selectedModelo)) {
+      setSelectedModelo("all");
+    }
+  }, [selectedMarca, selectedModelo, modeloOptions]);
+
+  useEffect(() => {
+    if (!priceOptions.length) {
+      if (selectedPrice !== "all") {
+        setSelectedPrice("all");
+      }
+      return;
+    }
+
+    if (selectedPrice === "all") {
+      const nearTwoHundred = priceOptions.find((value) => value >= 200000) ?? priceOptions[priceOptions.length - 1];
+      setSelectedPrice(String(nearTwoHundred));
+      return;
+    }
+
+    const hasSelected = priceOptions.some((price) => String(price) === selectedPrice);
+    if (!hasSelected) {
+      setSelectedPrice(String(priceOptions[priceOptions.length - 1]));
+    }
+  }, [priceOptions, selectedPrice]);
 
   useEffect(() => {
     if (activeTab !== "descrever") {
@@ -299,6 +347,46 @@ export function CategoryFinder() {
 
   const placeholderText = activeTab === "descrever" ? `${aiExamples[exampleIndex]?.slice(0, typedLength) ?? ""}${typedLength > 0 ? "..." : ""}` : "";
   const showModelSelect = selectedMarca !== "all";
+
+  const submitVehicleSearch = () => {
+    const params = new URLSearchParams();
+
+    let brand = selectedMarca;
+    let model = selectedModelo;
+    let maxPrice = selectedPrice;
+    const trimmedQuery = aiQuery.trim();
+
+    if (trimmedQuery) {
+      const querySlug = toSlug(trimmedQuery);
+      if (brand === "all") {
+        const inferredBrand = marcaOptions.find((item) => querySlug.includes(toSlug(item.name)));
+        if (inferredBrand) {
+          brand = inferredBrand.slug || toSlug(inferredBrand.name);
+        }
+      }
+
+      if (model === "all") {
+        const inferredModel = modeloOptions.find((item) => querySlug.includes(toSlug(item.name)));
+        if (inferredModel) {
+          model = inferredModel.slug || toSlug(inferredModel.name);
+        }
+      }
+
+      if (maxPrice === "all") {
+        const inferredPrice = parseLoosePrice(trimmedQuery);
+        if (inferredPrice) {
+          maxPrice = String(inferredPrice);
+        }
+      }
+    }
+
+    if (brand !== "all") params.set("brand", brand);
+    if (brand !== "all" && model !== "all") params.set("model", model);
+    if (maxPrice !== "all") params.set("maxPrice", maxPrice);
+    if (trimmedQuery) params.set("q", trimmedQuery);
+
+    router.push(`/veiculos${params.toString() ? `?${params.toString()}` : ""}`);
+  };
 
   const scrollCards = (direction: "left" | "right") => {
     if (!sliderRef.current) return;
@@ -372,7 +460,7 @@ export function CategoryFinder() {
                 </select>
               </label>
 
-              <button type="button" className="describe-search-btn">
+              <button type="button" className="describe-search-btn" onClick={submitVehicleSearch}>
                 Buscar veículos
               </button>
             </div>
@@ -386,8 +474,20 @@ export function CategoryFinder() {
               <span className="describe-ai-leading" aria-hidden="true">
                 <Sparkles size={16} />
               </span>
-              <input id="ia-busca" type="text" placeholder={placeholderText || ""} />
-              <button type="button" className="describe-ai-icon-btn" aria-label="Buscar com IA">
+              <input
+                id="ia-busca"
+                type="text"
+                placeholder={placeholderText || ""}
+                value={aiQuery}
+                onChange={(event) => setAiQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    submitVehicleSearch();
+                  }
+                }}
+              />
+              <button type="button" className="describe-ai-icon-btn" aria-label="Buscar com IA" onClick={submitVehicleSearch}>
                 <Search size={16} />
               </button>
             </div>
@@ -395,14 +495,41 @@ export function CategoryFinder() {
         </article>
       ) : (
         <div className="category-slider-wrap">
-          <button type="button" className="category-nav-btn" aria-label="Deslizar para a esquerda" onClick={() => scrollCards("left")}>
-            <ChevronLeft size={18} />
-          </button>
+          <div className="category-slider-nav">
+            <button
+              type="button"
+              className="category-nav-btn category-nav-btn--prev"
+              aria-label="Deslizar para a esquerda"
+              onClick={() => scrollCards("left")}
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <button
+              type="button"
+              className="category-nav-btn category-nav-btn--next"
+              aria-label="Deslizar para a direita"
+              onClick={() => scrollCards("right")}
+            >
+              <ChevronRight size={18} />
+            </button>
+          </div>
 
           {activeTab === "marca" ? (
             <div className="brand-slider" ref={sliderRef}>
               {brandItems.map((brand) => (
-                <article className="brand-card" key={brand.id}>
+                <article
+                  className="brand-card"
+                  key={brand.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => router.push(`/veiculos?brand=${toSlug(brand.name)}`)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      router.push(`/veiculos?brand=${toSlug(brand.name)}`);
+                    }
+                  }}
+                >
                   <div className="brand-logo-wrap">
                     <Image src={brand.logo} alt={brand.name} width={148} height={68} className="brand-logo" />
                   </div>
@@ -435,10 +562,6 @@ export function CategoryFinder() {
               })}
             </div>
           )}
-
-          <button type="button" className="category-nav-btn" aria-label="Deslizar para a direita" onClick={() => scrollCards("right")}>
-            <ChevronRight size={18} />
-          </button>
         </div>
       )}
     </section>

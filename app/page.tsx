@@ -1,19 +1,27 @@
 ﻿import Image from "next/image";
 import {
+  ArrowRight,
+  BadgePercent,
   CarFront,
   CircleDollarSign,
   Heart,
-  MapPinned,
+  Mail,
   Phone,
+  Quote,
   Search,
   ShieldCheck,
+  Sparkles,
+  Star,
   Store,
   UserRoundCheck,
   Wrench
 } from "lucide-react";
 import { CategoryFinder } from "@/components/CategoryFinder";
+import { HomeSessionDataProvider } from "@/components/HomeSessionDataProvider";
+import { SavolMegaFooter } from "@/components/SavolMegaFooter";
 import { StoresCarousel } from "@/components/StoresCarousel";
 import { VehicleGrid } from "@/components/VehicleGrid";
+import { WhyChooseSavol } from "@/components/WhyChooseSavol";
 
 export default function Home() {
   return (
@@ -34,15 +42,15 @@ export default function Home() {
       <header className="header container">
         <Image src="/images/logo.png" alt="Savol" width={200} height={48} className="site-logo" />
         <nav>
-          <a className="active" href="#">
+          <a className="active" href="/">
             Home
           </a>
-          <a href="#">Veículos</a>
-          <a href="#">Lojas</a>
-          <a href="#">Serviços</a>
-          <a href="#">Venda seu carro</a>
-          <a href="#">Institucional</a>
-          <a className="btn btn-sm" href="#">
+          <a href="/veiculos">Veículos</a>
+          <a href="/lojas">Lojas</a>
+          <a href="/servicos">Serviços</a>
+          <a href="/venda-seu-carro">Venda seu carro</a>
+          <a href="/institucional">Institucional</a>
+          <a className="btn btn-sm" href="/contato">
             Contato
           </a>
           <a href="#" className="icon-btn" aria-label="Buscar">
@@ -113,127 +121,190 @@ export default function Home() {
         </article>
       </section>
 
-      <CategoryFinder />
+      <HomeSessionDataProvider>
+        <CategoryFinder />
 
-      <section className="container section-head">
-        <div>
-          <h2>Veículos em destaque</h2>
-        </div>
-      </section>
-
-      <section className="container">
-        <VehicleGrid />
-      </section>
-
-      <StoresCarousel />
-
-      <section className="container sell">
-        <div className="sell-brand-card">
-          <Image src="/images/imagem-cta.png" alt="Marca parceira Savol" width={260} height={260} className="sell-brand-image" />
-        </div>
-        <div className="sell-copy">
-          <h2>Venda seu carro</h2>
-          <p>Aqui no Grupo Savol você vende seu carro com segurança, rapidez e o melhor valor.</p>
-          <a href="#" className="btn">
-            Quero vender
-          </a>
-        </div>
-        <ul className="sell-checks">
-          <li>
-            <ShieldCheck size={18} /> Avaliação gratuita
-          </li>
-          <li>
-            <CircleDollarSign size={18} /> Pagamento à vista
-          </li>
-          <li>
-            <ShieldCheck size={18} /> Processo seguro
-          </li>
-          <li>
-            <Store size={18} /> Divulgação em + de 15 lojas
-          </li>
-        </ul>
-      </section>
-
-      <section className="container">
-        <h2>Por que comprar no Grupo Savol?</h2>
-        <div className="mini-benefits">
-          <article>
-            <CarFront size={22} />
-            <h3>Variedade</h3>
-            <p>Mais de 1.000 veículos de todas as marcas</p>
-          </article>
-          <article>
-            <ShieldCheck size={22} />
-            <h3>Procedência</h3>
-            <p>Veículos revisados e com histórico</p>
-          </article>
-          <article>
-            <Store size={22} />
-            <h3>Segurança</h3>
-            <p>Compra segura com lojas credenciadas</p>
-          </article>
-          <article>
-            <CircleDollarSign size={22} />
-            <h3>Facilidade</h3>
-            <p>As melhores condições de financiamento</p>
-          </article>
-          <article>
-            <UserRoundCheck size={22} />
-            <h3>Atendimento</h3>
-            <p>Especialistas prontos para te ajudar</p>
-          </article>
-        </div>
-      </section>
-
-      <section className="container testimonials-wrap">
-        <div className="section-title-row">
-          <h2>O que dizem nossos clientes</h2>
-          <a href="#">Ver mais depoimentos</a>
-        </div>
-        <div className="testimonials">
-          <article className="testimonial">
-            <p>"Excelente atendimento e muita transparência na negociação."</p>
-            <strong>Carlos Andrade</strong>
-          </article>
-          <article className="testimonial">
-            <p>"Encontrei o carro que queria com ótimo preço e financiamento fácil."</p>
-            <strong>Juliana M.</strong>
-          </article>
-          <article className="testimonial">
-            <p>"Lojas confiáveis e carros de qualidade. Voltarei a fazer negócios."</p>
-            <strong>Ricardo Santos</strong>
-          </article>
-        </div>
-      </section>
-
-      <section className="newsletter">
-        <div className="container newsletter-inner">
-          <p>Receba ofertas exclusivas</p>
-          <form>
-            <input type="email" placeholder="Seu melhor e-mail" />
-            <button type="submit">Cadastrar</button>
-          </form>
-        </div>
-      </section>
-
-      <footer className="footer">
-        <div className="container footer-inner">
+        <section className="container section-head">
           <div>
-            <Image src="/images/logo.png" alt="Savol" width={170} height={41} className="site-logo" />
-            <p>© 2026 Grupo Savol. Todos os direitos reservados.</p>
+            <h2>Veículos em destaque</h2>
           </div>
-          <div className="footer-links">
-            <a href="#">Institucional</a>
-            <a href="#">Veículos</a>
-            <a href="#">Serviços</a>
-            <a href="#">Ajuda</a>
-            <a href="#">Contato</a>
+        </section>
+
+        <section className="container">
+          <VehicleGrid />
+        </section>
+
+        <StoresCarousel />
+
+        <section className="container sell">
+          <div className="sell-brand-card">
+            <Image src="/images/imagem-cta.png" alt="Marca parceira Savol" width={260} height={260} className="sell-brand-image" />
           </div>
-          <p>
-            <MapPinned size={16} /> Av. Eng. Caetano Álvares, 5000 - São Paulo
-          </p>
-        </div>
-      </footer>
+          <div className="sell-copy">
+            <h2>Venda seu carro</h2>
+            <p>Aqui no Grupo Savol você vende seu carro com segurança, rapidez e o melhor valor.</p>
+            <a href="/venda-seu-carro" className="btn">
+              Quero vender
+            </a>
+          </div>
+          <ul className="sell-checks">
+            <li>
+              <ShieldCheck size={18} /> Avaliação gratuita
+            </li>
+            <li>
+              <CircleDollarSign size={18} /> Pagamento à vista
+            </li>
+            <li>
+              <ShieldCheck size={18} /> Processo seguro
+            </li>
+            <li>
+              <Store size={18} /> Divulgação em + de 15 lojas
+            </li>
+          </ul>
+        </section>
+
+        <WhyChooseSavol />
+
+        <section className="testimonials-wrap">
+          <div className="container testimonials-shell">
+            <p className="testimonials-kicker">
+              <span>Savol</span>
+              <span>Excelência que gera confiança</span>
+            </p>
+
+            <div className="section-title-row testimonials-title-row">
+              <h2>O que dizem nossos clientes</h2>
+              <a href="#">Ver mais depoimentos</a>
+            </div>
+
+            <div className="testimonials-grid">
+              <article className="testimonial-card">
+                <div className="testimonial-card-top">
+                  <div className="testimonial-stars" aria-label="5 estrelas">
+                    {Array.from({ length: 5 }).map((_, index) => (
+                      <Star key={`star-carlos-${index}`} size={18} fill="currentColor" strokeWidth={0} />
+                    ))}
+                  </div>
+                  <span className="testimonial-quote-icon" aria-hidden="true">
+                    <Quote size={20} />
+                  </span>
+                </div>
+
+                <p className="testimonial-message">"Excelente atendimento e muita transparência na negociação."</p>
+                <div className="testimonial-divider" />
+
+                <div className="testimonial-footer">
+                  <span className="testimonial-avatar">CA</span>
+                  <div>
+                    <strong>Carlos Andrade</strong>
+                    <p>
+                      <CarFront size={16} /> Comprou um Toyota Corolla
+                    </p>
+                  </div>
+                </div>
+              </article>
+
+              <article className="testimonial-card">
+                <div className="testimonial-card-top">
+                  <div className="testimonial-stars" aria-label="5 estrelas">
+                    {Array.from({ length: 5 }).map((_, index) => (
+                      <Star key={`star-juliana-${index}`} size={18} fill="currentColor" strokeWidth={0} />
+                    ))}
+                  </div>
+                  <span className="testimonial-quote-icon" aria-hidden="true">
+                    <Quote size={20} />
+                  </span>
+                </div>
+
+                <p className="testimonial-message">"Encontrei o carro que queria com ótimo preço e financiamento fácil."</p>
+                <div className="testimonial-divider" />
+
+                <div className="testimonial-footer">
+                  <span className="testimonial-avatar">JM</span>
+                  <div>
+                    <strong>Juliana M.</strong>
+                    <p>
+                      <CarFront size={16} /> Comprou um Honda HR-V
+                    </p>
+                  </div>
+                </div>
+              </article>
+
+              <article className="testimonial-card">
+                <div className="testimonial-card-top">
+                  <div className="testimonial-stars" aria-label="5 estrelas">
+                    {Array.from({ length: 5 }).map((_, index) => (
+                      <Star key={`star-ricardo-${index}`} size={18} fill="currentColor" strokeWidth={0} />
+                    ))}
+                  </div>
+                  <span className="testimonial-quote-icon" aria-hidden="true">
+                    <Quote size={20} />
+                  </span>
+                </div>
+
+                <p className="testimonial-message">"Lojas confiáveis e carros de qualidade. Voltarei a fazer negócios."</p>
+                <div className="testimonial-divider" />
+
+                <div className="testimonial-footer">
+                  <span className="testimonial-avatar">RS</span>
+                  <div>
+                    <strong>Ricardo Santos</strong>
+                    <p>
+                      <CarFront size={16} /> Comprou uma Toyota Hilux
+                    </p>
+                  </div>
+                </div>
+              </article>
+            </div>
+
+            <p className="testimonials-brand-line" aria-hidden="true">
+              <span />
+              Savol
+              <span />
+            </p>
+          </div>
+        </section>
+
+        <section className="container newsletter">
+          <article className="newsletter-card">
+            <div className="newsletter-media-wrap">
+              <Image src="/images/news-savol.png" alt="Campanha de newsletter Savol" width={640} height={420} className="newsletter-media" />
+            </div>
+
+            <div className="newsletter-content">
+              <p className="newsletter-kicker">
+                <Mail size={18} /> Só para quem gosta de boas escolhas
+              </p>
+              <h2>Receba ofertas exclusivas</h2>
+              <p className="newsletter-description">Cadastre seu e-mail e receba as melhores oportunidades, novidades e condições especiais.</p>
+
+              <form className="newsletter-form">
+                <label className="newsletter-input-wrap" htmlFor="newsletter-email">
+                  <Mail size={20} />
+                  <input id="newsletter-email" type="email" placeholder="Seu melhor e-mail" />
+                </label>
+                <button type="submit">
+                  Cadastrar <ArrowRight size={20} />
+                </button>
+              </form>
+
+              <ul className="newsletter-highlights">
+                <li>
+                  <BadgePercent size={18} /> Ofertas exclusivas
+                </li>
+                <li>
+                  <Sparkles size={18} /> Novidades em primeira mão
+                </li>
+                <li>
+                  <ShieldCheck size={18} /> Condições especiais
+                </li>
+              </ul>
+            </div>
+          </article>
+        </section>
+
+        <SavolMegaFooter />
+      </HomeSessionDataProvider>
     </main>
   );
 }
