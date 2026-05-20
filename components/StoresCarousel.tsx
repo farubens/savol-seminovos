@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, type PointerEvent } from "react";
+import Link from "next/link";
 import { ArrowRight, ChevronLeft, ChevronRight, MapPin, Navigation, Phone } from "lucide-react";
 import { useHomeSessionData } from "@/components/HomeSessionDataProvider";
 
@@ -59,7 +60,7 @@ export function StoresCarousel() {
     <section className="container stores-showcase">
       <div className="section-title-row">
         <h2>Nossas lojas</h2>
-        <a href="#">Ver todas as lojas</a>
+        <Link href="/lojas">Ver todas as lojas</Link>
       </div>
 
       <div className="store-showcase-wrap">

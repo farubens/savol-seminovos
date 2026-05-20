@@ -1,4 +1,5 @@
-﻿import Image from "next/image";
+import Image from "next/image";
+import Link from "next/link";
 import {
   ArrowRight,
   BadgePercent,
@@ -19,6 +20,7 @@ import {
 import { CategoryFinder } from "@/components/CategoryFinder";
 import { HomeSessionDataProvider } from "@/components/HomeSessionDataProvider";
 import { SavolMegaFooter } from "@/components/SavolMegaFooter";
+import { SellYourCarCta } from "@/components/SellYourCarCta";
 import { StoresCarousel } from "@/components/StoresCarousel";
 import { VehicleGrid } from "@/components/VehicleGrid";
 import { WhyChooseSavol } from "@/components/WhyChooseSavol";
@@ -42,20 +44,20 @@ export default function Home() {
       <header className="header container">
         <Image src="/images/logo.png" alt="Savol" width={200} height={48} className="site-logo" />
         <nav>
-          <a className="active" href="/">
+          <Link className="active" href="/">
             Home
-          </a>
-          <a href="/veiculos">Veículos</a>
-          <a href="/lojas">Lojas</a>
-          <a href="/servicos">Serviços</a>
-          <a href="/venda-seu-carro">Venda seu carro</a>
-          <a href="/institucional">Institucional</a>
-          <a className="btn btn-sm" href="/contato">
+          </Link>
+          <Link href="/veiculos">Veículos</Link>
+          <Link href="/lojas">Lojas</Link>
+          <Link href="/servicos">Serviços</Link>
+          <Link href="/venda-seu-carro">Venda seu carro</Link>
+          <Link href="/institucional">Institucional</Link>
+          <Link className="btn btn-sm" href="/contato">
             Contato
-          </a>
-          <a href="#" className="icon-btn" aria-label="Buscar">
+          </Link>
+          <Link href="/veiculos" className="icon-btn" aria-label="Buscar">
             <Search size={16} />
-          </a>
+          </Link>
         </nav>
       </header>
 
@@ -69,12 +71,12 @@ export default function Home() {
             </h1>
             <p>São mais de 1.000 veículos de qualidade e as melhores lojas do Grupo Savol.</p>
             <div className="actions">
-              <a href="#" className="btn">
+              <Link href="/veiculos" className="btn">
                 Ver veículos
-              </a>
-              <a href="#" className="btn btn-outline">
+              </Link>
+              <Link href="/lojas" className="btn btn-outline">
                 Nossas lojas
-              </a>
+              </Link>
             </div>
           </div>
           <div className="hero-image-wrap floating">
@@ -136,32 +138,7 @@ export default function Home() {
 
         <StoresCarousel />
 
-        <section className="container sell">
-          <div className="sell-brand-card">
-            <Image src="/images/imagem-cta.png" alt="Marca parceira Savol" width={260} height={260} className="sell-brand-image" />
-          </div>
-          <div className="sell-copy">
-            <h2>Venda seu carro</h2>
-            <p>Aqui no Grupo Savol você vende seu carro com segurança, rapidez e o melhor valor.</p>
-            <a href="/venda-seu-carro" className="btn">
-              Quero vender
-            </a>
-          </div>
-          <ul className="sell-checks">
-            <li>
-              <ShieldCheck size={18} /> Avaliação gratuita
-            </li>
-            <li>
-              <CircleDollarSign size={18} /> Pagamento à vista
-            </li>
-            <li>
-              <ShieldCheck size={18} /> Processo seguro
-            </li>
-            <li>
-              <Store size={18} /> Divulgação em + de 15 lojas
-            </li>
-          </ul>
-        </section>
+        <SellYourCarCta />
 
         <WhyChooseSavol />
 
@@ -174,7 +151,7 @@ export default function Home() {
 
             <div className="section-title-row testimonials-title-row">
               <h2>O que dizem nossos clientes</h2>
-              <a href="#">Ver mais depoimentos</a>
+              <button type="button">Ver mais depoimentos</button>
             </div>
 
             <div className="testimonials-grid">

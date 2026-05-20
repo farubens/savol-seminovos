@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   CalendarDays,
@@ -96,6 +97,10 @@ function parseEntryInput(value: string): number {
 
 function normalizeSpaces(value: string): string {
   return value.replace(/\s+/g, " ").trim();
+}
+
+function isExternalUrl(url: string): boolean {
+  return /^https?:\/\//i.test(url);
 }
 
 const galleryCacheByVehicle = new Map<number, string[]>();
@@ -323,6 +328,8 @@ export function VehicleOfferCard({
   const resultLabel = didSimulateFinance
     ? `Parcelas de ${formatMoney(installmentValue, 2, 2)} - Saiba mais`
     : "Simular parcelas";
+  const resolvedDetailUrl = detailUrl && detailUrl !== "#" ? detailUrl : "/veiculos";
+  const detailUrlIsExternal = isExternalUrl(resolvedDetailUrl);
 
   const goToNextGalleryImage = () => {
     setSelectedImageIndex((current) => (current + 1) % modalGallery.length);
@@ -387,18 +394,30 @@ export function VehicleOfferCard({
                 <MapPin size={16} />
                 <span className="offer-store-name">Loja: {store}</span>
               </p>
-              <a className="offer-store-link" href={detailUrl}>
-                Como chegar
-              </a>
+              {detailUrlIsExternal ? (
+                <a className="offer-store-link" href={resolvedDetailUrl} target="_blank" rel="noopener noreferrer">
+                  Como chegar
+                </a>
+              ) : (
+                <Link className="offer-store-link" href={resolvedDetailUrl}>
+                  Como chegar
+                </Link>
+              )}
             </div>
 
             <div className="offer-actions">
               <button type="button" className="offer-primary" onClick={openFinanceModal}>
                 <WalletCards size={20} /> Ver parcelas
               </button>
-              <a className="offer-secondary" href={detailUrl}>
-                Saiba mais
-              </a>
+              {detailUrlIsExternal ? (
+                <a className="offer-secondary" href={resolvedDetailUrl} target="_blank" rel="noopener noreferrer">
+                  Saiba mais
+                </a>
+              ) : (
+                <Link className="offer-secondary" href={resolvedDetailUrl}>
+                  Saiba mais
+                </Link>
+              )}
             </div>
           </div>
         </div>
@@ -476,14 +495,6 @@ export function VehicleOfferCard({
                     <div>
                       <h3>{modalTitle}</h3>
                       <p>{subtitle}</p>
-                    </div>
-                    <div className="finance-modal-badges">
-                      <span>
-                        <ShieldCheck size={16} /> Garantia de fábrica
-                      </span>
-                      <span>
-                        <UserRound size={16} /> Único dono
-                      </span>
                     </div>
                   </div>
 
