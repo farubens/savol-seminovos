@@ -159,6 +159,8 @@ function buildQueryString(options: {
   query: string;
   sort: string;
   page: number;
+  aiMock?: boolean;
+  aiSeed?: string | null;
 }): string {
   const params = new URLSearchParams();
 
@@ -181,6 +183,8 @@ function buildQueryString(options: {
   if (options.query.trim()) params.set("q", options.query.trim());
   if (options.sort !== DEFAULT_SORT) params.set("sort", options.sort);
   if (options.page > 1) params.set("page", String(options.page));
+  if (options.aiMock) params.set("aiMock", "1");
+  if (options.aiMock && options.aiSeed) params.set("aiSeed", options.aiSeed);
 
   return params.toString();
 }
@@ -204,6 +208,27 @@ function getPaginationPages(currentPage: number, totalPages: number): Array<numb
 
 function toggleListValue(list: string[], value: string): string[] {
   return list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
+}
+
+function createSeededRandom(seed: number): () => number {
+  let state = seed >>> 0;
+  return () => {
+    state += 0x6d2b79f5;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function seededShuffle<T>(items: T[], seed: number): T[] {
+  const shuffled = [...items];
+  const random = createSeededRandom(seed || 1);
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const nextIndex = Math.floor(random() * (index + 1));
+    [shuffled[index], shuffled[nextIndex]] = [shuffled[nextIndex], shuffled[index]];
+  }
+  return shuffled;
 }
 
 export function VehicleCatalog() {
@@ -236,6 +261,8 @@ export function VehicleCatalog() {
   const kmMaxParam = searchParams.get("kmMax");
 
   const queryParam = searchParams.get("q");
+  const aiMockParam = searchParams.get("aiMock");
+  const aiSeedParam = searchParams.get("aiSeed");
   const sortParam = searchParams.get("sort");
   const pageParam = searchParams.get("page");
 
@@ -262,6 +289,12 @@ export function VehicleCatalog() {
   const urlKmMax = useMemo(() => parseBoundParam(kmMaxParam), [kmMaxParam]);
 
   const urlQuery = queryParam ?? "";
+  const isAiMock = aiMockParam === "1";
+  const aiSeed = useMemo(() => {
+    const parsed = Number.parseInt(aiSeedParam ?? "", 10);
+    if (Number.isNaN(parsed)) return 1;
+    return parsed;
+  }, [aiSeedParam]);
   const urlSort = sortParam ?? DEFAULT_SORT;
   const urlPage = Number(pageParam ?? "1");
 
@@ -496,13 +529,18 @@ export function VehicleCatalog() {
     return base;
   }, [filteredVehicles, sort]);
 
-  const totalPages = Math.max(1, Math.ceil(sortedVehicles.length / PAGE_SIZE));
+  const resultVehicles = useMemo(() => {
+    if (!isAiMock) return sortedVehicles;
+    return seededShuffle(filteredVehicles, aiSeed).slice(0, 5);
+  }, [isAiMock, filteredVehicles, sortedVehicles, aiSeed]);
+
+  const totalPages = Math.max(1, Math.ceil(resultVehicles.length / PAGE_SIZE));
   const currentPage = Math.min(Math.max(page, 1), totalPages);
 
   const pageVehicles = useMemo(() => {
     const start = (currentPage - 1) * PAGE_SIZE;
-    return sortedVehicles.slice(start, start + PAGE_SIZE);
-  }, [sortedVehicles, currentPage]);
+    return resultVehicles.slice(start, start + PAGE_SIZE);
+  }, [resultVehicles, currentPage]);
 
   const paginationItems = useMemo(() => getPaginationPages(currentPage, totalPages), [currentPage, totalPages]);
 
@@ -527,7 +565,9 @@ export function VehicleCatalog() {
       kmMax: kmRange.max,
       query,
       sort: nextSort,
-      page: nextPage
+      page: nextPage,
+      aiMock: isAiMock,
+      aiSeed: aiSeedParam
     });
 
     router.push(`/veiculos${queryString ? `?${queryString}` : ""}`);
@@ -1108,7 +1148,7 @@ export function VehicleCatalog() {
 
           <div className="catalog-results catalog-results--full">
             <header className="catalog-results-head catalog-results-head--full">
-              <p>{loading ? "Carregando veículos..." : `${sortedVehicles.length} veículo(s) encontrados`}</p>
+              <p>{loading ? "Carregando veículos..." : `${resultVehicles.length} veículo(s) encontrados`}</p>
             </header>
 
             {loading && (

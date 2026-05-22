@@ -374,10 +374,10 @@ export function VehicleOfferCard({
             </div>
 
             <div className="offer-highlights">
-              <span>
+              <span className="offer-highlight offer-highlight--owner">
                 <UserRound size={18} /> Único dono
               </span>
-              <span>
+              <span className="offer-highlight offer-highlight--warranty">
                 <ShieldCheck size={18} /> Garantia de fábrica
               </span>
             </div>

@@ -1,14 +1,14 @@
 ﻿"use client";
 
 import Image from "next/image";
-import { Bus, Car, CarFront, ChevronLeft, ChevronRight, Search, ShieldCheck, Sparkles, Truck } from "lucide-react";
+import { BriefcaseBusiness, Bus, Car, CarFront, ChevronLeft, ChevronRight, Gem, Search, Sparkles, Truck, Zap } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useHomeSessionData } from "@/components/HomeSessionDataProvider";
 import type { ApiVehicle } from "@/types/home";
 
 type TabKey = "marca" | "categoria" | "unidade" | "eletricos" | "descrever";
-type IconKey = "hatch" | "suv" | "picape" | "sedan" | "esportivo" | "luxo" | "utilitarios";
+type IconKey = "hatch" | "suv" | "picape" | "sedan" | "eletrico" | "executivo" | "premium" | "utilitarios";
 
 type CategoryCardItem = {
   id: string;
@@ -16,6 +16,7 @@ type CategoryCardItem = {
   amount: string;
   bgImage: string;
   icon: IconKey;
+  href: string;
 };
 
 type BrandItem = {
@@ -34,8 +35,8 @@ type SelectOption = {
 const tabs: Array<{ key: TabKey; label: string }> = [
   { key: "marca", label: "Marca" },
   { key: "categoria", label: "Categoria" },
-  { key: "unidade", label: "Unidade" },
   { key: "eletricos", label: "Elétricos" },
+  { key: "unidade", label: "Unidade" },
   { key: "descrever", label: "Descrever veículo" }
 ];
 
@@ -153,38 +154,39 @@ const iconMap = {
   suv: Car,
   picape: Truck,
   sedan: CarFront,
-  esportivo: Car,
-  luxo: ShieldCheck,
+  eletrico: Zap,
+  executivo: BriefcaseBusiness,
+  premium: Gem,
   utilitarios: Bus
 };
 
 const cardsByTab: Record<Exclude<TabKey, "descrever" | "marca">, CategoryCardItem[]> = {
   categoria: [
-    { id: "hatch-c", title: "Compactos", amount: "210 veículos", bgImage: bg.hatch, icon: "hatch" },
-    { id: "suv-c", title: "SUV", amount: "512 veículos", bgImage: bg.suv, icon: "suv" },
-    { id: "picape-c", title: "4x4", amount: "133 veículos", bgImage: bg.picape, icon: "picape" },
-    { id: "sedan-c", title: "Executivos", amount: "142 veículos", bgImage: bg.sedan, icon: "sedan" },
-    { id: "esp-c", title: "Performance", amount: "32 veículos", bgImage: bg.esportivo, icon: "esportivo" },
-    { id: "lux-c", title: "Premium", amount: "67 veículos", bgImage: bg.luxo, icon: "luxo" },
-    { id: "uti-c", title: "Furgões", amount: "88 veículos", bgImage: bg.utilitarios, icon: "utilitarios" }
+    { id: "hatch-c", title: "Hatch", amount: "232 veículos", bgImage: bg.hatch, icon: "hatch", href: "/veiculos?bodies=hatch" },
+    { id: "sedan-c", title: "Sedan", amount: "198 veículos", bgImage: bg.sedan, icon: "sedan", href: "/veiculos?bodies=sedan" },
+    { id: "suv-c", title: "SUV", amount: "312 veículos", bgImage: bg.suv, icon: "suv", href: "/veiculos?bodies=suv" },
+    { id: "picape-c", title: "Picapes", amount: "164 veículos", bgImage: bg.picape, icon: "picape", href: "/veiculos?bodies=pickup" },
+    { id: "ele-c", title: "Elétricos", amount: "48 veículos", bgImage: bg.esportivo, icon: "eletrico", href: "/veiculos?q=eletrico" },
+    { id: "exe-c", title: "Executivos", amount: "86 veículos", bgImage: bg.luxo, icon: "executivo", href: "/veiculos?q=executivo" },
+    { id: "pre-c", title: "Premium", amount: "74 veículos", bgImage: bg.sedan, icon: "premium", href: "/veiculos?q=premium" }
   ],
   unidade: [
-    { id: "hatch-u", title: "São Paulo", amount: "174 veículos", bgImage: bg.hatch, icon: "hatch" },
-    { id: "suv-u", title: "Santo André", amount: "201 veículos", bgImage: bg.suv, icon: "suv" },
-    { id: "picape-u", title: "São Caetano", amount: "154 veículos", bgImage: bg.picape, icon: "picape" },
-    { id: "sedan-u", title: "ABC Paulista", amount: "173 veículos", bgImage: bg.sedan, icon: "sedan" },
-    { id: "esp-u", title: "Guarulhos", amount: "95 veículos", bgImage: bg.esportivo, icon: "esportivo" },
-    { id: "lux-u", title: "Premium Store", amount: "67 veículos", bgImage: bg.luxo, icon: "luxo" },
-    { id: "uti-u", title: "Matriz Savol", amount: "141 veículos", bgImage: bg.utilitarios, icon: "utilitarios" }
+    { id: "sa-u", title: "Santo André", amount: "201 veículos", bgImage: bg.hatch, icon: "hatch", href: "/veiculos?q=santo-andre" },
+    { id: "sbc-u", title: "São Bernardo", amount: "173 veículos", bgImage: bg.suv, icon: "suv", href: "/veiculos?q=sao-bernardo" },
+    { id: "scs-u", title: "São Caetano", amount: "154 veículos", bgImage: bg.sedan, icon: "sedan", href: "/veiculos?q=sao-caetano" },
+    { id: "sp-u", title: "São Paulo", amount: "174 veículos", bgImage: bg.picape, icon: "picape", href: "/veiculos?q=sao-paulo" },
+    { id: "mau-u", title: "Mauá", amount: "93 veículos", bgImage: bg.esportivo, icon: "eletrico", href: "/veiculos?q=maua" },
+    { id: "pg-u", title: "Praia Grande", amount: "84 veículos", bgImage: bg.luxo, icon: "executivo", href: "/veiculos?q=praia grande" },
+    { id: "abc-u", title: "ABC Paulista", amount: "142 veículos", bgImage: bg.utilitarios, icon: "utilitarios", href: "/veiculos?q=abc paulista" }
   ],
   eletricos: [
-    { id: "hatch-e", title: "Hatch elétrico", amount: "56 veículos", bgImage: bg.hatch, icon: "hatch" },
-    { id: "suv-e", title: "SUV elétrico", amount: "81 veículos", bgImage: bg.suv, icon: "suv" },
-    { id: "picape-e", title: "Picape híbrida", amount: "34 veículos", bgImage: bg.picape, icon: "picape" },
-    { id: "sedan-e", title: "Sedan elétrico", amount: "65 veículos", bgImage: bg.sedan, icon: "sedan" },
-    { id: "esp-e", title: "Sport EV", amount: "18 veículos", bgImage: bg.esportivo, icon: "esportivo" },
-    { id: "lux-e", title: "Luxo EV", amount: "27 veículos", bgImage: bg.luxo, icon: "luxo" },
-    { id: "uti-e", title: "Utilitário EV", amount: "22 veículos", bgImage: bg.utilitarios, icon: "utilitarios" }
+    { id: "hev-e", title: "Híbridos", amount: "81 veículos", bgImage: bg.suv, icon: "eletrico", href: "/veiculos?q=hibrido" },
+    { id: "bev-e", title: "100% Elétricos", amount: "48 veículos", bgImage: bg.hatch, icon: "eletrico", href: "/veiculos?q=eletrico" },
+    { id: "sed-e", title: "Sedan elétrico", amount: "31 veículos", bgImage: bg.sedan, icon: "sedan", href: "/veiculos?q=sedan-eletrico" },
+    { id: "suv-e", title: "SUV elétrico", amount: "52 veículos", bgImage: bg.picape, icon: "suv", href: "/veiculos?q=suv-eletrico" },
+    { id: "urb-e", title: "Urbanos EV", amount: "36 veículos", bgImage: bg.esportivo, icon: "hatch", href: "/veiculos?q=urbano-eletrico" },
+    { id: "pre-e", title: "Premium EV", amount: "27 veículos", bgImage: bg.luxo, icon: "premium", href: "/veiculos?q=premium-eletrico" },
+    { id: "uti-e", title: "Utilitários EV", amount: "22 veículos", bgImage: bg.utilitarios, icon: "utilitarios", href: "/veiculos?q=utilitario-eletrico" }
   ]
 };
 
@@ -204,6 +206,23 @@ export function CategoryFinder() {
   const cards = useMemo(() => {
     return activeTab === "categoria" || activeTab === "unidade" || activeTab === "eletricos" ? cardsByTab[activeTab] : [];
   }, [activeTab]);
+
+  const visualCards = useMemo(() => {
+    if (!(activeTab === "categoria" || activeTab === "unidade" || activeTab === "eletricos")) return [];
+
+    const ctaHref = activeTab === "unidade" ? "/lojas" : "/veiculos";
+    const ctaAmount = activeTab === "unidade" ? "Todas as unidades" : "Todas as opções";
+    const ctaCard: CategoryCardItem = {
+      id: `view-all-${activeTab}`,
+      title: "Ver todos",
+      amount: ctaAmount,
+      bgImage: bg.suv,
+      icon: "hatch",
+      href: ctaHref
+    };
+
+    return [...cards, ctaCard];
+  }, [activeTab, cards]);
 
   const marcaOptions = useMemo<SelectOption[]>(() => {
     const marcaMap = new Map<string, SelectOption>();
@@ -383,7 +402,8 @@ export function CategoryFinder() {
     if (brand !== "all") params.set("brand", brand);
     if (brand !== "all" && model !== "all") params.set("model", model);
     if (maxPrice !== "all") params.set("maxPrice", maxPrice);
-    if (trimmedQuery) params.set("q", trimmedQuery);
+    params.set("aiMock", "1");
+    params.set("aiSeed", String(Date.now()));
 
     router.push(`/veiculos${params.toString() ? `?${params.toString()}` : ""}`);
   };
@@ -493,7 +513,7 @@ export function CategoryFinder() {
             </div>
           </div>
         </article>
-      ) : (
+      ) : activeTab === "marca" ? (
         <div className="category-slider-wrap">
           <div className="category-slider-nav">
             <button
@@ -562,6 +582,45 @@ export function CategoryFinder() {
               })}
             </div>
           )}
+        </div>
+      ) : (
+        <div className="category-visual-grid">
+          {visualCards.map((card, index) => {
+            const CardIcon = iconMap[card.icon];
+            const isViewAll = index === visualCards.length - 1;
+
+            return (
+              <article
+                className={`category-card category-card-visual ${isViewAll ? "category-card-visual--cta" : ""}`}
+                key={card.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => router.push(card.href)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    router.push(card.href);
+                  }
+                }}
+              >
+                <div className="category-bg" style={{ backgroundImage: `url("${card.bgImage}")` }} />
+                <div className="category-overlay" />
+
+                <div className="category-meta">
+                  <span className="category-meta-icon">
+                    <CardIcon size={22} />
+                  </span>
+                  <div>
+                    <h3>{card.title}</h3>
+                    <p>{card.amount}</p>
+                  </div>
+                  <span className="category-meta-arrow">
+                    <ChevronRight size={18} />
+                  </span>
+                </div>
+              </article>
+            );
+          })}
         </div>
       )}
     </section>

@@ -28,7 +28,6 @@ export function SavolMegaFooter() {
             <div>
               <Link href="/institucional">Institucional</Link>
               <Link href="/veiculos">Veículos</Link>
-              <Link href="/servicos">Serviços</Link>
             </div>
             <div>
               <Link href="/ajuda">Ajuda</Link>

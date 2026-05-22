@@ -1,69 +1,40 @@
-import Image from "next/image";
+﻿import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowRight,
   BadgePercent,
-  CarFront,
-  CircleDollarSign,
   Heart,
   Mail,
   Phone,
-  Quote,
   Search,
   ShieldCheck,
   Sparkles,
   Star,
-  Store,
-  UserRoundCheck,
-  Wrench
 } from "lucide-react";
 import { CategoryFinder } from "@/components/CategoryFinder";
+import { HomeBenefits } from "@/components/HomeBenefits";
 import { HomeSessionDataProvider } from "@/components/HomeSessionDataProvider";
 import { SavolMegaFooter } from "@/components/SavolMegaFooter";
 import { SellYourCarCta } from "@/components/SellYourCarCta";
 import { StoresCarousel } from "@/components/StoresCarousel";
+import { TestimonialsSection } from "@/components/TestimonialsSection";
 import { VehicleGrid } from "@/components/VehicleGrid";
 import { WhyChooseSavol } from "@/components/WhyChooseSavol";
+import { SiteHeader } from "@/components/SiteHeader";
 
 export default function Home() {
   return (
     <main>
-      <div className="topbar">
-        <div className="container topbar-inner">
-          <p>
-            <Phone size={14} /> Atendimento
-          </p>
-          <p>(11) 2222-3333</p>
-          <p>Segunda a sexta: 08h às 19h | Sábado: 08h às 18h</p>
-          <p>
-            <Heart size={14} /> Meus favoritos
-          </p>
-        </div>
-      </div>
+      <SiteHeader active="home" />
 
-      <header className="header container">
-        <Image src="/images/logo.png" alt="Savol" width={200} height={48} className="site-logo" />
-        <nav>
-          <Link className="active" href="/">
-            Home
-          </Link>
-          <Link href="/veiculos">Veículos</Link>
-          <Link href="/lojas">Lojas</Link>
-          <Link href="/servicos">Serviços</Link>
-          <Link href="/venda-seu-carro">Venda seu carro</Link>
-          <Link href="/institucional">Institucional</Link>
-          <Link className="btn btn-sm" href="/contato">
-            Contato
-          </Link>
-          <Link href="/veiculos" className="icon-btn" aria-label="Buscar">
-            <Search size={16} />
-          </Link>
-        </nav>
-      </header>
 
       <section className="hero">
         <div className="container hero-grid">
           <div className="hero-copy">
+            <p className="hero-badge">
+              <Star size={14} fill="currentColor" strokeWidth={0} />
+              Grupo Savol
+            </p>
             <h1>
               Encontre o <span>carro ideal</span>
               <br />
@@ -71,10 +42,10 @@ export default function Home() {
             </h1>
             <p>São mais de 1.000 veículos de qualidade e as melhores lojas do Grupo Savol.</p>
             <div className="actions">
-              <Link href="/veiculos" className="btn">
+              <Link href="/veiculos" className="btn hero-btn hero-btn-primary">
                 Ver veículos
               </Link>
-              <Link href="/lojas" className="btn btn-outline">
+              <Link href="/lojas" className="btn btn-outline hero-btn hero-btn-secondary">
                 Nossas lojas
               </Link>
             </div>
@@ -85,43 +56,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="container benefits">
-        <article className="benefit">
-          <Wrench size={20} />
-          <div>
-            <h3>Veículos revisados</h3>
-            <p>Qualidade garantida</p>
-          </div>
-        </article>
-        <article className="benefit">
-          <ShieldCheck size={20} />
-          <div>
-            <h3>Garantia</h3>
-            <p>Mais segurança para você</p>
-          </div>
-        </article>
-        <article className="benefit">
-          <Store size={20} />
-          <div>
-            <h3>Melhores lojas</h3>
-            <p>Do Grupo Savol</p>
-          </div>
-        </article>
-        <article className="benefit">
-          <CircleDollarSign size={20} />
-          <div>
-            <h3>Facilidade</h3>
-            <p>Financie sem complicação</p>
-          </div>
-        </article>
-        <article className="benefit">
-          <UserRoundCheck size={20} />
-          <div>
-            <h3>Atendimento</h3>
-            <p>Especializado</p>
-          </div>
-        </article>
-      </section>
+      <HomeBenefits />
 
       <HomeSessionDataProvider>
         <CategoryFinder />
@@ -142,105 +77,7 @@ export default function Home() {
 
         <WhyChooseSavol />
 
-        <section className="testimonials-wrap">
-          <div className="container testimonials-shell">
-            <p className="testimonials-kicker">
-              <span>Savol</span>
-              <span>Excelência que gera confiança</span>
-            </p>
-
-            <div className="section-title-row testimonials-title-row">
-              <h2>O que dizem nossos clientes</h2>
-              <button type="button">Ver mais depoimentos</button>
-            </div>
-
-            <div className="testimonials-grid">
-              <article className="testimonial-card">
-                <div className="testimonial-card-top">
-                  <div className="testimonial-stars" aria-label="5 estrelas">
-                    {Array.from({ length: 5 }).map((_, index) => (
-                      <Star key={`star-carlos-${index}`} size={18} fill="currentColor" strokeWidth={0} />
-                    ))}
-                  </div>
-                  <span className="testimonial-quote-icon" aria-hidden="true">
-                    <Quote size={20} />
-                  </span>
-                </div>
-
-                <p className="testimonial-message">"Excelente atendimento e muita transparência na negociação."</p>
-                <div className="testimonial-divider" />
-
-                <div className="testimonial-footer">
-                  <span className="testimonial-avatar">CA</span>
-                  <div>
-                    <strong>Carlos Andrade</strong>
-                    <p>
-                      <CarFront size={16} /> Comprou um Toyota Corolla
-                    </p>
-                  </div>
-                </div>
-              </article>
-
-              <article className="testimonial-card">
-                <div className="testimonial-card-top">
-                  <div className="testimonial-stars" aria-label="5 estrelas">
-                    {Array.from({ length: 5 }).map((_, index) => (
-                      <Star key={`star-juliana-${index}`} size={18} fill="currentColor" strokeWidth={0} />
-                    ))}
-                  </div>
-                  <span className="testimonial-quote-icon" aria-hidden="true">
-                    <Quote size={20} />
-                  </span>
-                </div>
-
-                <p className="testimonial-message">"Encontrei o carro que queria com ótimo preço e financiamento fácil."</p>
-                <div className="testimonial-divider" />
-
-                <div className="testimonial-footer">
-                  <span className="testimonial-avatar">JM</span>
-                  <div>
-                    <strong>Juliana M.</strong>
-                    <p>
-                      <CarFront size={16} /> Comprou um Honda HR-V
-                    </p>
-                  </div>
-                </div>
-              </article>
-
-              <article className="testimonial-card">
-                <div className="testimonial-card-top">
-                  <div className="testimonial-stars" aria-label="5 estrelas">
-                    {Array.from({ length: 5 }).map((_, index) => (
-                      <Star key={`star-ricardo-${index}`} size={18} fill="currentColor" strokeWidth={0} />
-                    ))}
-                  </div>
-                  <span className="testimonial-quote-icon" aria-hidden="true">
-                    <Quote size={20} />
-                  </span>
-                </div>
-
-                <p className="testimonial-message">"Lojas confiáveis e carros de qualidade. Voltarei a fazer negócios."</p>
-                <div className="testimonial-divider" />
-
-                <div className="testimonial-footer">
-                  <span className="testimonial-avatar">RS</span>
-                  <div>
-                    <strong>Ricardo Santos</strong>
-                    <p>
-                      <CarFront size={16} /> Comprou uma Toyota Hilux
-                    </p>
-                  </div>
-                </div>
-              </article>
-            </div>
-
-            <p className="testimonials-brand-line" aria-hidden="true">
-              <span />
-              Savol
-              <span />
-            </p>
-          </div>
-        </section>
+        <TestimonialsSection />
 
         <section className="container newsletter">
           <article className="newsletter-card">
@@ -285,6 +122,9 @@ export default function Home() {
     </main>
   );
 }
+
+
+
 
 
 

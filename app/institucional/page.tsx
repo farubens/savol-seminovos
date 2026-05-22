@@ -1,4 +1,5 @@
 import { HomeSessionDataProvider } from "@/components/HomeSessionDataProvider";
+import { InstitutionalPage } from "@/components/InstitutionalPage";
 import { SavolMegaFooter } from "@/components/SavolMegaFooter";
 import { SiteHeader } from "@/components/SiteHeader";
 
@@ -6,10 +7,7 @@ export default function InstitucionalPage() {
   return (
     <main>
       <SiteHeader active="institucional" />
-      <section className="container simple-page">
-        <h1>Institucional</h1>
-        <p>Tradição, confiança e atendimento especializado para você comprar seu próximo seminovo com tranquilidade.</p>
-      </section>
+      <InstitutionalPage />
       <HomeSessionDataProvider>
         <SavolMegaFooter />
       </HomeSessionDataProvider>

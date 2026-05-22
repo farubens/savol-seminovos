@@ -1,12 +1,15 @@
 "use client";
 
-import { useMemo, useRef, type PointerEvent } from "react";
+import { useMemo, useRef, useState, type PointerEvent } from "react";
 import Link from "next/link";
 import { ArrowRight, ChevronLeft, ChevronRight, MapPin, Navigation, Phone } from "lucide-react";
 import { useHomeSessionData } from "@/components/HomeSessionDataProvider";
+import { MapDirectionsModal } from "@/components/MapDirectionsModal";
+import type { ApiStore } from "@/types/home";
 
 export function StoresCarousel() {
   const { stores, loading } = useHomeSessionData();
+  const [routeModalStore, setRouteModalStore] = useState<ApiStore | null>(null);
   const sliderRef = useRef<HTMLDivElement | null>(null);
   const dragState = useRef({
     pointerId: -1,
@@ -117,12 +120,12 @@ export function StoresCarousel() {
                   <h3>{store.name}</h3>
 
                   <div className="store-detail">
-                    <MapPin size={21} />
+                    <MapPin size={18} />
                     <p>{store.address}</p>
                   </div>
 
                   <div className="store-detail">
-                    <Phone size={21} />
+                    <Phone size={18} />
                     <p>{store.phone}</p>
                   </div>
 
@@ -130,11 +133,11 @@ export function StoresCarousel() {
 
                   <div className="store-actions">
                     <a className="store-btn-primary" href={store.storeUrl} target="_blank" rel="noopener noreferrer">
-                      Ver loja <ArrowRight size={19} />
+                      Ver loja <ArrowRight size={16} />
                     </a>
-                    <a className="store-btn-ghost" href={store.mapUrl} target="_blank" rel="noopener noreferrer">
-                      <Navigation size={18} /> Como chegar
-                    </a>
+                    <button type="button" className="store-btn-ghost" onClick={() => setRouteModalStore(store)}>
+                      <Navigation size={15} /> Como chegar
+                    </button>
                   </div>
                 </div>
 
@@ -151,6 +154,13 @@ export function StoresCarousel() {
             ))}
         </div>
       </div>
+
+      <MapDirectionsModal
+        open={Boolean(routeModalStore)}
+        storeName={routeModalStore?.name ?? ""}
+        address={routeModalStore?.address ?? ""}
+        onClose={() => setRouteModalStore(null)}
+      />
     </section>
   );
 }

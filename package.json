@@ -12,11 +12,15 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@icon-park/react": "^1.4.2",
+    "@types/leaflet": "^1.9.21",
     "framer-motion": "11.18.2",
+    "leaflet": "^1.9.4",
     "lucide-react": "0.511.0",
     "next": "^15.5.18",
     "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "react-dom": "19.1.0",
+    "react-leaflet": "^5.0.0"
   },
   "devDependencies": {
     "@types/node": "22.15.17",

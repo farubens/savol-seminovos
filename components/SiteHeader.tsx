@@ -1,9 +1,9 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Heart, Phone, Search } from "lucide-react";
+import { Facebook, Instagram, Search } from "lucide-react";
 
 type HeaderProps = {
-  active?: "home" | "veiculos" | "lojas" | "servicos" | "venda" | "institucional" | "contato";
+  active?: "home" | "veiculos" | "lojas" | "venda" | "institucional" | "contato";
 };
 
 export function SiteHeader({ active = "home" }: HeaderProps) {
@@ -11,14 +11,16 @@ export function SiteHeader({ active = "home" }: HeaderProps) {
     <>
       <div className="topbar">
         <div className="container topbar-inner">
-          <p>
-            <Phone size={14} /> Atendimento
-          </p>
-          <p>(11) 2222-3333</p>
-          <p>Segunda a sexta: 08h às 19h | Sábado: 08h às 18h</p>
-          <p>
-            <Heart size={14} /> Meus favoritos
-          </p>
+          <div className="topbar-social-spacer" aria-hidden="true" />
+          <p className="topbar-schedule">Segunda a sexta: 08h as 19h | Sabado: 08h as 18h</p>
+          <div className="topbar-social" aria-label="Redes sociais">
+            <a className="topbar-social-link" href="https://www.facebook.com/" target="_blank" rel="noopener noreferrer" aria-label="Facebook Savol">
+              <Facebook size={14} />
+            </a>
+            <a className="topbar-social-link" href="https://www.instagram.com/" target="_blank" rel="noopener noreferrer" aria-label="Instagram Savol">
+              <Instagram size={14} />
+            </a>
+          </div>
         </div>
       </div>
 
@@ -29,13 +31,10 @@ export function SiteHeader({ active = "home" }: HeaderProps) {
             Home
           </Link>
           <Link className={active === "veiculos" ? "active" : ""} href="/veiculos">
-            Veículos
+            Veiculos
           </Link>
           <Link className={active === "lojas" ? "active" : ""} href="/lojas">
             Lojas
-          </Link>
-          <Link className={active === "servicos" ? "active" : ""} href="/servicos">
-            Serviços
           </Link>
           <Link className={active === "venda" ? "active" : ""} href="/venda-seu-carro">
             Venda seu carro
@@ -54,3 +53,4 @@ export function SiteHeader({ active = "home" }: HeaderProps) {
     </>
   );
 }
+
