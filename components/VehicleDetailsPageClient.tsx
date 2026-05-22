@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { WhatsAppLogo } from "@/components/icons/WhatsAppLogo";
+import { VehicleOfferCard } from "@/components/VehicleOfferCard";
 import {
   BadgeCheck,
   CalendarDays,
@@ -296,23 +296,6 @@ export function VehicleDetailsPageClient({ slug }: Props) {
     [vehicle, storeTitle]
   );
 
-  const highlights = useMemo(
-    () =>
-      vehicle
-        ? [
-            `Motor ${vehicle.subtitle}`,
-            `Cambio ${vehicle.transmission}`,
-            `Combustivel ${vehicle.fuel}`,
-            `Quilometragem ${vehicle.km}`,
-            "Central multimidia com conectividade",
-            "Bancos e acabamentos premium",
-            "Freios ABS e controle de estabilidade",
-            "Sensor de estacionamento dianteiro e traseiro"
-          ]
-        : [],
-    [vehicle]
-  );
-
   const optionals = useMemo(
     () => [
       "Ar-condicionado digital",
@@ -510,29 +493,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
             {vehicle.oldPrice ? <p className="vehicle-old-price">{vehicle.oldPrice}</p> : null}
             <p className="vehicle-price-line">
               Por <strong>{vehicle.price}</strong>
-              <span>Valor a vista</span>
             </p>
-
-            <div className="vehicle-spec-grid">
-              <span>
-                <CalendarDays size={16} /> {vehicle.year}
-              </span>
-              <span>
-                <GitBranch size={16} /> {vehicle.transmission}
-              </span>
-              <span>
-                <Fuel size={16} /> {vehicle.fuel}
-              </span>
-              <span>
-                <Gauge size={16} /> {vehicle.km}
-              </span>
-              <span>
-                <ShieldCheck size={16} /> Garantia de fabrica
-              </span>
-              <span>
-                <UserRound size={16} /> {normalize(vehicle.qualityTag).includes("dono") ? "Unico dono" : "Seminovo"}
-              </span>
-            </div>
 
             <div className="vehicle-store-block">
               <h3>
@@ -549,12 +510,20 @@ export function VehicleDetailsPageClient({ slug }: Props) {
                 <Printer size={16} /> Imprimir
               </button>
               <a href={whatsappHref} className="vehicle-quick-btn" target="_blank" rel="noreferrer">
-                <WhatsAppLogo size={16} className="vehicle-whatsapp-logo" /> WhatsApp
+                <Image
+                  src="/images/whatsapp_icon.png"
+                  alt=""
+                  width={18}
+                  height={18}
+                  className="vehicle-whatsapp-logo"
+                />
+                WhatsApp
               </a>
             </div>
           </article>
 
           <article className="vehicle-lead-card">
+            <h2>Envie uma proposta</h2>
             <form className="vehicle-lead-form" onSubmit={handleLeadSubmit}>
               <div className="vehicle-lead-grid">
                 <label className="vehicle-field">
@@ -632,10 +601,6 @@ export function VehicleDetailsPageClient({ slug }: Props) {
                 Enviar proposta
               </button>
 
-              <a href={whatsappHref} className="vehicle-lead-whats" target="_blank" rel="noreferrer">
-                <WhatsAppLogo size={18} className="vehicle-whatsapp-logo" /> Falar agora pelo WhatsApp
-              </a>
-
               {leadSuccess ? <p className="vehicle-lead-success">Proposta enviada! Retornaremos em breve.</p> : null}
             </form>
           </article>
@@ -666,6 +631,20 @@ export function VehicleDetailsPageClient({ slug }: Props) {
             {detailsTab === "sobre" && (
               <div className="vehicle-extra-panel">
                 <h3>Sobre este veiculo</h3>
+                <div className="vehicle-tab-specs">
+                  <span>
+                    <CalendarDays size={16} /> {vehicle.year}
+                  </span>
+                  <span>
+                    <GitBranch size={16} /> {vehicle.transmission}
+                  </span>
+                  <span>
+                    <Fuel size={16} /> {vehicle.fuel}
+                  </span>
+                  <span>
+                    <Gauge size={16} /> {vehicle.km}
+                  </span>
+                </div>
                 <p>
                   {vehicle.name} {vehicle.subtitle}. Veiculo com {vehicle.transmission.toLowerCase()} e {vehicle.fuel.toLowerCase()}, pronto para uso diario com conforto,
                   seguranca e tecnologia.
@@ -704,6 +683,20 @@ export function VehicleDetailsPageClient({ slug }: Props) {
             {detailsTab === "ficha" && (
               <div className="vehicle-extra-panel">
                 <h3>Ficha tecnica resumida</h3>
+                <div className="vehicle-tab-specs">
+                  <span>
+                    <CalendarDays size={16} /> {vehicle.year}
+                  </span>
+                  <span>
+                    <GitBranch size={16} /> {vehicle.transmission}
+                  </span>
+                  <span>
+                    <Fuel size={16} /> {vehicle.fuel}
+                  </span>
+                  <span>
+                    <Gauge size={16} /> {vehicle.km}
+                  </span>
+                </div>
                 <div className="vehicle-tech-list">
                   {technicalRows.map(([label, value]) => (
                     <div key={label}>
@@ -739,57 +732,6 @@ export function VehicleDetailsPageClient({ slug }: Props) {
               </div>
             )}
           </div>
-
-          <aside className="vehicle-highlights">
-            <h3>Destaques do veiculo</h3>
-            <ul>
-              {highlights.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-          </aside>
-        </article>
-
-        <article className="vehicle-extra-cards">
-          <section className="vehicle-tech-card">
-            <h3>Ficha tecnica</h3>
-            <dl>
-              {technicalRows.slice(0, 6).map(([label, value]) => (
-                <div key={`tech-${label}`}>
-                  <dt>{label}</dt>
-                  <dd>{value}</dd>
-                </div>
-              ))}
-            </dl>
-          </section>
-
-          <section className="vehicle-finance-card">
-            <div>
-              <h3>Simule seu financiamento agora</h3>
-              <p>As melhores taxas do mercado e aprovacao rapida.</p>
-              <ul>
-                <li>Entrada facilitada</li>
-                <li>Parcelas que cabem no seu bolso</li>
-                <li>Planos com e sem entrada</li>
-              </ul>
-              <button type="button" className="vehicle-finance-btn">
-                Simular agora
-              </button>
-            </div>
-            <Image src={vehicle.image || FALLBACK_IMAGE} alt={vehicle.name} width={420} height={260} />
-          </section>
-
-          <section className="vehicle-store-card">
-            <h3>Loja</h3>
-            <p>{storeTitle}</p>
-            <p>{storeAddress}</p>
-            <p>{storePhone}</p>
-            {storeItem?.mapUrl ? (
-              <a href={storeItem.mapUrl} target="_blank" rel="noreferrer" className="vehicle-map-link">
-                Como chegar
-              </a>
-            ) : null}
-          </section>
         </article>
 
         <article className="vehicle-related">
@@ -806,27 +748,23 @@ export function VehicleDetailsPageClient({ slug }: Props) {
 
             {!loadingRelated &&
               relatedVehicles.map((item) => (
-                <article className="vehicle-related-card" key={item.id}>
-                  <Link href={item.url} className="vehicle-related-link">
-                    <div className="vehicle-related-media">
-                      <Image src={item.image || FALLBACK_IMAGE} alt={item.name} width={360} height={220} />
-                    </div>
-                    <div className="vehicle-related-body">
-                      <h4>{item.name}</h4>
-                      <p>{item.subtitle}</p>
-                      <div className="vehicle-related-specs">
-                        <span>{item.year}</span>
-                        <span>{item.transmission}</span>
-                        <span>{item.fuel}</span>
-                        <span>{item.km}</span>
-                      </div>
-                      <strong>{item.price}</strong>
-                    </div>
-                  </Link>
-                  <Link href={item.url} className="vehicle-related-btn">
-                    Ver detalhes
-                  </Link>
-                </article>
+                <VehicleOfferCard
+                  key={item.id}
+                  vehicleId={item.id}
+                  name={item.name}
+                  subtitle={item.subtitle}
+                  image={item.image || FALLBACK_IMAGE}
+                  gallery={item.gallery}
+                  year={item.year}
+                  transmission={item.transmission}
+                  fuel={item.fuel}
+                  km={item.km}
+                  store={removeStorePrefix(item.store)}
+                  oldPrice={item.oldPrice}
+                  price={item.price}
+                  detailUrl={item.url}
+                  qualityTag={item.qualityTag}
+                />
               ))}
           </div>
         </article>

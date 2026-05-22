@@ -574,7 +574,7 @@ export function VehicleOfferCard({
                   </button>
 
                   <p className="finance-modal-security">
-                    <ShieldCheck size={18} /> Financiamento 100% seguro
+                    <ShieldCheck size={18} /> Simulacao feita apenas para consulta. Fale com um dos nossos consultores para uma simulacao real.
                   </p>
                 </div>
               </div>

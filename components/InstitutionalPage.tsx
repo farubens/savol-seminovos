@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { Award, BookOpen, Building2, GraduationCap, Handshake, Inbox, Lightbulb, ShieldCheck, Target, Users } from "lucide-react";
+import { Award, BookOpen, Building2, Eye, GraduationCap, Handshake, Inbox, Lightbulb, ShieldCheck, Target, Users } from "lucide-react";
 
 const ICON_SIZE = 24;
 
@@ -75,11 +75,14 @@ const brandLogos = [
 export function InstitutionalPage() {
   return (
     <section className="container institutional-page">
-      <header className="institutional-head">
-        <p className="institutional-head-breadcrumb">Inicio / Institucional / Sobre o Grupo Savol</p>
-        <h1>Sobre o Grupo Savol</h1>
-        <span className="institutional-head-line" />
-        <p className="institutional-head-lead">Ha mais de 60 anos movendo pessoas, construindo relacoes e gerando valor.</p>
+      <header className="institutional-hero">
+        <div className="institutional-hero-copy">
+          <p className="institutional-head-breadcrumb">Inicio / Institucional / Sobre o Grupo Savol</p>
+          <h1>Sobre o Grupo Savol</h1>
+          <span className="institutional-head-line" />
+          <p className="institutional-head-lead">Ha mais de 60 anos movendo pessoas, construindo relacoes e gerando valor.</p>
+        </div>
+        <div className="institutional-hero-photo" aria-hidden="true" />
       </header>
 
       <section className="institutional-overview">
@@ -115,7 +118,7 @@ export function InstitutionalPage() {
         </article>
         <article className="institutional-purpose-item">
           <span className="institutional-icon">
-            <Users size={ICON_SIZE} />
+            <Eye size={ICON_SIZE} />
           </span>
           <div>
             <h3>Visao</h3>
@@ -176,4 +179,3 @@ export function InstitutionalPage() {
     </section>
   );
 }
-

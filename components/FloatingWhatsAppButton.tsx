@@ -1,4 +1,4 @@
-import { WhatsAppLogo } from "@/components/icons/WhatsAppLogo";
+import Image from "next/image";
 
 const WHATSAPP_PHONE = "551122223333";
 const WHATSAPP_TEXT = encodeURIComponent("Ola! Quero atendimento da Savol.");
@@ -12,9 +12,14 @@ export function FloatingWhatsAppButton() {
       rel="noopener noreferrer"
       aria-label="Atendimento pelo WhatsApp"
     >
-      <WhatsAppLogo size={24} className="floating-whatsapp-icon" />
+      <Image
+        src="/images/whatsapp_icon.png"
+        alt=""
+        width={28}
+        height={28}
+        className="floating-whatsapp-icon"
+      />
       <span>WhatsApp</span>
     </a>
   );
 }
-
