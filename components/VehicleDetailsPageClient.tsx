@@ -5,6 +5,7 @@ import Link from "next/link";
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { VehicleOfferCard } from "@/components/VehicleOfferCard";
+import { MapDirectionsModal } from "@/components/MapDirectionsModal";
 import {
   BadgeCheck,
   CalendarDays,
@@ -59,7 +60,8 @@ type LeadForm = {
 
 type DetailsTab = "sobre" | "opcionais" | "ficha" | "financiamento" | "loja";
 
-const FALLBACK_IMAGE = "/images/hero-car.png";
+const FALLBACK_IMAGE = "/images/em-preparacao.jpg";
+const PREPARATION_IMAGE_TOKEN = "/images/em-preparacao";
 
 function normalize(value: string): string {
   return value
@@ -104,6 +106,10 @@ function isUnknownValue(value: string): boolean {
   return !normalized || normalized.includes("nao informado") || normalized.includes("sob consulta");
 }
 
+function isPreparationImage(src: string): boolean {
+  return src.toLowerCase().includes(PREPARATION_IMAGE_TOKEN);
+}
+
 export function VehicleDetailsPageClient({ slug }: Props) {
   const [vehicle, setVehicle] = useState<ApiVehicle | null>(null);
   const [storeItem, setStoreItem] = useState<StoreItem | null>(null);
@@ -128,6 +134,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
   });
   const [leadErrors, setLeadErrors] = useState<Record<string, string>>({});
   const [leadSuccess, setLeadSuccess] = useState(false);
+  const [isDirectionsOpen, setIsDirectionsOpen] = useState(false);
 
   const thumbsRef = useRef<HTMLDivElement | null>(null);
 
@@ -160,6 +167,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
   }, [slug]);
 
   useEffect(() => {
+    if (isPreparationImage(vehicle?.image ?? "")) return;
     if (!vehicle?.id) return;
 
     const controller = new AbortController();
@@ -183,7 +191,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
       window.clearTimeout(timeoutId);
       controller.abort();
     };
-  }, [vehicle?.id]);
+  }, [vehicle?.id, vehicle?.image]);
 
   useEffect(() => {
     if (!vehicle?.store) return;
@@ -271,12 +279,19 @@ export function VehicleDetailsPageClient({ slug }: Props) {
     };
   }, [isLightboxOpen]);
 
-  const activeImage = useMemo(() => gallery[selectedIndex] ?? vehicle?.image ?? FALLBACK_IMAGE, [gallery, selectedIndex, vehicle?.image]);
-  const galleryItems = useMemo(() => (gallery.length ? gallery : [vehicle?.image || FALLBACK_IMAGE]), [gallery, vehicle?.image]);
+  const isPreparationFallback = useMemo(() => isPreparationImage(vehicle?.image ?? FALLBACK_IMAGE), [vehicle?.image]);
+  const activeImage = useMemo(
+    () => (isPreparationFallback ? vehicle?.image || FALLBACK_IMAGE : gallery[selectedIndex] ?? vehicle?.image ?? FALLBACK_IMAGE),
+    [gallery, isPreparationFallback, selectedIndex, vehicle?.image]
+  );
+  const galleryItems = useMemo(
+    () => (isPreparationFallback ? [vehicle?.image || FALLBACK_IMAGE] : gallery.length ? gallery : [vehicle?.image || FALLBACK_IMAGE]),
+    [gallery, isPreparationFallback, vehicle?.image]
+  );
 
   const breadcrumbCategory = vehicle ? inferCategoryLabel(vehicle) : "";
   const storeTitle = removeStorePrefix(vehicle?.store ?? "Unidade Savol");
-  const storeAddress = storeItem?.address || (!isUnknownValue(vehicle?.city ?? "") ? `${vehicle?.city} - ${vehicle?.uf}` : "Endereco sob consulta");
+  const storeAddress = storeItem?.address || (!isUnknownValue(vehicle?.city ?? "") ? `${vehicle?.city} - ${vehicle?.uf}` : "Endereço sob consulta");
   const storePhone = storeItem?.phone || "(11) 2222-3333";
 
   const technicalRows = useMemo(
@@ -286,8 +301,8 @@ export function VehicleDetailsPageClient({ slug }: Props) {
             ["Modelo", vehicle.name],
             ["Ano/Modelo", vehicle.year],
             ["Quilometragem", vehicle.km],
-            ["Combustivel", vehicle.fuel],
-            ["Cambio", vehicle.transmission],
+            ["Combustível", vehicle.fuel],
+            ["Câmbio", vehicle.transmission],
             ["Cor", vehicle.color],
             ["Cidade", `${vehicle.city} - ${vehicle.uf}`],
             ["Loja", storeTitle]
@@ -299,12 +314,12 @@ export function VehicleDetailsPageClient({ slug }: Props) {
   const optionals = useMemo(
     () => [
       "Ar-condicionado digital",
-      "Direcao eletrica",
+      "Direção elétrica",
       "Chave presencial",
-      "Piloto automatico",
-      "Camera de re",
+      "Piloto automático",
+      "Câmera de ré",
       "Sensor de estacionamento",
-      "Multimidia com espelhamento",
+      "Multimídia com espelhamento",
       "Rodas de liga leve"
     ],
     []
@@ -338,7 +353,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
     if (!vehicle) return "";
     const digits = normalizePhone(storePhone);
     const phone = digits.length >= 10 ? `55${digits}` : "551122223333";
-    const message = encodeURIComponent(`Ola, tenho interesse no veiculo ${vehicle.name}.`);
+    const message = encodeURIComponent(`Olá, tenho interesse no veículo ${vehicle.name}.`);
     return `https://wa.me/${phone}?text=${message}`;
   }, [vehicle, storePhone]);
 
@@ -350,7 +365,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
       try {
         await navigator.share({
           title: vehicle.name,
-          text: `Confira este veiculo da Savol: ${vehicle.name}`,
+          text: `Confira este veículo da Savol: ${vehicle.name}`,
           url: shareUrl
         });
         return;
@@ -373,8 +388,8 @@ export function VehicleDetailsPageClient({ slug }: Props) {
   const validateLeadForm = () => {
     const nextErrors: Record<string, string> = {};
     if (!leadForm.name.trim()) nextErrors.name = "Informe seu nome";
-    if (!leadForm.phone.trim() || normalizePhone(leadForm.phone).length < 10) nextErrors.phone = "Informe telefone valido";
-    if (!leadForm.email.trim() || !/^\S+@\S+\.\S+$/.test(leadForm.email)) nextErrors.email = "Informe e-mail valido";
+    if (!leadForm.phone.trim() || normalizePhone(leadForm.phone).length < 10) nextErrors.phone = "Informe telefone válido";
+    if (!leadForm.email.trim() || !/^\S+@\S+\.\S+$/.test(leadForm.email)) nextErrors.email = "Informe e-mail válido";
     if (!leadForm.consent) nextErrors.consent = "Autorize o contato para enviar";
 
     setLeadErrors(nextErrors);
@@ -392,7 +407,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
   if (loadingVehicle) {
     return (
       <section className="container vehicle-details vehicle-details--loading">
-        <p>Carregando veiculo...</p>
+        <p>Carregando veículo...</p>
       </section>
     );
   }
@@ -400,10 +415,10 @@ export function VehicleDetailsPageClient({ slug }: Props) {
   if (!vehicle) {
     return (
       <section className="container vehicle-details vehicle-details--not-found">
-        <h1>Veiculo nao encontrado</h1>
-        <p>Este item nao esta mais disponivel ou foi removido do estoque.</p>
+        <h1>Veículo não encontrado</h1>
+        <p>Este item não está mais disponível ou foi removido do estoque.</p>
         <Link href="/veiculos" className="btn">
-          Voltar para veiculos
+          Voltar para veículos
         </Link>
       </section>
     );
@@ -414,7 +429,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
       <nav className="vehicle-breadcrumb" aria-label="Breadcrumb">
         <Link href="/">Home</Link>
         <span>/</span>
-        <Link href="/veiculos">Veiculos</Link>
+        <Link href="/veiculos">Veículos</Link>
         <span>/</span>
         <span>{breadcrumbCategory}</span>
         <span>/</span>
@@ -428,14 +443,18 @@ export function VehicleDetailsPageClient({ slug }: Props) {
       <div className="vehicle-details-layout">
         <div className="vehicle-details-gallery-col">
           <article className="vehicle-media-card">
-            <span className="vehicle-media-badge">{normalize(vehicle.qualityTag).includes("dono") ? "Unico dono" : vehicle.qualityTag}</span>
+            {!isPreparationFallback && <span className="vehicle-media-badge">{normalize(vehicle.qualityTag).includes("dono") ? "Único dono" : vehicle.qualityTag}</span>}
 
-            <button type="button" className="vehicle-media-arrow vehicle-media-arrow--left" aria-label="Foto anterior" onClick={goToPrevImage}>
-              <ChevronLeft size={20} />
-            </button>
-            <button type="button" className="vehicle-media-arrow vehicle-media-arrow--right" aria-label="Proxima foto" onClick={goToNextImage}>
-              <ChevronRight size={20} />
-            </button>
+            {!isPreparationFallback && (
+              <>
+                <button type="button" className="vehicle-media-arrow vehicle-media-arrow--left" aria-label="Foto anterior" onClick={goToPrevImage}>
+                  <ChevronLeft size={20} />
+                </button>
+                <button type="button" className="vehicle-media-arrow vehicle-media-arrow--right" aria-label="Próxima foto" onClick={goToNextImage}>
+                  <ChevronRight size={20} />
+                </button>
+              </>
+            )}
 
             <AnimatePresence mode="wait" initial={false}>
               <motion.div
@@ -447,41 +466,52 @@ export function VehicleDetailsPageClient({ slug }: Props) {
                 exit={{ opacity: 0, x: slideDirection > 0 ? -24 : 24, scale: 0.99, filter: "blur(4px)" }}
                 transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
               >
-                <button type="button" className="vehicle-media-hit" onClick={() => setIsLightboxOpen(true)} aria-label="Abrir imagem em tela cheia">
+                <button
+                  type="button"
+                  className={`vehicle-media-hit${isPreparationFallback ? " vehicle-media-hit--preparation" : ""}`}
+                  onClick={() => {
+                    if (!isPreparationFallback) setIsLightboxOpen(true);
+                  }}
+                  aria-label={isPreparationFallback ? "Imagem do veículo" : "Abrir imagem em tela cheia"}
+                >
                   <Image src={activeImage} alt={vehicle.name} width={1280} height={860} />
                 </button>
               </motion.div>
             </AnimatePresence>
 
-            <div className="vehicle-media-footer">
-              <button type="button" className="vehicle-media-view-btn" onClick={() => setIsLightboxOpen(true)}>
-                Ver fotos
-              </button>
-              <span className="vehicle-media-counter">
-                {selectedIndex + 1}/{galleryItems.length}
-              </span>
-            </div>
+            {!isPreparationFallback && (
+              <div className="vehicle-media-footer">
+                <button type="button" className="vehicle-media-view-btn" onClick={() => setIsLightboxOpen(true)}>
+                  Ver fotos
+                </button>
+                <span className="vehicle-media-counter">
+                  {selectedIndex + 1}/{galleryItems.length}
+                </span>
+              </div>
+            )}
           </article>
 
-          <div className="vehicle-thumb-shell">
-            <button type="button" className="vehicle-thumb-nav vehicle-thumb-nav--left" aria-label="Miniaturas anteriores" onClick={() => scrollThumbs("left")}>
-              <ChevronLeft size={17} />
-            </button>
+          {!isPreparationFallback && (
+            <div className="vehicle-thumb-shell">
+              <button type="button" className="vehicle-thumb-nav vehicle-thumb-nav--left" aria-label="Miniaturas anteriores" onClick={() => scrollThumbs("left")}>
+                <ChevronLeft size={17} />
+              </button>
 
-            <div className="vehicle-thumb-track" ref={thumbsRef}>
-              {galleryItems.map((imageUrl, index) => (
-                <button type="button" key={`${imageUrl}-${index}`} className={`vehicle-thumb-item${selectedIndex === index ? " is-active" : ""}`} onClick={() => goToImage(index)}>
-                  <Image src={imageUrl} alt={`${vehicle.name} - foto ${index + 1}`} width={150} height={98} />
-                </button>
-              ))}
+              <div className="vehicle-thumb-track" ref={thumbsRef}>
+                {galleryItems.map((imageUrl, index) => (
+                  <button type="button" key={`${imageUrl}-${index}`} className={`vehicle-thumb-item${selectedIndex === index ? " is-active" : ""}`} onClick={() => goToImage(index)}>
+                    <Image src={imageUrl} alt={`${vehicle.name} - foto ${index + 1}`} width={150} height={98} />
+                  </button>
+                ))}
+              </div>
+
+              <button type="button" className="vehicle-thumb-nav vehicle-thumb-nav--right" aria-label="Próximas miniaturas" onClick={() => scrollThumbs("right")}>
+                <ChevronRight size={17} />
+              </button>
             </div>
+          )}
 
-            <button type="button" className="vehicle-thumb-nav vehicle-thumb-nav--right" aria-label="Proximas miniaturas" onClick={() => scrollThumbs("right")}>
-              <ChevronRight size={17} />
-            </button>
-          </div>
-
-          {loadingGallery && <p className="vehicle-details-gallery-status">Carregando galeria completa...</p>}
+          {!isPreparationFallback && loadingGallery && <p className="vehicle-details-gallery-status">Carregando galeria completa...</p>}
         </div>
 
         <aside className="vehicle-details-side">
@@ -612,13 +642,13 @@ export function VehicleDetailsPageClient({ slug }: Props) {
           <div className="vehicle-extra-main">
             <div className="vehicle-extra-tabs">
               <button type="button" className={detailsTab === "sobre" ? "is-active" : ""} onClick={() => setDetailsTab("sobre")}>
-                Sobre o veiculo
+                Sobre o veículo
               </button>
               <button type="button" className={detailsTab === "opcionais" ? "is-active" : ""} onClick={() => setDetailsTab("opcionais")}>
                 Opcionais
               </button>
               <button type="button" className={detailsTab === "ficha" ? "is-active" : ""} onClick={() => setDetailsTab("ficha")}>
-                Ficha tecnica
+                Ficha técnica
               </button>
               <button type="button" className={detailsTab === "financiamento" ? "is-active" : ""} onClick={() => setDetailsTab("financiamento")}>
                 Financiamento
@@ -630,7 +660,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
 
             {detailsTab === "sobre" && (
               <div className="vehicle-extra-panel">
-                <h3>Sobre este veiculo</h3>
+                <h3>Sobre este veículo</h3>
                 <div className="vehicle-tab-specs">
                   <span>
                     <CalendarDays size={16} /> {vehicle.year}
@@ -646,21 +676,21 @@ export function VehicleDetailsPageClient({ slug }: Props) {
                   </span>
                 </div>
                 <p>
-                  {vehicle.name} {vehicle.subtitle}. Veiculo com {vehicle.transmission.toLowerCase()} e {vehicle.fuel.toLowerCase()}, pronto para uso diario com conforto,
-                  seguranca e tecnologia.
+                  {vehicle.name} {vehicle.subtitle}. Veículo com {vehicle.transmission.toLowerCase()} e {vehicle.fuel.toLowerCase()}, pronto para uso diário com conforto,
+                  segurança e tecnologia.
                 </p>
                 <p>
-                  Unidade: {storeTitle}. {isUnknownValue(storeAddress) ? "Endereco sob consulta." : storeAddress}
+                  Unidade: {storeTitle}. {isUnknownValue(storeAddress) ? "Endereço sob consulta." : storeAddress}
                 </p>
                 <div className="vehicle-extra-badges">
                   <span>
-                    <UserRound size={15} /> Historico verificado
+                    <UserRound size={15} /> Histórico verificado
                   </span>
                   <span>
-                    <BadgeCheck size={15} /> Revisao em dia
+                    <BadgeCheck size={15} /> Revisão em dia
                   </span>
                   <span>
-                    <ShieldCheck size={15} /> Garantia de fabrica
+                    <ShieldCheck size={15} /> Garantia de fábrica
                   </span>
                   <span>
                     <CheckCircle2 size={15} /> Laudo cautelar aprovado
@@ -671,7 +701,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
 
             {detailsTab === "opcionais" && (
               <div className="vehicle-extra-panel">
-                <h3>Opcionais e confortos</h3>
+                <h3>Opcionais e conforto</h3>
                 <div className="vehicle-optionals-grid">
                   {optionals.map((item) => (
                     <span key={item}>{item}</span>
@@ -682,7 +712,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
 
             {detailsTab === "ficha" && (
               <div className="vehicle-extra-panel">
-                <h3>Ficha tecnica resumida</h3>
+                <h3>Ficha técnica resumida</h3>
                 <div className="vehicle-tab-specs">
                   <span>
                     <CalendarDays size={16} /> {vehicle.year}
@@ -711,7 +741,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
             {detailsTab === "financiamento" && (
               <div className="vehicle-extra-panel">
                 <h3>Simule seu financiamento</h3>
-                <p>As melhores taxas com aprovacao rapida. Entrada facilitada e parcelas ajustadas ao seu perfil.</p>
+                <p>As melhores taxas com aprovação rápida. Entrada facilitada e parcelas ajustadas ao seu perfil.</p>
                 <button type="button" className="vehicle-finance-btn">
                   Simular agora
                 </button>
@@ -720,15 +750,13 @@ export function VehicleDetailsPageClient({ slug }: Props) {
 
             {detailsTab === "loja" && (
               <div className="vehicle-extra-panel">
-                <h3>Informacoes da loja</h3>
+                <h3>Informações da loja</h3>
                 <p>{storeTitle}</p>
                 <p>{storeAddress}</p>
                 <p>{storePhone}</p>
-                {storeItem?.mapUrl ? (
-                  <a href={storeItem.mapUrl} target="_blank" rel="noreferrer" className="vehicle-map-link">
-                    Ver rota no mapa
-                  </a>
-                ) : null}
+                <button type="button" className="vehicle-map-link" onClick={() => setIsDirectionsOpen(true)}>
+                  Ver rota no mapa
+                </button>
               </div>
             )}
           </div>
@@ -736,7 +764,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
 
         <article className="vehicle-related">
           <header>
-            <h3>Outros veiculos que podem te interessar</h3>
+            <h3>Outros veículos que podem te interessar</h3>
           </header>
           <div className="vehicle-related-grid">
             {loadingRelated &&
@@ -771,7 +799,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
       </section>
 
       <AnimatePresence>
-        {isLightboxOpen && (
+        {isLightboxOpen && !isPreparationFallback && (
           <motion.div className="vehicle-lightbox-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsLightboxOpen(false)}>
             <motion.div
               className="vehicle-lightbox-dialog"
@@ -790,13 +818,20 @@ export function VehicleDetailsPageClient({ slug }: Props) {
               <div className="vehicle-lightbox-media">
                 <Image src={activeImage} alt={vehicle.name} width={1440} height={920} />
               </div>
-              <button type="button" className="vehicle-lightbox-nav vehicle-lightbox-nav--right" onClick={goToNextImage} aria-label="Proxima foto">
+              <button type="button" className="vehicle-lightbox-nav vehicle-lightbox-nav--right" onClick={goToNextImage} aria-label="Próxima foto">
                 <ChevronRight size={24} />
               </button>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
+
+      <MapDirectionsModal
+        open={isDirectionsOpen}
+        storeName={storeTitle}
+        address={storeAddress}
+        onClose={() => setIsDirectionsOpen(false)}
+      />
     </section>
   );
 }

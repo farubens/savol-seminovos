@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect } from "react";
 import { ExternalLink, Navigation, X } from "lucide-react";
@@ -42,14 +42,15 @@ export function MapDirectionsModal({ open, storeName, address, onClose }: MapDir
 
   return (
     <div className="directions-modal-backdrop" onClick={onClose}>
-      <div className="directions-modal" role="dialog" aria-modal="true" aria-label={`Opções de rota para ${storeName}`} onClick={(event) => event.stopPropagation()}>
+      <div className="directions-modal" role="dialog" aria-modal="true" aria-label={`Opções de rota para ${storeName || "Savol"}`} onClick={(event) => event.stopPropagation()}>
         <button type="button" className="directions-modal-close" aria-label="Fechar modal de rotas" onClick={onClose}>
           <X size={18} />
         </button>
 
         <p className="directions-modal-kicker">Como chegar</p>
-        <h3>{storeName}</h3>
-        <p className="directions-modal-address">{address}</p>
+        <h3>Vá até a Savol mais próxima de você</h3>
+        {storeName ? <p className="directions-modal-store">{storeName}</p> : null}
+        {address ? <p className="directions-modal-address">{address}</p> : null}
 
         <div className="directions-modal-actions">
           <a href={wazeUrl} target="_blank" rel="noopener noreferrer" className="directions-modal-app is-waze">
@@ -74,4 +75,3 @@ export function MapDirectionsModal({ open, storeName, address, onClose }: MapDir
     </div>
   );
 }
-

@@ -219,7 +219,11 @@ export function StoreDirectory() {
     <section className="container stores-directory">
       <header className="stores-directory-head">
         <h1>Nossas lojas</h1>
-        <p>{loading ? "Carregando unidades..." : `${filteredStores.length} unidade(s) disponível(is)`}</p>
+        <p>
+          {loading
+            ? "Carregando unidades..."
+            : `${filteredStores.length} ${filteredStores.length === 1 ? "unidade disponível" : "unidades disponíveis"}`}
+        </p>
       </header>
 
       <div className={`stores-directory-layout ${isSidebarCollapsed ? "is-sidebar-collapsed" : ""}`}>

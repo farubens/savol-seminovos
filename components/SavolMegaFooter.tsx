@@ -8,7 +8,7 @@ export function SavolMegaFooter() {
       <section className="savol-footer-bottom">
         <div className="container savol-footer-bottom-grid">
           <div className="savol-footer-company">
-            <Image src="/images/logo-branco.png" alt="Savol" width={220} height={62} />
+            <Image src="/images/logo-branco.png" alt="Savol" width={220} height={62} className="savol-footer-logo" />
             <p>Somos um grupo empresarial familiar, sólido e com forte presença nas regiões do Grande ABC, São Paulo e Baixada Santista.</p>
             <div className="savol-footer-socials">
               <button type="button" aria-label="LinkedIn">
@@ -30,8 +30,7 @@ export function SavolMegaFooter() {
               <Link href="/veiculos">Veículos</Link>
             </div>
             <div>
-              <Link href="/ajuda">Ajuda</Link>
-              <Link href="/contato">Contato</Link>
+              <button type="button" aria-disabled="true" className="savol-footer-contact-link">Contato</button>
             </div>
           </div>
 
@@ -41,10 +40,6 @@ export function SavolMegaFooter() {
               <strong>Vendas:</strong>
               Segunda a sexta das 08h às 19h
               Sábado das 09h às 18h
-            </p>
-            <p>
-              <strong>Pós-vendas e peças:</strong>
-              Segunda a sexta das 08h às 18h
             </p>
           </div>
 
@@ -69,8 +64,7 @@ export function SavolMegaFooter() {
           <div className="savol-footer-address">
             <h4>Endereço administrativo</h4>
             <p>
-              <MapPin size={18} /> Av. Eng. Caetano Álvares, 5000
-              São Paulo - SP
+              <MapPin size={18} /> Endereço: Av. Artur de Queirós, 701 - Casa Branca, Santo André - SP, 09015-510
             </p>
             <hr />
             <p>

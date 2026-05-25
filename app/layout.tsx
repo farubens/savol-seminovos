@@ -6,7 +6,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Savol Seminovos",
-  description: "Encontre o carro ideal para voce"
+  description: "Encontre o carro ideal para você"
 };
 
 export default function RootLayout({

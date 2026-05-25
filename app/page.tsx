@@ -33,10 +33,10 @@ export default function Home() {
           <div className="hero-copy">
             <p className="hero-badge">
               <Star size={14} fill="currentColor" strokeWidth={0} />
-              Grupo Savol
+              Grupo Savol 60 anos
             </p>
             <h1>
-              Encontre o <span>carro ideal</span>
+              Encontre o <br /><span>carro ideal</span>
               <br />
               para você.
             </h1>
@@ -51,7 +51,16 @@ export default function Home() {
             </div>
           </div>
           <div className="hero-image-wrap floating">
-            <Image src="/images/hero-car.png" alt="Carro destaque" width={720} height={420} className="hero-image" />
+            <Image
+              src="/images/creta-seminovo.png"
+              alt="Carro destaque"
+              width={1200}
+              height={500}
+              quality={100}
+              sizes="(min-width: 1200px) 1060px, (min-width: 768px) 84vw, 96vw"
+              className="hero-image"
+              priority
+            />
           </div>
         </div>
       </section>

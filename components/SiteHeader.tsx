@@ -1,4 +1,4 @@
-import Image from "next/image";
+﻿import Image from "next/image";
 import Link from "next/link";
 import { Facebook, Instagram, Search } from "lucide-react";
 
@@ -12,7 +12,7 @@ export function SiteHeader({ active = "home" }: HeaderProps) {
       <div className="topbar">
         <div className="container topbar-inner">
           <div className="topbar-social-spacer" aria-hidden="true" />
-          <p className="topbar-schedule">Segunda a sexta: 08h as 19h | Sabado: 08h as 18h</p>
+          <p className="topbar-schedule">Segunda a sexta: 08h às 19h | Sábado: 09h às 18h</p>
           <div className="topbar-social" aria-label="Redes sociais">
             <a className="topbar-social-link" href="https://www.facebook.com/" target="_blank" rel="noopener noreferrer" aria-label="Facebook Savol">
               <Facebook size={14} />
@@ -31,20 +31,32 @@ export function SiteHeader({ active = "home" }: HeaderProps) {
             Home
           </Link>
           <Link className={active === "veiculos" ? "active" : ""} href="/veiculos">
-            Veiculos
+            Veículos
           </Link>
           <Link className={active === "lojas" ? "active" : ""} href="/lojas">
             Lojas
           </Link>
-          <Link className={active === "venda" ? "active" : ""} href="/venda-seu-carro">
-            Venda seu carro
-          </Link>
+
+          <div className={`nav-item-has-submenu ${active === "venda" ? "is-active" : ""}`}>
+            <Link className={active === "venda" ? "active" : ""} href="/venda-seu-carro" aria-haspopup="menu">
+              Venda seu carro
+            </Link>
+            <div className="nav-submenu" role="menu" aria-label="Submenu de venda">
+              <Link href="/venda-seu-carro" role="menuitem">
+                Venda seu carro
+              </Link>
+              <Link href="/venda-por-atacado" role="menuitem">
+                Venda por atacado
+              </Link>
+            </div>
+          </div>
+
           <Link className={active === "institucional" ? "active" : ""} href="/institucional">
             Institucional
           </Link>
-          <Link className="btn btn-sm" href="/contato">
+          <button type="button" className="btn btn-sm" aria-disabled="true">
             Contato
-          </Link>
+          </button>
           <Link href="/veiculos" className="icon-btn" aria-label="Buscar">
             <Search size={16} />
           </Link>
@@ -53,4 +65,3 @@ export function SiteHeader({ active = "home" }: HeaderProps) {
     </>
   );
 }
-

@@ -5,6 +5,7 @@ import { BriefcaseBusiness, Bus, Car, CarFront, ChevronLeft, ChevronRight, Gem, 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useHomeSessionData } from "@/components/HomeSessionDataProvider";
+import { VehicleOfferCard } from "@/components/VehicleOfferCard";
 import type { ApiVehicle } from "@/types/home";
 
 type TabKey = "marca" | "categoria" | "unidade" | "eletricos" | "descrever";
@@ -87,6 +88,26 @@ function toSlug(value: string): string {
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+function normalizeText(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+}
+
+function isElectricLikeVehicle(vehicle: ApiVehicle): boolean {
+  const source = normalizeText(`${vehicle.fuel} ${vehicle.name} ${vehicle.model} ${vehicle.version} ${vehicle.subtitle}`);
+  return (
+    source.includes("eletric") ||
+    source.includes("hibrid") ||
+    source.includes("hybrid") ||
+    source.includes("ev") ||
+    source.includes("phev") ||
+    source.includes("plug-in")
+  );
 }
 
 function unsplashDownload(id: string): string {
@@ -296,6 +317,16 @@ export function CategoryFinder() {
       .filter((value): value is number => typeof value === "number");
 
     return buildPriceOptions(parsedPrices);
+  }, [vehicles]);
+
+  const electricFeaturedVehicles = useMemo<ApiVehicle[]>(() => {
+    if (!vehicles.length) return [];
+
+    const electricLike = vehicles.filter(isElectricLikeVehicle);
+    const electricIds = new Set(electricLike.map((vehicle) => vehicle.id));
+    const fallback = vehicles.filter((vehicle) => !electricIds.has(vehicle.id));
+
+    return [...electricLike, ...fallback].slice(0, 8);
   }, [vehicles]);
 
   useEffect(() => {
@@ -581,6 +612,37 @@ export function CategoryFinder() {
                 );
               })}
             </div>
+          )}
+        </div>
+      ) : activeTab === "eletricos" ? (
+        <div className="offer-grid">
+          {!electricFeaturedVehicles.length ? (
+            <article className="offer-card empty-state">
+              <h3>Sem veículos no momento</h3>
+              <p>Assim que o estoque atualizar, os cards aparecerão aqui.</p>
+            </article>
+          ) : (
+            electricFeaturedVehicles.map((vehicle, index) => (
+              <VehicleOfferCard
+                key={vehicle.id}
+                vehicleId={vehicle.id}
+                name={vehicle.name}
+                subtitle={vehicle.subtitle}
+                image={vehicle.image}
+                gallery={vehicle.gallery}
+                year={vehicle.year}
+                transmission={vehicle.transmission}
+                fuel={vehicle.fuel}
+                km={vehicle.km}
+                store={vehicle.store}
+                oldPrice={vehicle.oldPrice}
+                price={vehicle.price}
+                detailUrl={vehicle.url}
+                qualityTag={vehicle.qualityTag}
+                delay={index * 0.05}
+                variant="grid"
+              />
+            ))
           )}
         </div>
       ) : (

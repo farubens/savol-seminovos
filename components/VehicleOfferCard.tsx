@@ -18,6 +18,7 @@ import {
   X
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
+import { MapDirectionsModal } from "@/components/MapDirectionsModal";
 
 type Props = {
   vehicleId: number;
@@ -103,8 +104,18 @@ function isExternalUrl(url: string): boolean {
   return /^https?:\/\//i.test(url);
 }
 
+function normalizeStoreName(value: string): string {
+  return value.replace(/^loja:\s*/i, "").trim();
+}
+
 const galleryCacheByVehicle = new Map<number, string[]>();
 const galleryInFlightByVehicle = new Map<number, Promise<string[]>>();
+const FALLBACK_IMAGE = "/images/em-preparacao.jpg";
+const PREPARATION_IMAGE_TOKEN = "/images/em-preparacao";
+
+function isPreparationImage(src: string): boolean {
+  return src.toLowerCase().includes(PREPARATION_IMAGE_TOKEN);
+}
 
 async function loadVehicleGallery(vehicleId: number): Promise<string[]> {
   if (galleryCacheByVehicle.has(vehicleId)) {
@@ -156,11 +167,13 @@ export function VehicleOfferCard({
   variant = "grid"
 }: Props) {
   const financeId = useId();
+  const safeImage = image || FALLBACK_IMAGE;
+  const isPreparationFallback = isPreparationImage(safeImage);
   const calculationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const galleryLoadingGuardRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(true);
   const normalizedTag = normalizeTag(qualityTag);
-  const showTag = Boolean(qualityTag.trim()) && !normalizedTag.includes("seminovo");
+  const showTag = Boolean(qualityTag.trim()) && !normalizedTag.includes("seminovo") && !isPreparationFallback;
   const tagTone = resolveTagTone(qualityTag);
   const resolvedOldPrice = resolveOldPrice(oldPrice, price);
   const priceValue = parseMoney(price) ?? 0;
@@ -173,6 +186,7 @@ export function VehicleOfferCard({
   const [entryInput, setEntryInput] = useState(formatEntryInput(defaultEntryValue));
   const [installments, setInstallments] = useState(48);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [isDirectionsOpen, setIsDirectionsOpen] = useState(false);
   const installmentOptions = [12, 24, 36, 48, 60, 72];
   const modalTitle = useMemo(() => {
     const normalizedName = normalizeSpaces(name);
@@ -191,12 +205,13 @@ export function VehicleOfferCard({
     return normalizedName;
   }, [name, subtitle]);
   const fallbackModalGallery = useMemo(() => {
-    const items = Array.from(new Set([image, ...gallery].filter(Boolean)));
-    return items.length ? items : ["/images/hero-car.png"];
-  }, [gallery, image]);
+    const sourceGallery = isPreparationFallback ? [] : gallery;
+    const items = Array.from(new Set([safeImage, ...sourceGallery].filter(Boolean)));
+    return items.length ? items : [FALLBACK_IMAGE];
+  }, [gallery, isPreparationFallback, safeImage]);
   const modalGallery = useMemo(() => {
     const combined = Array.from(new Set([...remoteGallery, ...fallbackModalGallery].filter(Boolean)));
-    return combined.length ? combined : ["/images/hero-car.png"];
+    return combined.length ? combined : [FALLBACK_IMAGE];
   }, [fallbackModalGallery, remoteGallery]);
 
   const entryValue = Math.min(parseEntryInput(entryInput), priceValue);
@@ -239,6 +254,7 @@ export function VehicleOfferCard({
   }, [isFinanceModalOpen]);
 
   const loadGalleryOnDemand = () => {
+    if (isPreparationFallback) return;
     if (vehicleId <= 0) return;
 
     if (galleryCacheByVehicle.has(vehicleId)) {
@@ -330,6 +346,7 @@ export function VehicleOfferCard({
     : "Simular parcelas";
   const resolvedDetailUrl = detailUrl && detailUrl !== "#" ? detailUrl : "/veiculos";
   const detailUrlIsExternal = isExternalUrl(resolvedDetailUrl);
+  const directionsStoreName = normalizeStoreName(store);
 
   const goToNextGalleryImage = () => {
     setSelectedImageIndex((current) => (current + 1) % modalGallery.length);
@@ -348,9 +365,9 @@ export function VehicleOfferCard({
         viewport={{ once: true, amount: 0.2 }}
         transition={{ duration: 0.45, delay, ease: "easeOut" }}
       >
-        <div className="offer-media">
+        <div className={`offer-media${isPreparationFallback ? " offer-media--preparation" : ""}`}>
           {showTag && <span className={`offer-tag offer-tag--${tagTone}`}>{qualityTag}</span>}
-          <Image src={image} alt={name} width={630} height={360} />
+          <Image src={safeImage} alt={name} width={630} height={360} />
         </div>
 
         <div className="offer-content">
@@ -394,15 +411,9 @@ export function VehicleOfferCard({
                 <MapPin size={16} />
                 <span className="offer-store-name">Loja: {store}</span>
               </p>
-              {detailUrlIsExternal ? (
-                <a className="offer-store-link" href={resolvedDetailUrl} target="_blank" rel="noopener noreferrer">
-                  Como chegar
-                </a>
-              ) : (
-                <Link className="offer-store-link" href={resolvedDetailUrl}>
-                  Como chegar
-                </Link>
-              )}
+              <button type="button" className="offer-store-link" onClick={() => setIsDirectionsOpen(true)}>
+                Como chegar
+              </button>
             </div>
 
             <div className="offer-actions">
@@ -422,6 +433,13 @@ export function VehicleOfferCard({
           </div>
         </div>
       </motion.article>
+
+      <MapDirectionsModal
+        open={isDirectionsOpen}
+        storeName={directionsStoreName}
+        address=""
+        onClose={() => setIsDirectionsOpen(false)}
+      />
 
       <AnimatePresence>
         {isFinanceModalOpen && (
@@ -446,9 +464,9 @@ export function VehicleOfferCard({
 
               <div className="finance-modal-grid">
                 <div className="finance-modal-gallery">
-                  <div className="finance-modal-media">
-                    <Image src={modalGallery[selectedImageIndex] ?? image} alt={name} width={920} height={620} />
-                    {modalGallery.length > 1 && (
+                  <div className={`finance-modal-media${isPreparationFallback ? " finance-modal-media--preparation" : ""}`}>
+                    <Image src={modalGallery[selectedImageIndex] ?? safeImage} alt={name} width={920} height={620} />
+                    {!isPreparationFallback && modalGallery.length > 1 && (
                       <>
                         <button
                           type="button"
@@ -470,20 +488,22 @@ export function VehicleOfferCard({
                     )}
                   </div>
 
-                  <div className="finance-modal-gallery-strip">
-                    {modalGallery.map((galleryImage, index) => (
-                      <button
-                        type="button"
-                        key={`${galleryImage}-${index}`}
-                        className={`finance-modal-thumb${index === selectedImageIndex ? " is-active" : ""}`}
-                        onClick={() => setSelectedImageIndex(index)}
-                        aria-label={`Visualizar imagem ${index + 1}`}
-                      >
-                        <Image src={galleryImage} alt={`${name} - miniatura ${index + 1}`} width={150} height={92} />
-                      </button>
-                    ))}
-                  </div>
-                  {isLoadingRemoteGallery && (
+                  {!isPreparationFallback && (
+                    <div className="finance-modal-gallery-strip">
+                      {modalGallery.map((galleryImage, index) => (
+                        <button
+                          type="button"
+                          key={`${galleryImage}-${index}`}
+                          className={`finance-modal-thumb${index === selectedImageIndex ? " is-active" : ""}`}
+                          onClick={() => setSelectedImageIndex(index)}
+                          aria-label={`Visualizar imagem ${index + 1}`}
+                        >
+                          <Image src={galleryImage} alt={`${name} - miniatura ${index + 1}`} width={150} height={92} />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {!isPreparationFallback && isLoadingRemoteGallery && (
                     <p className="finance-modal-gallery-loading">
                       <LoaderCircle size={14} className="spin" /> Carregando galeria completa...
                     </p>

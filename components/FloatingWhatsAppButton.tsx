@@ -1,7 +1,7 @@
 import Image from "next/image";
 
 const WHATSAPP_PHONE = "551122223333";
-const WHATSAPP_TEXT = encodeURIComponent("Ola! Quero atendimento da Savol.");
+const WHATSAPP_TEXT = encodeURIComponent("Olá! Quero atendimento da Savol.");
 
 export function FloatingWhatsAppButton() {
   return (

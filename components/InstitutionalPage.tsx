@@ -7,26 +7,26 @@ const historyStats = [
   {
     icon: Users,
     value: "+60",
-    title: "anos de historia",
-    description: "Tradicao que se renova a cada dia."
+    title: "anos de história",
+    description: "Tradição que se renova a cada dia."
   },
   {
     icon: Building2,
     value: "+20",
     title: "unidades",
-    description: "Presenca estrategica no Grande ABC, SP e Baixada."
+    description: "Presença estratégica no Grande ABC, SP e Baixada."
   },
   {
     icon: ShieldCheck,
     value: "6",
     title: "marcas representadas",
-    description: "Volkswagen, Toyota, Kia, Fiat, Peugeot e Citroen."
+    description: "Volkswagen, Toyota, Kia, Fiat, Peugeot e Citroën."
   },
   {
     icon: Award,
     value: "Milhares",
     title: "de clientes",
-    description: "Relacoes construidas com confianca e transparencia."
+    description: "Relações construídas com confiança e transparência."
   }
 ];
 
@@ -34,22 +34,22 @@ const values = [
   {
     icon: ShieldCheck,
     title: "Integridade",
-    description: "Agimos com etica, transparencia e honestidade em todas as nossas relacoes."
+    description: "Agimos com ética, transparência e honestidade em todas as nossas relações."
   },
   {
     icon: GraduationCap,
-    title: "Aprendizado continuo",
-    description: "Estamos em evolucao constante, aprendendo para gerar resultados melhores."
+    title: "Aprendizado contínuo",
+    description: "Estamos em evolução constante, aprendendo para gerar resultados melhores."
   },
   {
     icon: Lightbulb,
-    title: "Inovacao",
+    title: "Inovação",
     description: "Buscamos novas ideias, tecnologias e processos para evoluir continuamente."
   },
   {
     icon: Users,
-    title: "Inclusao",
-    description: "Valorizamos diversidade, respeito mutuo e trabalho colaborativo."
+    title: "Inclusão",
+    description: "Valorizamos diversidade, respeito mútuo e trabalho colaborativo."
   },
   {
     icon: BookOpen,
@@ -59,7 +59,7 @@ const values = [
   {
     icon: Handshake,
     title: "Relacionamento",
-    description: "Nosso negocio e construido em relacoes duradouras, proximas e confiaveis."
+    description: "Nosso negócio é construído em relações duradouras, próximas e confiáveis."
   }
 ];
 
@@ -77,19 +77,19 @@ export function InstitutionalPage() {
     <section className="container institutional-page">
       <header className="institutional-hero">
         <div className="institutional-hero-copy">
-          <p className="institutional-head-breadcrumb">Inicio / Institucional / Sobre o Grupo Savol</p>
+          <p className="institutional-head-breadcrumb">Início / Institucional / Sobre o Grupo Savol</p>
           <h1>Sobre o Grupo Savol</h1>
           <span className="institutional-head-line" />
-          <p className="institutional-head-lead">Ha mais de 60 anos movendo pessoas, construindo relacoes e gerando valor.</p>
+          <p className="institutional-head-lead">Há mais de 60 anos movendo pessoas, construindo relações e gerando valor.</p>
         </div>
         <div className="institutional-hero-photo" aria-hidden="true" />
       </header>
 
       <section className="institutional-overview">
         <article className="institutional-about">
-          <p>Somos um grupo empresarial familiar, solido e com forte presenca no Grande ABC, Sao Paulo e Baixada Santista.</p>
-          <p>Fundado em 1963, nosso grupo atua no varejo automotivo com foco em experiencia, credibilidade e relacionamento.</p>
-          <p>Com orgulho, representamos grandes marcas e seguimos evoluindo com inovacao e foco total no cliente.</p>
+          <p>Somos um grupo empresarial familiar, sólido e com forte presença no Grande ABC, São Paulo e Baixada Santista.</p>
+          <p>Fundado em 1963, nosso grupo atua no varejo automotivo com foco em experiência, credibilidade e relacionamento.</p>
+          <p>Com orgulho, representamos grandes marcas e seguimos evoluindo com inovação e foco total no cliente.</p>
         </article>
 
         <div className="institutional-stats">
@@ -112,8 +112,8 @@ export function InstitutionalPage() {
             <Target size={ICON_SIZE} />
           </span>
           <div>
-            <h3>Missao</h3>
-            <p>Fornecer solucoes automotivas de alta qualidade, com excelencia no atendimento e foco no desenvolvimento sustentavel.</p>
+            <h3>Missão</h3>
+            <p>Fornecer soluções automotivas de alta qualidade, com excelência no atendimento e foco no desenvolvimento sustentável.</p>
           </div>
         </article>
         <article className="institutional-purpose-item">
@@ -121,8 +121,8 @@ export function InstitutionalPage() {
             <Eye size={ICON_SIZE} />
           </span>
           <div>
-            <h3>Visao</h3>
-            <p>Ser reconhecido como grupo lider em mobilidade e servicos, conectado com a evolucao do mercado e da sociedade.</p>
+            <h3>Visão</h3>
+            <p>Ser reconhecido como grupo líder em mobilidade e serviços, conectado com a evolução do mercado e da sociedade.</p>
           </div>
         </article>
       </section>
@@ -168,7 +168,7 @@ export function InstitutionalPage() {
           </span>
           <div>
             <h3>Fique por dentro das novidades Savol</h3>
-            <p>Receba ofertas exclusivas, lancamentos e oportunidades.</p>
+            <p>Receba ofertas exclusivas, lançamentos e oportunidades.</p>
           </div>
         </div>
         <form className="institutional-newsletter-form">
