@@ -1,10 +1,11 @@
-"use client";
+﻿"use client";
 
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, ChevronLeft, ChevronRight, Filter, MapPin, Navigation, PhoneCall, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, MapPin, Navigation, PhoneCall, Search } from "lucide-react";
 import { useHomeSessionData } from "@/components/HomeSessionDataProvider";
 import { MapDirectionsModal } from "@/components/MapDirectionsModal";
+import { StoreDetailsModal } from "@/components/StoreDetailsModal";
 import type { ApiStore } from "@/types/home";
 import type { StoreMapPoint } from "@/components/StoresLeafletMap";
 
@@ -26,6 +27,16 @@ const GEO_HINTS: Array<{ keys: string[]; point: GeoPoint }> = [
   { keys: ["sao-bernardo", "sao-bernardo-do-campo"], point: { lat: -23.6914, lng: -46.5646 } },
   { keys: ["santo-andre"], point: { lat: -23.6639, lng: -46.5383 } }
 ];
+
+function normalizeCep(value: string): string {
+  return value.replace(/[^\d]/g, "").slice(0, 8);
+}
+
+function formatCep(value: string): string {
+  const digits = normalizeCep(value);
+  if (digits.length <= 5) return digits;
+  return `${digits.slice(0, 5)}-${digits.slice(5)}`;
+}
 
 function normalizeText(value: string): string {
   return value
@@ -95,34 +106,75 @@ function spreadOverlappingPoints(stores: StoreWithGeo[]): StoreWithGeo[] {
 export function StoreDirectory() {
   const { stores, loading } = useHomeSessionData();
   const [query, setQuery] = useState("");
-  const [brandFilter, setBrandFilter] = useState("all");
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [cep, setCep] = useState("");
+  const [locationStatus, setLocationStatus] = useState("");
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [selectedStoreId, setSelectedStoreId] = useState<number | null>(null);
+  const [storeModal, setStoreModal] = useState<ApiStore | null>(null);
   const [routeModalStore, setRouteModalStore] = useState<ApiStore | null>(null);
   const [userPoint, setUserPoint] = useState<GeoPoint | null>(null);
   const storesListRef = useRef<HTMLDivElement | null>(null);
   const storeCardRefs = useRef(new Map<number, HTMLElement>());
+  const skipAutoScrollRef = useRef(false);
 
-  useEffect(() => {
-    if (!("geolocation" in navigator)) return;
+  const requestUserLocation = () => {
+    if (!("geolocation" in navigator)) {
+      setLocationStatus("Seu navegador não suporta geolocalização.");
+      return;
+    }
+    setLocationStatus("Solicitando sua localização...");
     navigator.geolocation.getCurrentPosition(
       (position) => {
         setUserPoint({
           lat: position.coords.latitude,
           lng: position.coords.longitude
         });
+        setLocationStatus("Localização aplicada. Lojas ordenadas por proximidade.");
       },
       () => {
-        setUserPoint(null);
+        setLocationStatus("Não foi possível obter sua localização.");
       },
-      { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
     );
-  }, []);
+  };
 
-  const brands = useMemo(() => {
-    const values = Array.from(new Set(stores.map((store) => store.brand).filter(Boolean)));
-    return values.sort((a, b) => a.localeCompare(b, "pt-BR"));
-  }, [stores]);
+  const applyCepLocation = async () => {
+    const sanitizedCep = normalizeCep(cep);
+    if (sanitizedCep.length !== 8) {
+      setLocationStatus("Informe um CEP válido com 8 dígitos.");
+      return;
+    }
+
+    setLocationStatus("Localizando CEP...");
+    try {
+      const cepResponse = await fetch(`https://viacep.com.br/ws/${sanitizedCep}/json/`, { cache: "no-store" });
+      const cepPayload = (await cepResponse.json()) as { erro?: boolean; logradouro?: string; localidade?: string; uf?: string };
+      if (!cepResponse.ok || cepPayload?.erro) {
+        setLocationStatus("CEP não encontrado.");
+        return;
+      }
+
+      const queryAddress = [cepPayload.logradouro, cepPayload.localidade, cepPayload.uf, "Brasil"].filter(Boolean).join(", ");
+      const geoResponse = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=br&q=${encodeURIComponent(queryAddress)}`,
+        {
+          headers: { Accept: "application/json" },
+          cache: "no-store"
+        }
+      );
+      const geoPayload = (await geoResponse.json()) as Array<{ lat: string; lon: string }>;
+      const first = geoPayload?.[0];
+      if (!geoResponse.ok || !first) {
+        setLocationStatus("Não foi possível localizar esse CEP no mapa.");
+        return;
+      }
+
+      setUserPoint({ lat: Number(first.lat), lng: Number(first.lon) });
+      setLocationStatus("CEP aplicado. Lojas ordenadas por proximidade.");
+    } catch {
+      setLocationStatus("Falha ao consultar o CEP. Tente novamente.");
+    }
+  };
 
   const storesWithGeo = useMemo<StoreWithGeo[]>(() => {
     const positioned = stores.map((store) => {
@@ -138,7 +190,6 @@ export function StoreDirectory() {
 
     return storesWithGeo
       .filter((store) => {
-        if (brandFilter !== "all" && normalizeText(store.brand) !== brandFilter) return false;
         if (!normalizedQuery) return true;
         const content = normalizeText(`${store.name} ${store.address} ${store.brand}`);
         return content.includes(normalizedQuery);
@@ -148,7 +199,20 @@ export function StoreDirectory() {
         distanceKm: distanceInKm(reference, { lat: store.lat, lng: store.lng })
       }))
       .sort((a, b) => a.distanceKm - b.distanceKm);
-  }, [brandFilter, query, storesWithGeo, userPoint]);
+  }, [query, storesWithGeo, userPoint]);
+  const handleFindNearestStore = async () => {
+    skipAutoScrollRef.current = true;
+    const sanitizedCep = normalizeCep(cep);
+    if (sanitizedCep.length === 8) {
+      await applyCepLocation();
+      return;
+    }
+    requestUserLocation();
+  };
+
+  useEffect(() => {
+    requestUserLocation();
+  }, []);
 
   useEffect(() => {
     if (!filteredStores.length) {
@@ -163,6 +227,10 @@ export function StoreDirectory() {
 
   useEffect(() => {
     if (selectedStoreId == null || isSidebarCollapsed) return;
+    if (skipAutoScrollRef.current) {
+      skipAutoScrollRef.current = false;
+      return;
+    }
 
     let timerId: number | null = null;
     const rafId = window.requestAnimationFrame(() => {
@@ -229,35 +297,32 @@ export function StoreDirectory() {
       <div className={`stores-directory-layout ${isSidebarCollapsed ? "is-sidebar-collapsed" : ""}`}>
         <aside className={`stores-directory-sidebar ${isSidebarCollapsed ? "is-collapsed" : ""}`}>
           <div className="stores-directory-toolbar">
-            <label className="stores-search-input" htmlFor="stores-search">
-              <Search size={19} />
+            <label className="stores-search-input" htmlFor="stores-cep">
+              <MapPin size={19} />
               <input
-                id="stores-search"
-                type="search"
-                placeholder="Buscar por cidade ou loja"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
+                id="stores-cep"
+                type="text"
+                inputMode="numeric"
+                placeholder="Insira seu CEP"
+                value={formatCep(cep)}
+                maxLength={9}
+                onChange={(event) => setCep(normalizeCep(event.target.value))}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    void handleFindNearestStore();
+                  }
+                }}
               />
             </label>
 
-            <label className="stores-filter-input" htmlFor="stores-filter">
-              <Filter size={17} />
-              <select
-                id="stores-filter"
-                value={brandFilter}
-                onChange={(event) => setBrandFilter(event.target.value)}
-                aria-label="Filtrar por marca"
-              >
-                <option value="all">Filtrar</option>
-                {brands.map((brand) => (
-                  <option key={brand} value={normalizeText(brand)}>
-                    {brand}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown size={16} />
-            </label>
+            <button type="button" className="stores-filter-input" aria-label="Buscar loja mais próxima" onClick={() => void handleFindNearestStore()}>
+              <Search size={17} />
+              <span>Buscar</span>
+            </button>
           </div>
+
+          {locationStatus ? <p className="stores-location-status">{locationStatus}</p> : null}
 
           <div className="stores-directory-list" ref={storesListRef}>
             {!loading && filteredStores.length === 0 && (
@@ -297,10 +362,24 @@ export function StoreDirectory() {
                     </p>
                     <p className="stores-card-count">{store.vehiclesCount} veículos</p>
                     <div className="stores-card-actions">
-                      <a className="store-btn-primary" href={store.storeUrl} target="_blank" rel="noopener noreferrer">
+                      <button
+                        type="button"
+                        className="store-btn-primary"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setStoreModal(store);
+                        }}
+                      >
                         Ver loja
-                      </a>
-                      <button type="button" className="store-btn-ghost" onClick={() => setRouteModalStore(store)}>
+                      </button>
+                      <button
+                        type="button"
+                        className="store-btn-ghost"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setRouteModalStore(store);
+                        }}
+                      >
                         <Navigation size={14} /> Como chegar
                       </button>
                     </div>
@@ -335,6 +414,20 @@ export function StoreDirectory() {
         address={routeModalStore?.address ?? ""}
         onClose={() => setRouteModalStore(null)}
       />
+
+      <StoreDetailsModal
+        open={Boolean(storeModal)}
+        store={storeModal}
+        onClose={() => setStoreModal(null)}
+        onOpenDirections={(store) => {
+          setStoreModal(null);
+          setRouteModalStore(store);
+        }}
+      />
     </section>
   );
 }
+
+
+
+

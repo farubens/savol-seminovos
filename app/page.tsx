@@ -25,7 +25,7 @@ import { SiteHeader } from "@/components/SiteHeader";
 export default function Home() {
   return (
     <main>
-      <SiteHeader active="home" />
+      <SiteHeader active="home" showEnvNote />
 
 
       <section className="hero">
@@ -36,7 +36,7 @@ export default function Home() {
               Grupo Savol 60 anos
             </p>
             <h1>
-              Encontre o <br /><span>carro ideal</span>
+              Encontre o <br /><span>seminovo ideal</span>
               <br />
               para você.
             </h1>

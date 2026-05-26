@@ -38,7 +38,7 @@ const tabs: Array<{ key: TabKey; label: string }> = [
   { key: "categoria", label: "Categoria" },
   { key: "eletricos", label: "Elétricos" },
   { key: "unidade", label: "Unidade" },
-  { key: "descrever", label: "Descrever veículo" }
+  { key: "descrever", label: "Pesquisar veículo" }
 ];
 
 const aiExamples = [
@@ -186,10 +186,9 @@ const cardsByTab: Record<Exclude<TabKey, "descrever" | "marca">, CategoryCardIte
     { id: "hatch-c", title: "Hatch", amount: "232 veículos", bgImage: bg.hatch, icon: "hatch", href: "/veiculos?bodies=hatch" },
     { id: "sedan-c", title: "Sedan", amount: "198 veículos", bgImage: bg.sedan, icon: "sedan", href: "/veiculos?bodies=sedan" },
     { id: "suv-c", title: "SUV", amount: "312 veículos", bgImage: bg.suv, icon: "suv", href: "/veiculos?bodies=suv" },
-    { id: "picape-c", title: "Picapes", amount: "164 veículos", bgImage: bg.picape, icon: "picape", href: "/veiculos?bodies=pickup" },
-    { id: "ele-c", title: "Elétricos", amount: "48 veículos", bgImage: bg.esportivo, icon: "eletrico", href: "/veiculos?q=eletrico" },
-    { id: "exe-c", title: "Executivos", amount: "86 veículos", bgImage: bg.luxo, icon: "executivo", href: "/veiculos?q=executivo" },
-    { id: "pre-c", title: "Premium", amount: "74 veículos", bgImage: bg.sedan, icon: "premium", href: "/veiculos?q=premium" }
+    { id: "pickup-c", title: "Pickup", amount: "164 veículos", bgImage: bg.picape, icon: "picape", href: "/veiculos?bodies=pickup" },
+    { id: "util-c", title: "Utilitários", amount: "52 veículos", bgImage: bg.utilitarios, icon: "utilitarios", href: "/veiculos?bodies=utilitario" },
+    { id: "ele-c", title: "Elétricos", amount: "48 veículos", bgImage: bg.esportivo, icon: "eletrico", href: "/veiculos?q=eletrico" }
   ],
   unidade: [
     { id: "sa-u", title: "Santo André", amount: "201 veículos", bgImage: bg.hatch, icon: "hatch", href: "/veiculos?q=santo-andre" },
@@ -455,6 +454,7 @@ export function CategoryFinder() {
       <div className="finder-tabs">
         {tabs.map((tab) => (
           <button key={tab.key} className={activeTab === tab.key ? "active" : ""} type="button" onClick={() => setActiveTab(tab.key)}>
+            {tab.key === "descrever" && <Search size={16} aria-hidden="true" />}
             {tab.label}
           </button>
         ))}

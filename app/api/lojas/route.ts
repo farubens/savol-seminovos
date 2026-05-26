@@ -1,21 +1,7 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
-const WP_BASE_URL = "https://palevioletred-lark-270684.hostingersite.com";
-const UNIDADE_ENDPOINT = `${WP_BASE_URL}/wp-json/wp/v2/veiculo_unidade`;
 const DEFAULT_PER_PAGE = 12;
-const MAX_PER_PAGE = 30;
-const API_CACHE_TTL_MS = 2 * 60 * 1000;
-const WP_DEFAULT_USER = "fa.rubens@gmail.com";
-const WP_DEFAULT_APP_PASSWORD = "W9y4 bUld QOIG PV4u oIHo csrb";
-
-type WpUnidadeTerm = {
-  id: number;
-  name?: string;
-  slug?: string;
-  link?: string;
-  count?: number;
-  meta?: Record<string, unknown>;
-};
+const MAX_PER_PAGE = 60;
 
 type ApiStore = {
   id: number;
@@ -29,123 +15,11 @@ type ApiStore = {
   mapUrl: string;
 };
 
-type CachedStores = {
-  items: ApiStore[];
-  expiresAt: number;
-};
-
-let storesCache: CachedStores | null = null;
-let storesInFlight: Promise<ApiStore[]> | null = null;
-
-type StoreFallback = {
-  phone: string;
-  address: string;
-};
-
-const FALLBACK_ADDRESS = "Av. Pereira Barreto, 888 - Paraíso, Santo André - SP, 09190-610";
-const FALLBACK_PHONE = "(11) 4435-1000";
-
-const STORE_INFO_FALLBACK: Record<string, StoreFallback> = {
-  "unidade savol toyota santo andre": {
-    phone: "(11) 4979-6000",
-    address: "Av. Artur de Queirós, 469 - Casa Branca, Santo André - SP, 09015-510"
-  },
-  "unidade savol toyota sao bernardo do campo": {
-    phone: "(11) 3809-1000",
-    address: "Av. Senador Vergueiro, 2332 - Anchieta, São Bernardo do Campo - SP, 09600-004"
-  },
-  "unidade savol toyota maua": {
-    phone: "(11) 4979-6000",
-    address: "Av. João Ramalho, 1853 - Vila Noêmia, Mauá - SP, 09371-520"
-  },
-  "unidade savol toyota praia grande": {
-    phone: "(13) 3476-7000",
-    address: "Av. Guilhermina, 1021 - Guilhermina, Praia Grande - SP, 11701-500"
-  },
-  "unidade savol toyota dom pedro ii": {
-    phone: "(11) 4979-6000",
-    address: "Av. Dom Pedro II, 2500 - Santo André - SP, 09080-110"
-  },
-  "unidade savol volkswagen santo andre": {
-    phone: "(11) 4435-1000",
-    address: "Av. Artur de Queirós, 701 - Casa Branca, Santo André - SP, 09015-510"
-  },
-  "unidade savol volkswagen pereira barreto": {
-    phone: "(11) 4435-1000",
-    address: "Av. Pereira Barreto, 888 - Paraíso, Santo André - SP, 09190-610"
-  },
-  "unidade savol peugeot santo andre": {
-    phone: "(11) 3381-1000",
-    address: "Av. Artur de Queirós, 426 - Casa Branca, Santo André - SP, 09015-510"
-  },
-  "unidade savol peugeot sao bernardo do campo": {
-    phone: "(11) 3381-1000",
-    address: "Av. Senador Vergueiro, 2302 - Anchieta, São Bernardo do Campo - SP, 09600-004"
-  },
-  "unidade savol peugeot sao caetano do sul": {
-    phone: "(11) 3381-1000",
-    address: "Av. Goiás, 2155 - Santo Antônio, São Caetano do Sul - SP, 09521-300"
-  },
-  "unidade savol citroen santo andre": {
-    phone: "(11) 3381-1001",
-    address: "Av. Artur de Queirós, 424 - Casa Branca, Santo André - SP, 09015-510"
-  },
-  "unidade savol citroen sao bernardo do campo": {
-    phone: "(11) 3381-1001",
-    address: "Av. Senador Vergueiro, 2302 - Rudge Ramos, São Bernardo do Campo - SP, 09600-004"
-  },
-  "unidade savol citroen sao caetano do sul": {
-    phone: "(11) 3381-1001",
-    address: "Av. Goiás, 2155 - Santo Antônio, São Caetano do Sul - SP, 09521-300"
-  },
-  "unidade savol fiat santo andre": {
-    phone: "(11) 3319-1000",
-    address: "Av. Artur de Queirós, 414 - Casa Branca, Santo André - SP, 09015-510"
-  },
-  "unidade savol fiat sao caetano do sul": {
-    phone: "(11) 3319-1000",
-    address: "Av. Goiás, 2145 - Barcelona, São Caetano do Sul - SP, 09550-001"
-  },
-  "unidade savol fiat sao bernardo do campo": {
-    phone: "(11) 3319-1000",
-    address: "Av. Senador Vergueiro, 2348 - Anchieta, São Bernardo do Campo - SP, 09600-004"
-  },
-  "unidade savol kia santo andre": {
-    phone: "(11) 3381-1010",
-    address: "Av. Artur de Queirós, 727 - Casa Branca, Santo André - SP, 09015-510"
-  },
-  "unidade savol kia sao paulo": {
-    phone: "(11) 3381-1010",
-    address: "Av. Nazaré, 444 - Ipiranga, São Paulo - SP, 04262-000"
-  },
-  "unidade savol mg motor": {
-    phone: "(11) 3809-1010",
-    address: "Av. Goiás, 3048 - Santo Antônio, São Caetano do Sul - SP, 09521-310"
-  },
-  "unidade savol jetour": {
-    phone: "(11) 3319-1010",
-    address: "Av. Dom Pedro II, 2550 - Campestre, Santo André - SP, 09080-000"
-  },
-  "unidade savol jetour sao caetano do sul": {
-    phone: "(11) 3319-1010",
-    address: "Alameda Terracota, 545 - Cerâmica, São Caetano do Sul - SP, 09531-190"
-  }
-};
-
-const BRAND_LABELS: Array<[string, string]> = [
-  ["volkswagen", "Volkswagen"],
-  ["toyota", "Toyota"],
-  ["peugeot", "Peugeot"],
-  ["citroen", "Citroën"],
-  ["abarth", "Abarth"],
-  ["jetour", "Jetour"],
-  ["mg motor", "MG Motor"],
-  ["fiat", "Fiat"],
-  ["kia", "Kia"],
-  ["savol", "Savol"]
-];
-
 export const dynamic = "force-dynamic";
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
 
 function toInt(value: string | null | undefined, fallback: number): number {
   const parsed = Number.parseInt(value ?? "", 10);
@@ -153,201 +27,256 @@ function toInt(value: string | null | undefined, fallback: number): number {
   return parsed;
 }
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}
-
-function cleanText(value: string | undefined): string {
-  if (!value) return "";
-  return value.replace(/\s+/g, " ").trim();
-}
-
-function normalize(value: string): string {
+function toSlug(value: string): string {
   return value
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
-function toMetaString(value: unknown): string {
-  if (value == null) return "";
-  if (typeof value === "string") return cleanText(value);
-  if (typeof value === "number") return String(value);
-  if (typeof value === "boolean") return value ? "1" : "0";
-  if (Array.isArray(value)) return toMetaString(value[0]);
-  if (typeof value === "object") {
-    const rendered = (value as { rendered?: unknown }).rendered;
-    if (rendered != null) return toMetaString(rendered);
-  }
-  return "";
-}
-
-function getAuthHeaders(): HeadersInit {
-  const user = process.env.WP_API_USER?.trim() || WP_DEFAULT_USER;
-  const appPassword = process.env.WP_API_APP_PASSWORD?.trim() || WP_DEFAULT_APP_PASSWORD;
-  if (!user || !appPassword) return {};
-  const token = Buffer.from(`${user}:${appPassword}`).toString("base64");
-  return { Authorization: `Basic ${token}` };
-}
-
-async function fetchJson<T>(url: string, init?: RequestInit): Promise<{ data: T | null; status: number }> {
-  const response = await fetch(url, { ...init, cache: "no-store" });
-  if (!response.ok) return { data: null, status: response.status };
-  return { data: (await response.json()) as T, status: response.status };
-}
-
-function formatStoreName(value: string): string {
-  const smallWords = new Set(["de", "da", "do", "dos", "das", "e"]);
-  const words = cleanText(value).split(" ");
-  const normalized = words.map((word, index) => {
-    const lower = word.toLowerCase();
-    if (smallWords.has(lower) && index > 0) return lower;
-    return lower.charAt(0).toUpperCase() + lower.slice(1);
-  });
-  return normalized
-    .join(" ")
-    .replace(/\bVw\b/g, "VW")
-    .replace(/\bMg\b/g, "MG")
-    .replace(/\bIi\b/g, "II");
-}
-
-function inferBrand(storeName: string): string {
-  const normalizedName = normalize(storeName);
-  for (const [needle, label] of BRAND_LABELS) {
-    if (normalizedName.includes(needle)) return label;
-  }
-  return "Savol";
-}
-
-function findFallback(storeName: string): StoreFallback | null {
-  const normalizedName = normalize(storeName);
-  const direct = STORE_INFO_FALLBACK[normalizedName];
-  if (direct) return direct;
-
-  const prefixed = STORE_INFO_FALLBACK[`unidade ${normalizedName}`];
-  if (prefixed) return prefixed;
-
-  for (const [key, value] of Object.entries(STORE_INFO_FALLBACK)) {
-    if (key.includes(normalizedName) || normalizedName.includes(key)) return value;
-  }
-  return null;
-}
-
-function extractTermMeta(term: WpUnidadeTerm): { address: string; phone: string } {
-  const addressKeys = ["veiculo_unidade_endereco", "endereco", "address"];
-  const phoneKeys = ["veiculo_unidade_telefone", "telefone", "phone"];
-
-  let address = "";
-  let phone = "";
-
-  for (const key of addressKeys) {
-    const candidate = toMetaString(term.meta?.[key]);
-    if (candidate) {
-      address = candidate;
-      break;
-    }
-  }
-
-  for (const key of phoneKeys) {
-    const candidate = toMetaString(term.meta?.[key]);
-    if (candidate) {
-      phone = candidate;
-      break;
-    }
-  }
-
-  return { address, phone };
-}
-
-function buildMapUrl(value: string): string {
+function mapUrl(value: string): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(value)}`;
 }
 
-function mapTermToStore(term: WpUnidadeTerm): ApiStore {
-  const rawName = cleanText(term.name) || `Unidade ${term.id}`;
-  const displayName = formatStoreName(rawName);
-  const brand = inferBrand(displayName);
-  const fallback = findFallback(displayName);
-  const fromMeta = extractTermMeta(term);
-  const address = fromMeta.address || fallback?.address || FALLBACK_ADDRESS;
-  const phone = fromMeta.phone || fallback?.phone || FALLBACK_PHONE;
-  const vehiclesCount = Number(term.count ?? 0);
-  const termSlug = cleanText(term.slug) || String(term.id);
-  const storeUrl = cleanText(term.link) || `${WP_BASE_URL}/veiculo_unidade/${termSlug}`;
-
-  return {
-    id: term.id,
-    slug: termSlug,
-    brand,
-    name: displayName,
-    address,
-    phone,
-    vehiclesCount,
-    storeUrl,
-    mapUrl: buildMapUrl(address || displayName)
-  };
-}
-
-async function fetchStores(perPage: number, authHeaders: HeadersInit): Promise<WpUnidadeTerm[]> {
-  const query = new URLSearchParams({
-    per_page: String(perPage),
-    hide_empty: "true",
-    _fields: "id,name,slug,link,count,meta"
-  });
-
-  if (Object.keys(authHeaders).length > 0) {
-    const editQuery = new URLSearchParams(query);
-    editQuery.set("context", "edit");
-    const editRows = await fetchJson<WpUnidadeTerm[]>(`${UNIDADE_ENDPOINT}?${editQuery.toString()}`, {
-      headers: authHeaders
-    });
-    if (Array.isArray(editRows.data) && editRows.data.length) return editRows.data;
+const OFFICIAL_STORES: ApiStore[] = [
+  {
+    id: 1,
+    slug: toSlug("Unidade Savol Toyota Santo André"),
+    brand: "Toyota",
+    name: "Unidade Savol Toyota Santo André",
+    address: "Av. Artur de Queirós, 469 - Casa Branca, Santo André - SP, 09015-510",
+    phone: "(11) 4979-6000",
+    vehiclesCount: 0,
+    storeUrl: "/lojas",
+    mapUrl: mapUrl("Av. Artur de Queirós, 469 - Casa Branca, Santo André - SP, 09015-510")
+  },
+  {
+    id: 2,
+    slug: toSlug("Unidade Savol Toyota São Bernardo do Campo"),
+    brand: "Toyota",
+    name: "Unidade Savol Toyota São Bernardo do Campo",
+    address: "Av. Senador Vergueiro, 2332 - Anchieta, São Bernardo do Campo - SP, 09600-004",
+    phone: "(11) 3809-1000",
+    vehiclesCount: 0,
+    storeUrl: "/lojas",
+    mapUrl: mapUrl("Av. Senador Vergueiro, 2332 - Anchieta, São Bernardo do Campo - SP, 09600-004")
+  },
+  {
+    id: 3,
+    slug: toSlug("Unidade Savol Toyota Mauá"),
+    brand: "Toyota",
+    name: "Unidade Savol Toyota Mauá",
+    address: "Av. João Ramalho, 1853 - Vila Noêmia, Mauá - SP, 09371-520",
+    phone: "(11) 4979-6000",
+    vehiclesCount: 0,
+    storeUrl: "/lojas",
+    mapUrl: mapUrl("Av. João Ramalho, 1853 - Vila Noêmia, Mauá - SP, 09371-520")
+  },
+  {
+    id: 4,
+    slug: toSlug("Unidade Savol Toyota Praia Grande"),
+    brand: "Toyota",
+    name: "Unidade Savol Toyota Praia Grande",
+    address: "Av. Guilhermina, 1021 - Guilhermina, Praia Grande - SP, 11701-500",
+    phone: "(13) 3476-7000",
+    vehiclesCount: 0,
+    storeUrl: "/lojas",
+    mapUrl: mapUrl("Av. Guilhermina, 1021 - Guilhermina, Praia Grande - SP, 11701-500")
+  },
+  {
+    id: 5,
+    slug: toSlug("Unidade Savol Toyota Dom Pedro II"),
+    brand: "Toyota",
+    name: "Unidade Savol Toyota Dom Pedro II",
+    address: "Av. Dom Pedro II, 2500 - Santo André - SP, 09080-110",
+    phone: "(11) 4979-6000",
+    vehiclesCount: 0,
+    storeUrl: "/lojas",
+    mapUrl: mapUrl("Av. Dom Pedro II, 2500 - Santo André - SP, 09080-110")
+  },
+  {
+    id: 6,
+    slug: toSlug("Unidade Savol Volkswagen Santo André"),
+    brand: "Volkswagen",
+    name: "Unidade Savol Volkswagen Santo André",
+    address: "Av. Artur de Queirós, 701 - Casa Branca, Santo André - SP, 09015-510",
+    phone: "(11) 4435-1000",
+    vehiclesCount: 0,
+    storeUrl: "/lojas",
+    mapUrl: mapUrl("Av. Artur de Queirós, 701 - Casa Branca, Santo André - SP, 09015-510")
+  },
+  {
+    id: 7,
+    slug: toSlug("Unidade Savol Volkswagen Pereira Barreto"),
+    brand: "Volkswagen",
+    name: "Unidade Savol Volkswagen Pereira Barreto",
+    address: "Av. Pereira Barreto, 888 - Paraíso, Santo André - SP",
+    phone: "(11) 4435-1000",
+    vehiclesCount: 0,
+    storeUrl: "/lojas",
+    mapUrl: mapUrl("Av. Pereira Barreto, 888 - Paraíso, Santo André - SP")
+  },
+  {
+    id: 8,
+    slug: toSlug("Unidade Savol Peugeot Santo André"),
+    brand: "Peugeot",
+    name: "Unidade Savol Peugeot Santo André",
+    address: "Av. Artur de Queirós, 426 - Casa Branca, Santo André - SP, 09015-510",
+    phone: "(11) 3381-1000",
+    vehiclesCount: 0,
+    storeUrl: "/lojas",
+    mapUrl: mapUrl("Av. Artur de Queirós, 426 - Casa Branca, Santo André - SP, 09015-510")
+  },
+  {
+    id: 9,
+    slug: toSlug("Unidade Savol Peugeot São Bernardo do Campo"),
+    brand: "Peugeot",
+    name: "Unidade Savol Peugeot São Bernardo do Campo",
+    address: "Av. Senador Vergueiro, 2302 - Anchieta, São Bernardo do Campo - SP, 09600-004",
+    phone: "(11) 3381-1000",
+    vehiclesCount: 0,
+    storeUrl: "/lojas",
+    mapUrl: mapUrl("Av. Senador Vergueiro, 2302 - Anchieta, São Bernardo do Campo - SP, 09600-004")
+  },
+  {
+    id: 10,
+    slug: toSlug("Unidade Savol Peugeot São Caetano do Sul"),
+    brand: "Peugeot",
+    name: "Unidade Savol Peugeot São Caetano do Sul",
+    address: "Av. Goiás, 2155 - Santo Antônio, São Caetano do Sul - SP, 09521-300",
+    phone: "(11) 3381-1000",
+    vehiclesCount: 0,
+    storeUrl: "/lojas",
+    mapUrl: mapUrl("Av. Goiás, 2155 - Santo Antônio, São Caetano do Sul - SP, 09521-300")
+  },
+  {
+    id: 11,
+    slug: toSlug("Unidade Savol Citroen Santo André"),
+    brand: "Citroen",
+    name: "Unidade Savol Citroen Santo André",
+    address: "Av. Artur de Queirós, 424 - Casa Branca, Santo André - SP, 09015-510",
+    phone: "(11) 3381-1001",
+    vehiclesCount: 0,
+    storeUrl: "/lojas",
+    mapUrl: mapUrl("Av. Artur de Queirós, 424 - Casa Branca, Santo André - SP, 09015-510")
+  },
+  {
+    id: 12,
+    slug: toSlug("Unidade Savol Citroen São Bernardo do Campo"),
+    brand: "Citroen",
+    name: "Unidade Savol Citroen São Bernardo do Campo",
+    address: "Av. Senador Vergueiro, 2302 - Rudge Ramos, São Bernardo do Campo - SP, 09600-004",
+    phone: "(11) 3381-1001",
+    vehiclesCount: 0,
+    storeUrl: "/lojas",
+    mapUrl: mapUrl("Av. Senador Vergueiro, 2302 - Rudge Ramos, São Bernardo do Campo - SP, 09600-004")
+  },
+  {
+    id: 13,
+    slug: toSlug("Unidade Savol Citroen São Caetano do Sul"),
+    brand: "Citroen",
+    name: "Unidade Savol Citroen São Caetano do Sul",
+    address: "Av. Goiás, 2155 - Santo Antônio, São Caetano do Sul - SP, 09521-300",
+    phone: "(11) 3381-1001",
+    vehiclesCount: 0,
+    storeUrl: "/lojas",
+    mapUrl: mapUrl("Av. Goiás, 2155 - Santo Antônio, São Caetano do Sul - SP, 09521-300")
+  },
+  {
+    id: 14,
+    slug: toSlug("Unidade Savol Fiat Santo André"),
+    brand: "Fiat",
+    name: "Unidade Savol Fiat Santo André",
+    address: "Av. Artur de Queirós, 414 - Casa Branca, Santo André - SP, 09015-510",
+    phone: "(11) 3319-1000",
+    vehiclesCount: 0,
+    storeUrl: "/lojas",
+    mapUrl: mapUrl("Av. Artur de Queirós, 414 - Casa Branca, Santo André - SP, 09015-510")
+  },
+  {
+    id: 15,
+    slug: toSlug("Unidade Savol Fiat São Caetano do Sul"),
+    brand: "Fiat",
+    name: "Unidade Savol Fiat São Caetano do Sul",
+    address: "Av. Goiás, 2145 - Barcelona, São Caetano do Sul - SP, 09550-001",
+    phone: "(11) 3319-1000",
+    vehiclesCount: 0,
+    storeUrl: "/lojas",
+    mapUrl: mapUrl("Av. Goiás, 2145 - Barcelona, São Caetano do Sul - SP, 09550-001")
+  },
+  {
+    id: 16,
+    slug: toSlug("Unidade Savol Fiat São Bernardo do Campo"),
+    brand: "Fiat",
+    name: "Unidade Savol Fiat São Bernardo do Campo",
+    address: "Av. Senador Vergueiro, 2348 - Anchieta, São Bernardo do Campo - SP, 09600-004",
+    phone: "(11) 3319-1000",
+    vehiclesCount: 0,
+    storeUrl: "/lojas",
+    mapUrl: mapUrl("Av. Senador Vergueiro, 2348 - Anchieta, São Bernardo do Campo - SP, 09600-004")
+  },
+  {
+    id: 17,
+    slug: toSlug("Unidade Savol Kia Santo André"),
+    brand: "Kia",
+    name: "Unidade Savol Kia Santo André",
+    address: "Av. Artur de Queirós, 727 - Casa Branca, Santo André - SP, 09015-510",
+    phone: "(11) 3381-1010",
+    vehiclesCount: 0,
+    storeUrl: "/lojas",
+    mapUrl: mapUrl("Av. Artur de Queirós, 727 - Casa Branca, Santo André - SP, 09015-510")
+  },
+  {
+    id: 18,
+    slug: toSlug("Unidade Savol Kia São Paulo"),
+    brand: "Kia",
+    name: "Unidade Savol Kia São Paulo",
+    address: "Av. Nazaré, 444 - Ipiranga, São Paulo - SP, 04262-000",
+    phone: "(11) 3381-1010",
+    vehiclesCount: 0,
+    storeUrl: "/lojas",
+    mapUrl: mapUrl("Av. Nazaré, 444 - Ipiranga, São Paulo - SP, 04262-000")
+  },
+  {
+    id: 19,
+    slug: toSlug("Unidade Savol MG Motor"),
+    brand: "MG Motor",
+    name: "Unidade Savol MG Motor",
+    address: "Av. Goiás, 3048 - Santo Antônio, São Caetano do Sul - SP, 09521-310",
+    phone: "(11) 3809-1010",
+    vehiclesCount: 0,
+    storeUrl: "/lojas",
+    mapUrl: mapUrl("Av. Goiás, 3048 - Santo Antônio, São Caetano do Sul - SP, 09521-310")
+  },
+  {
+    id: 20,
+    slug: toSlug("Unidade Savol JETOUR"),
+    brand: "Jetour",
+    name: "Unidade Savol JETOUR",
+    address: "Av. D. Pedro II, 2550 - Bairro Campestre, Santo André - SP",
+    phone: "(11) 3319-1010",
+    vehiclesCount: 0,
+    storeUrl: "/lojas",
+    mapUrl: mapUrl("Av. D. Pedro II, 2550 - Bairro Campestre, Santo André - SP")
+  },
+  {
+    id: 21,
+    slug: toSlug("Unidade Savol JETOUR São Caetano do Sul"),
+    brand: "Jetour",
+    name: "Unidade Savol JETOUR São Caetano do Sul",
+    address: "Alameda Terracota, 545 - Piso 1, Térreo - Cerâmica, São Caetano do Sul - SP, 09531-190",
+    phone: "(11) 3319-1010",
+    vehiclesCount: 0,
+    storeUrl: "/lojas",
+    mapUrl: mapUrl("Alameda Terracota, 545 - Piso 1, Térreo - Cerâmica, São Caetano do Sul - SP, 09531-190")
   }
-
-  const viewRows = await fetchJson<WpUnidadeTerm[]>(`${UNIDADE_ENDPOINT}?${query.toString()}`);
-  return Array.isArray(viewRows.data) ? viewRows.data : [];
-}
+];
 
 export async function GET(request: NextRequest) {
-  try {
-    const perPageInput = toInt(request.nextUrl.searchParams.get("per_page"), DEFAULT_PER_PAGE);
-    const perPage = clamp(perPageInput, 1, MAX_PER_PAGE);
-    const now = Date.now();
-
-    if (storesCache && storesCache.expiresAt > now) {
-      return NextResponse.json({ items: storesCache.items.slice(0, perPage) });
-    }
-
-    if (!storesInFlight) {
-      storesInFlight = (async () => {
-        const authHeaders = getAuthHeaders();
-        const terms = await fetchStores(MAX_PER_PAGE, authHeaders);
-        if (!terms.length) return [];
-
-        const items = terms
-          .map(mapTermToStore)
-          .sort((a, b) => b.vehiclesCount - a.vehiclesCount);
-
-        storesCache = {
-          items,
-          expiresAt: Date.now() + API_CACHE_TTL_MS
-        };
-
-        return items;
-      })()
-        .catch(() => storesCache?.items ?? [])
-        .finally(() => {
-          storesInFlight = null;
-        });
-    }
-
-    const items = await storesInFlight;
-    return NextResponse.json({ items: items.slice(0, perPage) });
-  } catch {
-    return NextResponse.json({ items: storesCache?.items.slice(0, clamp(toInt(request.nextUrl.searchParams.get("per_page"), DEFAULT_PER_PAGE), 1, MAX_PER_PAGE)) ?? [] }, { status: 200 });
-  }
+  const perPageInput = toInt(request.nextUrl.searchParams.get("per_page"), DEFAULT_PER_PAGE);
+  const perPage = clamp(perPageInput, 1, MAX_PER_PAGE);
+  return NextResponse.json({ items: OFFICIAL_STORES.slice(0, perPage) });
 }
-
 

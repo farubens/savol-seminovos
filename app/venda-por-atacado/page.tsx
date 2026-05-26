@@ -5,7 +5,7 @@ import { SiteHeader } from "@/components/SiteHeader";
 export default function VendaPorAtacadoPage() {
   return (
     <main>
-      <SiteHeader active="venda" />
+      <SiteHeader active="atacado" />
 
       <section className="container wholesale-page">
         <article className="wholesale-hero">

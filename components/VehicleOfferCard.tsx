@@ -96,6 +96,17 @@ function parseEntryInput(value: string): number {
   return Number(digits);
 }
 
+function normalizePhone(value: string): string {
+  return value.replace(/[^\d]/g, "").slice(0, 11);
+}
+
+function calculateCompoundInstallment(principal: number, monthlyRate: number, months: number): number {
+  if (principal <= 0 || months <= 0) return 0;
+  if (monthlyRate <= 0) return principal / months;
+  const factor = (1 + monthlyRate) ** months;
+  return principal * ((monthlyRate * factor) / (factor - 1));
+}
+
 function normalizeSpaces(value: string): string {
   return value.replace(/\s+/g, " ").trim();
 }
@@ -166,6 +177,14 @@ export function VehicleOfferCard({
   delay = 0,
   variant = "grid"
 }: Props) {
+  type ProposalFormState = {
+    name: string;
+    phone: string;
+    email: string;
+    message: string;
+    consent: boolean;
+  };
+
   const financeId = useId();
   const safeImage = image || FALLBACK_IMAGE;
   const isPreparationFallback = isPreparationImage(safeImage);
@@ -177,16 +196,27 @@ export function VehicleOfferCard({
   const tagTone = resolveTagTone(qualityTag);
   const resolvedOldPrice = resolveOldPrice(oldPrice, price);
   const priceValue = parseMoney(price) ?? 0;
-  const defaultEntryValue = useMemo(() => Math.round(priceValue * 0.3), [priceValue]);
+  const minEntryValue = useMemo(() => Math.round(priceValue * 0.4), [priceValue]);
+  const monthlyInterestRate = 0.0165;
   const [isFinanceModalOpen, setIsFinanceModalOpen] = useState(false);
   const [isSimulatingFinance, setIsSimulatingFinance] = useState(false);
   const [didSimulateFinance, setDidSimulateFinance] = useState(false);
+  const [showProposalForm, setShowProposalForm] = useState(false);
+  const [proposalSent, setProposalSent] = useState(false);
   const [isLoadingRemoteGallery, setIsLoadingRemoteGallery] = useState(false);
   const [remoteGallery, setRemoteGallery] = useState<string[]>([]);
-  const [entryInput, setEntryInput] = useState(formatEntryInput(defaultEntryValue));
+  const [entryInput, setEntryInput] = useState(formatEntryInput(minEntryValue));
+  const [entryError, setEntryError] = useState("");
   const [installments, setInstallments] = useState(48);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [isDirectionsOpen, setIsDirectionsOpen] = useState(false);
+  const [proposalForm, setProposalForm] = useState<ProposalFormState>({
+    name: "",
+    phone: "",
+    email: "",
+    message: "",
+    consent: true
+  });
   const installmentOptions = [12, 24, 36, 48, 60, 72];
   const modalTitle = useMemo(() => {
     const normalizedName = normalizeSpaces(name);
@@ -215,12 +245,13 @@ export function VehicleOfferCard({
   }, [fallbackModalGallery, remoteGallery]);
 
   const entryValue = Math.min(parseEntryInput(entryInput), priceValue);
+  const hasMinEntryError = priceValue > 0 && entryValue < minEntryValue;
   const financedValue = Math.max(priceValue - entryValue, 0);
-  const installmentValue = installments > 0 ? financedValue / installments : 0;
+  const installmentValue = calculateCompoundInstallment(financedValue, monthlyInterestRate, installments);
 
   useEffect(() => {
-    setEntryInput(formatEntryInput(defaultEntryValue));
-  }, [defaultEntryValue]);
+    setEntryInput(formatEntryInput(minEntryValue));
+  }, [minEntryValue]);
 
   useEffect(() => {
     return () => {
@@ -291,8 +322,11 @@ export function VehicleOfferCard({
 
   const openFinanceModal = () => {
     setInstallments(48);
-    setEntryInput(formatEntryInput(defaultEntryValue));
+    setEntryInput(formatEntryInput(minEntryValue));
+    setEntryError("");
     setDidSimulateFinance(false);
+    setShowProposalForm(false);
+    setProposalSent(false);
     setIsSimulatingFinance(false);
     setIsLoadingRemoteGallery(false);
     setSelectedImageIndex(0);
@@ -312,11 +346,26 @@ export function VehicleOfferCard({
     }
     setIsSimulatingFinance(false);
     setIsLoadingRemoteGallery(false);
+    setShowProposalForm(false);
+    setProposalSent(false);
     setIsFinanceModalOpen(false);
   };
 
   const handleSimulateFinance = () => {
+    if (showProposalForm) {
+      setShowProposalForm(false);
+      setProposalSent(false);
+      return;
+    }
     if (isSimulatingFinance || priceValue <= 0) return;
+    if (didSimulateFinance) {
+      setShowProposalForm(true);
+      return;
+    }
+    if (hasMinEntryError) {
+      setEntryError("Necessário ser pelo menos 40% de entrada.");
+      return;
+    }
     setDidSimulateFinance(false);
     setIsSimulatingFinance(true);
 
@@ -333,6 +382,11 @@ export function VehicleOfferCard({
   const handleEntryChange = (value: string) => {
     const numeric = parseEntryInput(value);
     setEntryInput(formatEntryInput(numeric));
+    if (priceValue > 0 && numeric < minEntryValue) {
+      setEntryError("Necessário ser pelo menos 40% de entrada.");
+    } else {
+      setEntryError("");
+    }
     setDidSimulateFinance(false);
   };
 
@@ -341,9 +395,19 @@ export function VehicleOfferCard({
     setDidSimulateFinance(false);
   };
 
-  const resultLabel = didSimulateFinance
-    ? `Parcelas de ${formatMoney(installmentValue, 2, 2)} - Saiba mais`
-    : "Simular parcelas";
+  const handleProposalSubmit = () => {
+    if (!proposalForm.name.trim()) return;
+    if (normalizePhone(proposalForm.phone).length < 10) return;
+    if (!proposalForm.email.trim()) return;
+    if (!proposalForm.consent) return;
+    setProposalSent(true);
+  };
+
+  const resultLabel = showProposalForm
+    ? "Voltar"
+    : didSimulateFinance
+      ? `Parcelas de ${formatMoney(installmentValue, 2, 2)} - Saiba mais`
+      : "Simular parcelas";
   const resolvedDetailUrl = detailUrl && detailUrl !== "#" ? detailUrl : "/veiculos";
   const detailUrlIsExternal = isExternalUrl(resolvedDetailUrl);
   const directionsStoreName = normalizeStoreName(store);
@@ -539,48 +603,114 @@ export function VehicleOfferCard({
 
                   <div className="finance-modal-divider" />
 
-                  <div className="finance-modal-bottom">
-                    <div className="finance-modal-price">
-                      {Boolean(resolvedOldPrice) && <p className="finance-modal-old-price">{resolvedOldPrice}</p>}
-                      <p className="finance-modal-current-price">
-                        Por <strong>{price}</strong>
-                      </p>
-                      <p className="finance-modal-store">
-                        <MapPin size={16} /> Loja: {store}
-                      </p>
-                    </div>
+                  <div className={`finance-modal-bottom${showProposalForm ? " is-proposal-mode" : ""}`}>
+                    {!showProposalForm && (
+                      <div className="finance-modal-price">
+                        {Boolean(resolvedOldPrice) && <p className="finance-modal-old-price">{resolvedOldPrice}</p>}
+                        <p className="finance-modal-current-price">
+                          Por <strong>{price}</strong>
+                        </p>
+                        <p className="finance-modal-store">
+                          <MapPin size={16} /> Loja: {store}
+                        </p>
+                      </div>
+                    )}
 
-                    <div className="finance-modal-form">
-                      <h4>Simule seu financiamento</h4>
-                      <label htmlFor={`entrada-${financeId}`}>Entrada</label>
-                      <input
-                        id={`entrada-${financeId}`}
-                        type="text"
-                        inputMode="numeric"
-                        value={entryInput}
-                        onChange={(event) => handleEntryChange(event.target.value)}
-                      />
+                    {showProposalForm ? (
+                      <div className="finance-modal-form finance-modal-form--proposal">
+                        <div className="finance-modal-proposal-meta">
+                          {Boolean(resolvedOldPrice) && <p className="finance-modal-old-price">{resolvedOldPrice}</p>}
+                          <p className="finance-modal-current-price">
+                            Por <strong>{price}</strong>
+                          </p>
+                          <p className="finance-modal-store">
+                            <MapPin size={16} /> Loja: {store}
+                          </p>
+                        </div>
 
-                      <label htmlFor={`parcelas-${financeId}`}>Parcelas</label>
-                      <select
-                        id={`parcelas-${financeId}`}
-                        value={installments}
-                        onChange={(event) => handleInstallmentsChange(Number(event.target.value))}
-                      >
-                        {installmentOptions.map((option) => (
-                          <option key={option} value={option}>
-                            {option}x
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                        <h4>Envie uma proposta</h4>
+                        <label htmlFor={`proposal-name-${financeId}`}>Nome completo</label>
+                        <input
+                          id={`proposal-name-${financeId}`}
+                          type="text"
+                          value={proposalForm.name}
+                          onChange={(event) => setProposalForm((current) => ({ ...current, name: event.target.value }))}
+                        />
+
+                        <label htmlFor={`proposal-phone-${financeId}`}>Telefone / WhatsApp</label>
+                        <input
+                          id={`proposal-phone-${financeId}`}
+                          type="text"
+                          inputMode="numeric"
+                          value={proposalForm.phone}
+                          onChange={(event) => setProposalForm((current) => ({ ...current, phone: normalizePhone(event.target.value) }))}
+                        />
+
+                        <label htmlFor={`proposal-email-${financeId}`}>E-mail</label>
+                        <input
+                          id={`proposal-email-${financeId}`}
+                          type="email"
+                          value={proposalForm.email}
+                          onChange={(event) => setProposalForm((current) => ({ ...current, email: event.target.value }))}
+                        />
+
+                        <label htmlFor={`proposal-msg-${financeId}`}>Mensagem (opcional)</label>
+                        <textarea
+                          id={`proposal-msg-${financeId}`}
+                          rows={3}
+                          placeholder="Conte-nos mais sobre o que procura..."
+                          value={proposalForm.message}
+                          onChange={(event) => setProposalForm((current) => ({ ...current, message: event.target.value.slice(0, 500) }))}
+                        />
+
+                        <label className="finance-modal-consent">
+                          <input
+                            type="checkbox"
+                            checked={proposalForm.consent}
+                            onChange={(event) => setProposalForm((current) => ({ ...current, consent: event.target.checked }))}
+                          />
+                          <span>Autorizo o contato da Savol por e-mail, telefone ou WhatsApp.</span>
+                        </label>
+
+                        <button type="button" className="finance-modal-proposal-btn" onClick={handleProposalSubmit}>
+                          Enviar proposta
+                        </button>
+                        {proposalSent ? <p className="finance-modal-proposal-success">Proposta enviada! Nossa equipe retornará em breve.</p> : null}
+                      </div>
+                    ) : (
+                      <div className="finance-modal-form">
+                        <h4>Simule seu financiamento</h4>
+                        <label htmlFor={`entrada-${financeId}`}>Entrada</label>
+                        <input
+                          id={`entrada-${financeId}`}
+                          type="text"
+                          inputMode="numeric"
+                          value={entryInput}
+                          onChange={(event) => handleEntryChange(event.target.value)}
+                        />
+                        {entryError ? <small className="finance-modal-entry-error">{entryError}</small> : null}
+
+                        <label htmlFor={`parcelas-${financeId}`}>Parcelas</label>
+                        <select
+                          id={`parcelas-${financeId}`}
+                          value={installments}
+                          onChange={(event) => handleInstallmentsChange(Number(event.target.value))}
+                        >
+                          {installmentOptions.map((option) => (
+                            <option key={option} value={option}>
+                              {option}x
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                   </div>
 
                   <button
                     type="button"
                     className="finance-modal-simulate-btn"
                     onClick={handleSimulateFinance}
-                    disabled={isSimulatingFinance}
+                    disabled={showProposalForm ? false : isSimulatingFinance || hasMinEntryError}
                   >
                     {isSimulatingFinance ? (
                       <>

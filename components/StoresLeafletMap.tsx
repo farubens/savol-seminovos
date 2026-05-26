@@ -20,7 +20,7 @@ type StoresLeafletMapProps = {
 };
 
 const DEFAULT_CENTER: LatLngExpression = [-23.66, -46.55];
-const DEFAULT_ZOOM = 10;
+const DEFAULT_ZOOM = 12;
 
 function buildMarkerIcon(index: number, isActive: boolean): L.DivIcon {
   const markerClass = isActive ? "stores-map-pin is-active" : "stores-map-pin";
@@ -50,7 +50,7 @@ function FocusController({ stores, selectedStoreId }: { stores: StoreMapPoint[];
     }
 
     const bounds = L.latLngBounds(stores.map((store) => [store.lat, store.lng] as [number, number]));
-    map.fitBounds(bounds.pad(0.18), {
+    map.fitBounds(bounds.pad(0.08), {
       animate: true,
       duration: 0.7
     });
@@ -84,7 +84,7 @@ export function StoresLeafletMap({ stores, selectedStoreId, layoutSignal, onSele
       center={DEFAULT_CENTER}
       zoom={DEFAULT_ZOOM}
       bounds={bounds}
-      boundsOptions={{ padding: [28, 28] }}
+      boundsOptions={{ padding: [20, 20], maxZoom: 14 }}
       zoomControl={false}
       scrollWheelZoom
     >

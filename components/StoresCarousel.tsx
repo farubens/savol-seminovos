@@ -5,10 +5,12 @@ import Link from "next/link";
 import { ArrowRight, ChevronLeft, ChevronRight, MapPin, Navigation, Phone } from "lucide-react";
 import { useHomeSessionData } from "@/components/HomeSessionDataProvider";
 import { MapDirectionsModal } from "@/components/MapDirectionsModal";
+import { StoreDetailsModal } from "@/components/StoreDetailsModal";
 import type { ApiStore } from "@/types/home";
 
 export function StoresCarousel() {
   const { stores, loading } = useHomeSessionData();
+  const [storeModal, setStoreModal] = useState<ApiStore | null>(null);
   const [routeModalStore, setRouteModalStore] = useState<ApiStore | null>(null);
   const sliderRef = useRef<HTMLDivElement | null>(null);
   const dragState = useRef({
@@ -132,9 +134,9 @@ export function StoresCarousel() {
                   <p className="store-count">{store.vehiclesCount} veículos</p>
 
                   <div className="store-actions">
-                    <a className="store-btn-primary" href={store.storeUrl} target="_blank" rel="noopener noreferrer">
+                    <button type="button" className="store-btn-primary" onClick={() => setStoreModal(store)}>
                       Ver loja <ArrowRight size={16} />
-                    </a>
+                    </button>
                     <button type="button" className="store-btn-ghost" onClick={() => setRouteModalStore(store)}>
                       <Navigation size={15} /> Como chegar
                     </button>
@@ -160,6 +162,16 @@ export function StoresCarousel() {
         storeName={routeModalStore?.name ?? ""}
         address={routeModalStore?.address ?? ""}
         onClose={() => setRouteModalStore(null)}
+      />
+
+      <StoreDetailsModal
+        open={Boolean(storeModal)}
+        store={storeModal}
+        onClose={() => setStoreModal(null)}
+        onOpenDirections={(store) => {
+          setStoreModal(null);
+          setRouteModalStore(store);
+        }}
       />
     </section>
   );
