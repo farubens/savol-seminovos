@@ -43,9 +43,7 @@ function getFacadeImage(store: ApiStore): string {
   if (photoMap[exactKey]) {
     return photoMap[exactKey];
   }
-  return `https://images.unsplash.com/photo-1562141961-b5d3950d7cfb?auto=format&fit=crop&w=1200&q=80&sat=-10&blend=${encodeURIComponent(
-    `000000`
-  )}&blend-alpha=2&${brand}-${cityKey}-${store.id}`;
+  return "/images/stores/falback-lojas.png";
 }
 
 export function StoreDetailsModal({ open, store, onClose, onOpenDirections }: StoreDetailsModalProps) {
