@@ -8,7 +8,7 @@ import { useHomeSessionData } from "@/components/HomeSessionDataProvider";
 import { VehicleOfferCard } from "@/components/VehicleOfferCard";
 import type { ApiVehicle } from "@/types/home";
 
-type TabKey = "marca" | "categoria" | "unidade" | "eletricos" | "descrever";
+type TabKey = "marca" | "categoria" | "eletricos" | "descrever";
 type IconKey = "hatch" | "suv" | "picape" | "sedan" | "eletrico" | "executivo" | "premium" | "utilitarios";
 
 type CategoryCardItem = {
@@ -37,7 +37,6 @@ const tabs: Array<{ key: TabKey; label: string }> = [
   { key: "marca", label: "Marca" },
   { key: "categoria", label: "Categoria" },
   { key: "eletricos", label: "Elétricos" },
-  { key: "unidade", label: "Unidade" },
   { key: "descrever", label: "Pesquisar veículo" }
 ];
 
@@ -110,10 +109,6 @@ function isElectricLikeVehicle(vehicle: ApiVehicle): boolean {
   );
 }
 
-function unsplashDownload(id: string): string {
-  return `https://unsplash.com/photos/${id}/download?force=true&w=1200&q=80`;
-}
-
 function parsePriceValue(value: string): number | null {
   if (!value) return null;
   let cleaned = value.replace(/[^\d,.-]/g, "");
@@ -161,13 +156,14 @@ function parseLoosePrice(value: string): number | null {
 }
 
 const bg = {
-  hatch: unsplashDownload("IGNiRQWxXLM"),
-  suv: unsplashDownload("dlHeeP3iQIo"),
-  picape: unsplashDownload("BYuybywqdD0"),
-  sedan: unsplashDownload("LF4FiHABjE4"),
-  esportivo: unsplashDownload("Zcb5UlIihQY"),
-  luxo: unsplashDownload("vr9e_sGANOg"),
-  utilitarios: unsplashDownload("XGJBSkoqX_I")
+  hatch: "/images/categories/hatch.png",
+  suv: "/images/categories/suv.png",
+  picape: "/images/categories/picape.png",
+  sedan: "/images/categories/sedan.png",
+  esportivo: "/images/categories/eletricos.png",
+  luxo: "/images/categories/eletricos.png",
+  utilitarios: "/images/categories/utilitarios.png",
+  todos: "/images/categories/todos.png"
 };
 
 const iconMap = {
@@ -189,15 +185,6 @@ const cardsByTab: Record<Exclude<TabKey, "descrever" | "marca">, CategoryCardIte
     { id: "pickup-c", title: "Pickup", amount: "164 veículos", bgImage: bg.picape, icon: "picape", href: "/veiculos?bodies=pickup" },
     { id: "util-c", title: "Utilitários", amount: "52 veículos", bgImage: bg.utilitarios, icon: "utilitarios", href: "/veiculos?bodies=utilitario" },
     { id: "ele-c", title: "Elétricos", amount: "48 veículos", bgImage: bg.esportivo, icon: "eletrico", href: "/veiculos?q=eletrico" }
-  ],
-  unidade: [
-    { id: "sa-u", title: "Santo André", amount: "201 veículos", bgImage: bg.hatch, icon: "hatch", href: "/veiculos?q=santo-andre" },
-    { id: "sbc-u", title: "São Bernardo", amount: "173 veículos", bgImage: bg.suv, icon: "suv", href: "/veiculos?q=sao-bernardo" },
-    { id: "scs-u", title: "São Caetano", amount: "154 veículos", bgImage: bg.sedan, icon: "sedan", href: "/veiculos?q=sao-caetano" },
-    { id: "sp-u", title: "São Paulo", amount: "174 veículos", bgImage: bg.picape, icon: "picape", href: "/veiculos?q=sao-paulo" },
-    { id: "mau-u", title: "Mauá", amount: "93 veículos", bgImage: bg.esportivo, icon: "eletrico", href: "/veiculos?q=maua" },
-    { id: "pg-u", title: "Praia Grande", amount: "84 veículos", bgImage: bg.luxo, icon: "executivo", href: "/veiculos?q=praia grande" },
-    { id: "abc-u", title: "ABC Paulista", amount: "142 veículos", bgImage: bg.utilitarios, icon: "utilitarios", href: "/veiculos?q=abc paulista" }
   ],
   eletricos: [
     { id: "hev-e", title: "Híbridos", amount: "81 veículos", bgImage: bg.suv, icon: "eletrico", href: "/veiculos?q=hibrido" },
@@ -224,21 +211,19 @@ export function CategoryFinder() {
   const sliderRef = useRef<HTMLDivElement | null>(null);
 
   const cards = useMemo(() => {
-    return activeTab === "categoria" || activeTab === "unidade" || activeTab === "eletricos" ? cardsByTab[activeTab] : [];
+    return activeTab === "categoria" || activeTab === "eletricos" ? cardsByTab[activeTab] : [];
   }, [activeTab]);
 
   const visualCards = useMemo(() => {
-    if (!(activeTab === "categoria" || activeTab === "unidade" || activeTab === "eletricos")) return [];
+    if (!(activeTab === "categoria" || activeTab === "eletricos")) return [];
 
-    const ctaHref = activeTab === "unidade" ? "/lojas" : "/veiculos";
-    const ctaAmount = activeTab === "unidade" ? "Todas as unidades" : "Todas as opções";
     const ctaCard: CategoryCardItem = {
       id: `view-all-${activeTab}`,
       title: "Ver todos",
-      amount: ctaAmount,
-      bgImage: bg.suv,
+      amount: "Todas as opções",
+      bgImage: bg.todos,
       icon: "hatch",
-      href: ctaHref
+      href: "/veiculos"
     };
 
     return [...cards, ctaCard];

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import type { ApiStore, ApiVehicle, HomeDataPayload } from "@/types/home";
 
 const VEHICLES_PER_PAGE = 24;
-const STORES_PER_PAGE = 18;
+const STORES_PER_PAGE = 60;
 const HOME_CACHE_TTL_MS = 2 * 60 * 1000;
 
 type ApiListResponse<T> = {

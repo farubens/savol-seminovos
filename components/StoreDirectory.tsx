@@ -281,6 +281,10 @@ export function StoreDirectory() {
     if (isSidebarCollapsed) {
       setIsSidebarCollapsed(false);
     }
+    const selectedFromMap = filteredStores.find((store) => store.id === storeId) ?? null;
+    if (selectedFromMap) {
+      setStoreModal(selectedFromMap);
+    }
   };
 
   return (

@@ -945,13 +945,13 @@ h2 {
 .category-bg {
   background-position: center;
   background-size: cover;
-  filter: brightness(0.66) saturate(0.92) contrast(1.02);
+  filter: brightness(0.82) saturate(0.96) contrast(1.02);
   transform: scale(1.04);
   transition: transform 0.32s ease;
 }
 
 .category-overlay {
-  background: linear-gradient(180deg, rgba(4, 13, 37, 0.06) 0%, rgba(3, 12, 34, 0.36) 45%, rgba(3, 13, 38, 0.92) 100%);
+  background: linear-gradient(180deg, rgba(4, 13, 37, 0.02) 0%, rgba(3, 12, 34, 0.2) 48%, rgba(3, 13, 38, 0.58) 100%);
 }
 
 .category-meta {
@@ -1017,11 +1017,11 @@ h2 {
 }
 
 .category-card-visual--cta .category-bg {
-  filter: brightness(0.54) saturate(0.85);
+  filter: brightness(0.76) saturate(0.92);
 }
 
 .category-card-visual--cta .category-overlay {
-  background: linear-gradient(180deg, rgba(8, 25, 66, 0.2) 0%, rgba(3, 14, 42, 0.82) 100%);
+  background: linear-gradient(180deg, rgba(8, 25, 66, 0.08) 0%, rgba(3, 14, 42, 0.56) 100%);
 }
 
 .category-card-visual--cta .category-meta-icon {
