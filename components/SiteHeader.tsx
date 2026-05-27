@@ -69,9 +69,9 @@ export function SiteHeader({ active = "home", showEnvNote = false }: HeaderProps
           <Link className={active === "institucional" ? "active" : ""} href="/institucional">
             Institucional
           </Link>
-          <button type="button" className="btn btn-sm" aria-disabled="true">
+          <Link className={`btn btn-sm ${active === "contato" ? "active" : ""}`} href="/contato">
             Contato
-          </button>
+          </Link>
           <Link href="/veiculos" className="icon-btn" aria-label="Buscar">
             <Search size={16} />
           </Link>

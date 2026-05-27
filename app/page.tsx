@@ -3,13 +3,9 @@ import Link from "next/link";
 import {
   ArrowRight,
   BadgePercent,
-  Heart,
   Mail,
-  Phone,
-  Search,
   ShieldCheck,
   Sparkles,
-  Star,
 } from "lucide-react";
 import { CategoryFinder } from "@/components/CategoryFinder";
 import { HomeBenefits } from "@/components/HomeBenefits";
@@ -31,10 +27,7 @@ export default function Home() {
       <section className="hero">
         <div className="container hero-grid">
           <div className="hero-copy">
-            <p className="hero-badge">
-              <Star size={14} fill="currentColor" strokeWidth={0} />
-              Grupo Savol 60 anos
-            </p>
+            <img src="/images/medalha-60-anos.webp" alt="Grupo Savol 60 anos" className="hero-badge-medal" />
             <h1>
               Encontre o <br /><span>seminovo ideal</span>
               <br />

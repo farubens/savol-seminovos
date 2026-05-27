@@ -22,24 +22,30 @@ function normalize(value: string): string {
 
 function getFacadeImage(store: ApiStore): string {
   const brand = normalize(store.brand || "savol");
-  const city = normalize(store.address || "santo-andre");
+  const locationSource = normalize(`${store.name} ${store.address}`);
   const photoMap: Record<string, string> = {
-    "citroen-sao-caetano-do-sul": "/images/stores/citroen-scs.jpeg",
-    "fiat-sao-caetano-do-sul": "/images/stores/fiat-scs.jpeg",
+    "citroen-sao-bernardo-do-campo": "/images/stores/citroen-sbc.jpeg",
+    "fiat-sao-bernardo-do-campo": "/images/stores/fiat-sbc.jpeg",
     "jetour-sao-caetano-do-sul": "/images/stores/jetour-scs.jpeg",
     "mg-motor-sao-caetano-do-sul": "/images/stores/mg-scs.jpeg",
     "mg-sao-caetano-do-sul": "/images/stores/mg-scs.jpeg",
-    "peugeot-sao-caetano-do-sul": "/images/stores/peugeot-scs.jpeg",
-    "toyota-sao-caetano-do-sul": "/images/stores/toyota-scs.jpeg"
+    "peugeot-sao-bernardo-do-campo": "/images/stores/peugeot-sbc.jpeg",
+    "toyota-sao-bernardo-do-campo": "/images/stores/toyota-sbc.jpeg"
   };
-  const cityKey = city.includes("sao-caetano") ? "sao-caetano-do-sul" : city;
+  const cityKey = locationSource.includes("sao-bernardo")
+    ? "sao-bernardo-do-campo"
+    : locationSource.includes("sao-caetano")
+      ? "sao-caetano-do-sul"
+      : locationSource.includes("santo-andre")
+        ? "santo-andre"
+        : "santo-andre";
   const exactKey = `${brand}-${cityKey}`;
   if (photoMap[exactKey]) {
     return photoMap[exactKey];
   }
   return `https://images.unsplash.com/photo-1562141961-b5d3950d7cfb?auto=format&fit=crop&w=1200&q=80&sat=-10&blend=${encodeURIComponent(
     `000000`
-  )}&blend-alpha=2&${brand}-${city}-${store.id}`;
+  )}&blend-alpha=2&${brand}-${cityKey}-${store.id}`;
 }
 
 export function StoreDetailsModal({ open, store, onClose, onOpenDirections }: StoreDetailsModalProps) {

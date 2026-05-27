@@ -1,4 +1,4 @@
-import Image from "next/image";
+﻿import Image from "next/image";
 import Link from "next/link";
 import { Facebook, Headphones, Instagram, Linkedin, MapPin, ShieldCheck } from "lucide-react";
 
@@ -30,7 +30,7 @@ export function SavolMegaFooter() {
               <Link href="/veiculos">Veículos</Link>
             </div>
             <div>
-              <button type="button" aria-disabled="true" className="savol-footer-contact-link">Contato</button>
+              <Link href="/contato" className="savol-footer-contact-link">Contato</Link>
             </div>
           </div>
 
@@ -49,14 +49,14 @@ export function SavolMegaFooter() {
               <Headphones size={20} />
               <div>
                 <strong>Canal de Denúncia:</strong>
-                <span>ouvidoria@savol.com.br</span>
+                <a href="mailto:ouvidoria@savol.com.br">ouvidoria@savol.com.br</a>
               </div>
             </article>
             <article>
               <ShieldCheck size={20} />
               <div>
                 <strong>Canal LGPD:</strong>
-                <span>lgpd@savol.com.br</span>
+                <a href="mailto:lgpd@savol.com.br">lgpd@savol.com.br</a>
               </div>
             </article>
           </div>

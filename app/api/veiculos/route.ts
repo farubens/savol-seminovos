@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { buildOldPriceLabelFromOfficialPrice } from "@/utils/pricing";
 
 const WP_BASE_URL = "https://palevioletred-lark-270684.hostingersite.com";
 const VEICULO_ENDPOINT = `${WP_BASE_URL}/wp-json/wp/v2/veiculo`;
@@ -326,7 +327,7 @@ function toCurrencyValue(raw: string): string {
 function extractPriceData(content: string, metaPrice: string): { oldPrice: string; price: string } {
   if (metaPrice) {
     const formatted = toCurrencyValue(metaPrice);
-    if (formatted) return { oldPrice: "", price: formatted };
+    if (formatted) return { oldPrice: buildOldPriceLabelFromOfficialPrice(formatted), price: formatted };
   }
 
   const matches = [...content.matchAll(new RegExp(PRICE_REGEX, "gi"))];
@@ -334,9 +335,8 @@ function extractPriceData(content: string, metaPrice: string): { oldPrice: strin
 
   const values = matches.map((match) => toCurrencyValue(match[0])).filter(Boolean);
   if (!values.length) return { oldPrice: "", price: "Preço sob consulta" };
-  if (values.length === 1) return { oldPrice: "", price: values[0] };
-
-  return { oldPrice: `De ${values[0]}`, price: values[values.length - 1] };
+  const officialPrice = values[values.length - 1];
+  return { oldPrice: buildOldPriceLabelFromOfficialPrice(officialPrice), price: officialPrice };
 }
 
 function getQualityTag(content: string, condition: string): string {

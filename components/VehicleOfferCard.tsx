@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { MapDirectionsModal } from "@/components/MapDirectionsModal";
+import { buildOldPriceLabelFromOfficialPrice } from "@/utils/pricing";
 
 type Props = {
   vehicleId: number;
@@ -80,10 +81,10 @@ function formatMoney(value: number, minimumFractionDigits = 0, maximumFractionDi
 }
 
 function resolveOldPrice(oldPrice: string | undefined, price: string): string {
+  const calculated = buildOldPriceLabelFromOfficialPrice(price);
+  if (calculated) return calculated;
   if (oldPrice && oldPrice.trim()) return oldPrice;
-  const currentValue = parseMoney(price);
-  if (currentValue == null) return "";
-  return `De ${formatMoney(currentValue + 10000)}`;
+  return "";
 }
 
 function formatEntryInput(value: number): string {
