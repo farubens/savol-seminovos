@@ -35,6 +35,10 @@ export function StoresCarousel() {
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     const slider = sliderRef.current;
     if (!slider) return;
+    const target = event.target as HTMLElement | null;
+    if (target?.closest("button, a, iframe, input, select, textarea, [role='button']")) {
+      return;
+    }
     dragState.current.pointerId = event.pointerId;
     dragState.current.isDragging = true;
     dragState.current.startX = event.clientX;
