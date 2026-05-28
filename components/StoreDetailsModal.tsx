@@ -30,10 +30,13 @@ function getFacadeImage(store: ApiStore): string {
     "mg-motor-sao-caetano-do-sul": "/images/stores/mg-scs.jpeg",
     "mg-sao-caetano-do-sul": "/images/stores/mg-scs.jpeg",
     "peugeot-sao-bernardo-do-campo": "/images/stores/peugeot-sbc.jpeg",
-    "toyota-sao-bernardo-do-campo": "/images/stores/toyota-sbc.jpeg"
+    "toyota-sao-bernardo-do-campo": "/images/stores/toyota-sbc.jpeg",
+    "toyota-praia-grande": "/images/stores/toyota praia grande.jpeg"
   };
   const cityKey = locationSource.includes("sao-bernardo")
     ? "sao-bernardo-do-campo"
+    : locationSource.includes("praia-grande")
+      ? "praia-grande"
     : locationSource.includes("sao-caetano")
       ? "sao-caetano-do-sul"
       : locationSource.includes("santo-andre")
