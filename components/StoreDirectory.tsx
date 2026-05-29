@@ -38,6 +38,11 @@ function formatCep(value: string): string {
   return `${digits.slice(0, 5)}-${digits.slice(5)}`;
 }
 
+function extractCepFromAddress(value: string): string {
+  const match = value.match(/\b\d{5}-?\d{3}\b/);
+  return match ? normalizeCep(match[0]) : "";
+}
+
 function normalizeText(value: string): string {
   return value
     .toLowerCase()
@@ -187,6 +192,7 @@ export function StoreDirectory() {
   const filteredStores = useMemo(() => {
     const normalizedQuery = normalizeText(query);
     const reference = userPoint ?? DEFAULT_REFERENCE_POINT;
+    const cepFilter = normalizeCep(cep);
 
     return storesWithGeo
       .filter((store) => {
@@ -194,12 +200,16 @@ export function StoreDirectory() {
         const content = normalizeText(`${store.name} ${store.address} ${store.brand}`);
         return content.includes(normalizedQuery);
       })
-      .map((store) => ({
-        ...store,
-        distanceKm: distanceInKm(reference, { lat: store.lat, lng: store.lng })
-      }))
+      .map((store) => {
+        const storeCep = extractCepFromAddress(store.address);
+        const matchesCep = cepFilter.length === 8 && storeCep === cepFilter;
+        return {
+          ...store,
+          distanceKm: matchesCep ? 0 : distanceInKm(reference, { lat: store.lat, lng: store.lng })
+        };
+      })
       .sort((a, b) => a.distanceKm - b.distanceKm);
-  }, [query, storesWithGeo, userPoint]);
+  }, [query, storesWithGeo, userPoint, cep]);
   const handleFindNearestStore = async () => {
     skipAutoScrollRef.current = true;
     const sanitizedCep = normalizeCep(cep);
