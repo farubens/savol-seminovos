@@ -26,10 +26,10 @@ export function SiteHeader({ active = "home", showEnvNote = false }: HeaderProps
           <div className="topbar-social-spacer" aria-hidden="true" />
           <p className="topbar-schedule">Segunda a sexta: 08h às 19h | Sábado: 09h às 18h</p>
           <div className="topbar-social" aria-label="Redes sociais">
-            <a className="topbar-social-link" href="https://www.facebook.com/" target="_blank" rel="noopener noreferrer" aria-label="Facebook Savol">
+            <a className="topbar-social-link" href="https://www.facebook.com/gruposavol/" target="_blank" rel="noopener noreferrer" aria-label="Facebook Savol">
               <Facebook size={14} />
             </a>
-            <a className="topbar-social-link" href="https://www.instagram.com/" target="_blank" rel="noopener noreferrer" aria-label="Instagram Savol">
+            <a className="topbar-social-link" href="https://www.instagram.com/gruposavol/" target="_blank" rel="noopener noreferrer" aria-label="Instagram Savol">
               <Instagram size={14} />
             </a>
           </div>

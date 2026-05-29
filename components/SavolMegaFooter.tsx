@@ -1,6 +1,6 @@
 ﻿import Image from "next/image";
 import Link from "next/link";
-import { Facebook, Headphones, Instagram, Linkedin, MapPin, ShieldCheck } from "lucide-react";
+import { Facebook, Headphones, Instagram, MapPin, ShieldCheck } from "lucide-react";
 
 export function SavolMegaFooter() {
   return (
@@ -11,15 +11,12 @@ export function SavolMegaFooter() {
             <Image src="/images/logo-branco.png" alt="Savol" width={220} height={62} className="savol-footer-logo" />
             <p>Somos um grupo empresarial familiar, sólido e com forte presença nas regiões do Grande ABC, São Paulo e Baixada Santista.</p>
             <div className="savol-footer-socials">
-              <button type="button" aria-label="LinkedIn">
-                <Linkedin size={18} />
-              </button>
-              <button type="button" aria-label="Facebook">
+              <a href="https://www.facebook.com/gruposavol/" target="_blank" rel="noopener noreferrer" aria-label="Facebook Savol">
                 <Facebook size={18} />
-              </button>
-              <button type="button" aria-label="Instagram">
+              </a>
+              <a href="https://www.instagram.com/gruposavol/" target="_blank" rel="noopener noreferrer" aria-label="Instagram Savol">
                 <Instagram size={18} />
-              </button>
+              </a>
             </div>
           </div>
 
