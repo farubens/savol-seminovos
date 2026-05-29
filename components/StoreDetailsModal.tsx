@@ -56,6 +56,7 @@ function getFacadeImage(store: ApiStore): string {
     "peugeot-sao-bernardo-do-campo": "/images/stores/peugeot-sbc.jpeg",
     "toyota-santo-andre": "/images/stores/TOYOTA SANTO ANDRE.jpeg",
     "toyota-sao-bernardo-do-campo": "/images/stores/toyota-sbc.jpeg",
+    "toyota-maua": "/images/stores/toyota-maua.jpeg",
     "toyota-praia-grande": "/images/stores/toyota praia grande.jpeg",
     "toyota-sao-caetano-do-sul": "/images/stores/TOYOTA DOM PEDRO.jpeg",
     "volkswagen-santo-andre": "/images/stores/VOLKSWAGEN SANTO ANDRE.jpeg"
@@ -64,6 +65,8 @@ function getFacadeImage(store: ApiStore): string {
     ? "sao-bernardo-do-campo"
     : locationSource.includes("praia-grande")
       ? "praia-grande"
+    : locationSource.includes("maua")
+      ? "maua"
     : locationSource.includes("sao-caetano")
       ? "sao-caetano-do-sul"
       : locationSource.includes("santo-andre")
