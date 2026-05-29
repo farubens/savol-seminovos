@@ -203,6 +203,7 @@ nav a.active::after {
   min-height: 78px;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 18px;
   border: 1px solid #cfdbf1;
   border-radius: 20px;
@@ -224,10 +225,12 @@ nav a.active::after {
 .header-env-title {
   margin: 0;
   font-size: 24px;
-  line-height: 1.15;
+  line-height: 1;
   font-weight: 800;
   color: #0f3678;
   letter-spacing: -0.01em;
+  display: flex;
+  align-items: center;
 }
 
 .header-env-divider {
@@ -240,9 +243,11 @@ nav a.active::after {
 .header-env-copy {
   margin: 0;
   font-size: 16px;
-  line-height: 1.25;
+  line-height: 1.15;
   font-weight: 500;
   color: #3f5478;
+  display: flex;
+  align-items: center;
 }
 
 .btn {

@@ -47,7 +47,7 @@ function getFacadeImage(store: ApiStore): string {
     "fiat-santo-andre": "/images/stores/FIAT SANTO ANDRE.jpeg",
     "fiat-sao-bernardo-do-campo": "/images/stores/fiat-sbc.jpeg",
     "fiat-sao-caetano-do-sul": "/images/stores/FIAT SCS.jpeg",
-    "jetour-santo-andre": "/images/stores/JETOUR.jpeg",
+    "jetour-santo-andre": "/images/stores/jetour-sta.png",
     "jetour-sao-caetano-do-sul": "/images/stores/jetour-scs.jpeg",
     "kia-santo-andre": "/images/stores/KIA-SANTO ANDRE.jpeg",
     "mg-sao-caetano-do-sul": "/images/stores/MG-MOTOR.jpeg",

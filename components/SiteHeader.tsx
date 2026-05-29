@@ -84,7 +84,7 @@ export function SiteHeader({ active = "home", showEnvNote = false }: HeaderProps
             <span className="header-env-icon" aria-hidden="true">
               <ShieldCheck size={32} />
             </span>
-            <p className="header-env-title">Ambiente oficial Savol Seminovos</p>
+            <p className="header-env-title">SAVOL SEMINOVOS</p>
             <span className="header-env-divider" aria-hidden="true" />
             <p className="header-env-copy">Veículos selecionados e atendimento com a segurança do Grupo Savol.</p>
           </div>
