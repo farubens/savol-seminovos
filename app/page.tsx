@@ -33,7 +33,11 @@ export default function Home() {
               <br />
               para você.
             </h1>
-            <p>São mais de 1.000 veículos de qualidade e as melhores lojas do Grupo Savol.</p>
+            <p>
+              São mais de 1.000 veículos de qualidade e as melhores lojas do
+              <br />
+              Grupo Savol.
+            </p>
             <div className="actions">
               <Link href="/veiculos" className="btn hero-btn hero-btn-primary">
                 Ver veículos

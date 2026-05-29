@@ -23,15 +23,42 @@ function normalize(value: string): string {
 function getFacadeImage(store: ApiStore): string {
   const brand = normalize(store.brand || "savol");
   const locationSource = normalize(`${store.name} ${store.address}`);
+
+  if (brand === "volkswagen" && locationSource.includes("pereira-barreto")) {
+    return "/images/stores/VOLKWAGEN-PEREIRA-BARRETO.jpeg";
+  }
+
+  if (brand === "toyota" && locationSource.includes("dom-pedro")) {
+    return "/images/stores/TOYOTA DOM PEDRO.jpeg";
+  }
+
+  if ((brand === "mg" || brand === "mg-motor") && (locationSource.includes("goias-3048") || locationSource.includes("sao-caetano"))) {
+    return "/images/stores/MG-MOTOR.jpeg";
+  }
+
+  if ((brand === "mg" || brand === "mg-motor") && locationSource.includes("analia-franco")) {
+    return "/images/stores/falback-lojas.png";
+  }
+
   const photoMap: Record<string, string> = {
+    "citroen-santo-andre": "/images/stores/CITROEN SANTO ANDRE.jpeg",
     "citroen-sao-bernardo-do-campo": "/images/stores/citroen-sbc.jpeg",
+    "citroen-sao-caetano-do-sul": "/images/stores/CITROEN SCS.jpeg",
+    "fiat-santo-andre": "/images/stores/FIAT SANTO ANDRE.jpeg",
     "fiat-sao-bernardo-do-campo": "/images/stores/fiat-sbc.jpeg",
+    "fiat-sao-caetano-do-sul": "/images/stores/FIAT SCS.jpeg",
+    "jetour-santo-andre": "/images/stores/JETOUR.jpeg",
     "jetour-sao-caetano-do-sul": "/images/stores/jetour-scs.jpeg",
-    "mg-motor-sao-caetano-do-sul": "/images/stores/mg-scs.jpeg",
-    "mg-sao-caetano-do-sul": "/images/stores/mg-scs.jpeg",
+    "kia-santo-andre": "/images/stores/KIA-SANTO ANDRE.jpeg",
+    "mg-sao-caetano-do-sul": "/images/stores/MG-MOTOR.jpeg",
+    "mg-motor-sao-caetano-do-sul": "/images/stores/MG-MOTOR.jpeg",
+    "peugeot-santo-andre": "/images/stores/PEUGEOT-SANTO-ANDRE.jpeg",
     "peugeot-sao-bernardo-do-campo": "/images/stores/peugeot-sbc.jpeg",
+    "toyota-santo-andre": "/images/stores/TOYOTA SANTO ANDRE.jpeg",
     "toyota-sao-bernardo-do-campo": "/images/stores/toyota-sbc.jpeg",
-    "toyota-praia-grande": "/images/stores/toyota praia grande.jpeg"
+    "toyota-praia-grande": "/images/stores/toyota praia grande.jpeg",
+    "toyota-sao-caetano-do-sul": "/images/stores/TOYOTA DOM PEDRO.jpeg",
+    "volkswagen-santo-andre": "/images/stores/VOLKSWAGEN SANTO ANDRE.jpeg"
   };
   const cityKey = locationSource.includes("sao-bernardo")
     ? "sao-bernardo-do-campo"

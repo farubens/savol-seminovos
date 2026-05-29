@@ -18,9 +18,9 @@ const historyStats = [
   },
   {
     icon: ShieldCheck,
-    value: "6",
+    value: "8",
     title: "marcas representadas",
-    description: "Volkswagen, Toyota, Kia, Fiat, Peugeot e Citroën."
+    description: "Volkswagen, Toyota, Kia, Fiat, Peugeot, Citroën, MG e Jetour."
   },
   {
     icon: Award,
@@ -69,7 +69,9 @@ const brandLogos = [
   { name: "Kia", logo: "/images/brands/kia.png" },
   { name: "Fiat", logo: "/images/brands/fiat.svg" },
   { name: "Peugeot", logo: "/images/brands/peugeot.svg" },
-  { name: "Citroen", logo: "/images/brands/citroen.png" }
+  { name: "Citroen", logo: "/images/brands/citroen.png" },
+  { name: "MG", logo: "/images/brands/mg.png" },
+  { name: "Jetour", logo: "/images/brands/jetour.webp" }
 ];
 
 export function InstitutionalPage() {

@@ -24,7 +24,7 @@ export function SiteHeader({ active = "home", showEnvNote = false }: HeaderProps
       <div className="topbar">
         <div className="container topbar-inner">
           <div className="topbar-social-spacer" aria-hidden="true" />
-          <p className="topbar-schedule">Segunda a sexta: 08h as 19h | Sábado: 09h as 18h</p>
+          <p className="topbar-schedule">Segunda a sexta: 08h às 19h | Sábado: 09h às 18h</p>
           <div className="topbar-social" aria-label="Redes sociais">
             <a className="topbar-social-link" href="https://www.facebook.com/" target="_blank" rel="noopener noreferrer" aria-label="Facebook Savol">
               <Facebook size={14} />
@@ -54,7 +54,7 @@ export function SiteHeader({ active = "home", showEnvNote = false }: HeaderProps
             Home
           </Link>
           <Link className={active === "veiculos" ? "active" : ""} href="/veiculos">
-            Veiculos
+            Veículos
           </Link>
           <Link className={active === "lojas" ? "active" : ""} href="/lojas">
             Lojas

@@ -112,11 +112,11 @@ const OFFICIAL_STORES: ApiStore[] = [
     slug: toSlug("Unidade Savol Volkswagen Pereira Barreto"),
     brand: "Volkswagen",
     name: "Unidade Savol Volkswagen Pereira Barreto",
-    address: "Av. Pereira Barreto, 888 - Paraíso, Santo André - SP",
+    address: "Av. Pereira Barreto, 888 - Paraíso, Santo André - SP, 09190-210",
     phone: "(11) 4435-1000",
     vehiclesCount: 0,
     storeUrl: "/lojas",
-    mapUrl: mapUrl("Av. Pereira Barreto, 888 - Paraíso, Santo André - SP")
+    mapUrl: mapUrl("Av. Pereira Barreto, 888 - Paraíso, Santo André - SP, 09190-210")
   },
   {
     id: 8,
@@ -243,7 +243,7 @@ const OFFICIAL_STORES: ApiStore[] = [
     id: 19,
     slug: toSlug("Unidade Savol MG Motor"),
     brand: "MG Motor",
-    name: "Unidade Savol MG Motor",
+    name: "Unidade Savol MG Motor São Caetano",
     address: "Av. Goiás, 3048 - Santo Antônio, São Caetano do Sul - SP, 09521-310",
     phone: "(11) 3809-1010",
     vehiclesCount: 0,
@@ -254,12 +254,12 @@ const OFFICIAL_STORES: ApiStore[] = [
     id: 20,
     slug: toSlug("Unidade Savol JETOUR"),
     brand: "Jetour",
-    name: "Unidade Savol JETOUR",
-    address: "Av. D. Pedro II, 2550 - Bairro Campestre, Santo André - SP",
+    name: "Unidade Savol JETOUR Santo André",
+    address: "Av. D. Pedro II, 2550 - Bairro Campestre, Santo André - SP, 09080-111",
     phone: "(11) 3319-1010",
     vehiclesCount: 0,
     storeUrl: "/lojas",
-    mapUrl: mapUrl("Av. D. Pedro II, 2550 - Bairro Campestre, Santo André - SP")
+    mapUrl: mapUrl("Av. D. Pedro II, 2550 - Bairro Campestre, Santo André - SP, 09080-111")
   },
   {
     id: 21,
@@ -271,6 +271,17 @@ const OFFICIAL_STORES: ApiStore[] = [
     vehiclesCount: 0,
     storeUrl: "/lojas",
     mapUrl: mapUrl("Alameda Terracota, 545 - Piso 1, Térreo - Cerâmica, São Caetano do Sul - SP, 09531-190")
+  },
+  {
+    id: 22,
+    slug: toSlug("Unidade Savol MG Motor Anália Franco"),
+    brand: "MG Motor",
+    name: "Unidade Savol MG Motor Anália Franco",
+    address: "Av. Regente Feijó, 1739 - Jardim Anália Franco, São Paulo - SP, 03342-000",
+    phone: "(11) 3809-1010",
+    vehiclesCount: 0,
+    storeUrl: "/lojas",
+    mapUrl: mapUrl("Av. Regente Feijó, 1739 - Jardim Anália Franco, São Paulo - SP, 03342-000")
   }
 ];
 
@@ -279,4 +290,3 @@ export async function GET(request: NextRequest) {
   const perPage = clamp(perPageInput, 1, MAX_PER_PAGE);
   return NextResponse.json({ items: OFFICIAL_STORES.slice(0, perPage) });
 }
-
