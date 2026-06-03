@@ -20,6 +20,8 @@ export type ApiVehicle = {
   color: string;
   city: string;
   uf: string;
+  molicar?: string;
+  plate?: string;
 };
 
 export type ApiStore = {

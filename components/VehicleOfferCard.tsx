@@ -38,7 +38,17 @@ type Props = {
   qualityTag?: string;
   delay?: number;
   variant?: "grid" | "list";
+  molicar?: string;
+  plate?: string;
 };
+
+declare global {
+  interface Window {
+    bvfs?: {
+      simulator: (payload: Record<string, unknown>) => void;
+    };
+  }
+}
 
 function normalizeTag(value: string): string {
   return value
@@ -120,10 +130,94 @@ function normalizeStoreName(value: string): string {
   return value.replace(/^loja:\s*/i, "").trim();
 }
 
+let vwfsScriptPromise: Promise<boolean> | null = null;
+
+function ensureVwfsYieldContainer() {
+  if (typeof document === "undefined") return;
+  if (document.getElementById("bvfs-yield")) return;
+  const container = document.createElement("div");
+  container.id = "bvfs-yield";
+  container.innerHTML = '<div class="vw"></div>';
+  document.body.appendChild(container);
+}
+
+function loadVwfsScript(src: string): Promise<boolean> {
+  if (typeof window === "undefined") return Promise.resolve(false);
+  if (window.bvfs?.simulator) return Promise.resolve(true);
+  if (vwfsScriptPromise) return vwfsScriptPromise;
+
+  vwfsScriptPromise = new Promise((resolve) => {
+    const existing = document.querySelector<HTMLScriptElement>(`script[data-vwfs="${src}"]`);
+    if (existing) {
+      existing.addEventListener("load", () => resolve(Boolean(window.bvfs?.simulator)), { once: true });
+      existing.addEventListener("error", () => resolve(false), { once: true });
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = src;
+    script.async = true;
+    script.defer = true;
+    script.dataset.vwfs = src;
+    script.onload = () => resolve(Boolean(window.bvfs?.simulator));
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+
+  return vwfsScriptPromise;
+}
+
+function parseVehicleYears(value: string): { manufactureAt: number; modelYear: number } {
+  const matches = value.match(/(19|20)\d{2}/g) ?? [];
+  const manufactureAt = Number(matches[0]) || new Date().getFullYear();
+  const modelYear = Number(matches[1]) || manufactureAt;
+  return { manufactureAt, modelYear };
+}
+
+function resolveCarType(text: string): "AUTOMOVEIS" | "UTILITARIOS" {
+  const normalized = text.toLowerCase();
+  if (/\b(van|furgao|furgão|utilitario|utilitário|pickup|picape)\b/.test(normalized)) {
+    return "UTILITARIOS";
+  }
+  return "AUTOMOVEIS";
+}
+
+function normalizeMolicar(value: string): string {
+  return value.replace(/[^0-9-]/g, "").trim();
+}
+
+function normalizePlateValue(value: string): string {
+  return value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 7);
+}
+
+function toVwfsMoney(value: string): string {
+  const numeric = parseMoney(value);
+  if (!numeric || numeric <= 0) return "";
+  return new Intl.NumberFormat("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(numeric);
+}
+
+function canUseVwfsOnCurrentHost(): boolean {
+  if (typeof window === "undefined") return false;
+  const host = window.location.hostname.toLowerCase();
+  const allowedHosts = [
+    "savol-seminovos-clean.vercel.app",
+    "savol-seminovos-clean-14i3gz0b0-farubens-projects.vercel.app",
+    "savol-seminovos-clean-gchvlqomd-farubens-projects.vercel.app"
+  ];
+  if (allowedHosts.includes(host)) return true;
+  return host.endsWith(".vercel.app") && host.includes("savol-seminovos-clean");
+}
+
 const galleryCacheByVehicle = new Map<number, string[]>();
 const galleryInFlightByVehicle = new Map<number, Promise<string[]>>();
 const FALLBACK_IMAGE = "/images/em-preparacao.jpg";
 const PREPARATION_IMAGE_TOKEN = "/images/em-preparacao";
+const VWFS_UAT_SCRIPT = "https://uat.vwfsbrasil.com.br/seller/partners/simulator.js";
+const VWFS_UAT_CLIENT_KEY = "M7alq91A0YbgWoXjZDQqx5NrJK83dB5RwGnmp4xP";
+const VWFS_UAT_CLIENT_TOKEN = "dcfc4f7a26fc8e704465e0e7892011d3cca98aad2eb21c18b47c4901a0eed82b";
+const VWFS_DEFAULT_STORE_ID = 123454;
 
 function isPreparationImage(src: string): boolean {
   return src.toLowerCase().includes(PREPARATION_IMAGE_TOKEN);
@@ -176,7 +270,9 @@ export function VehicleOfferCard({
   detailUrl = "#",
   qualityTag = "Disponível",
   delay = 0,
-  variant = "grid"
+  variant = "grid",
+  molicar = "",
+  plate = ""
 }: Props) {
   type ProposalFormState = {
     name: string;
@@ -199,6 +295,10 @@ export function VehicleOfferCard({
   const priceValue = parseMoney(price) ?? 0;
   const minEntryValue = useMemo(() => Math.round(priceValue * 0.4), [priceValue]);
   const monthlyInterestRate = 0.0165;
+  const vwfsClientKey = process.env.NEXT_PUBLIC_VWFS_CLIENT_KEY?.trim() || VWFS_UAT_CLIENT_KEY;
+  const vwfsClientToken = process.env.NEXT_PUBLIC_VWFS_CLIENT_TOKEN?.trim() || VWFS_UAT_CLIENT_TOKEN;
+  const vwfsStoreId = Number(process.env.NEXT_PUBLIC_VWFS_STORE_ID ?? String(VWFS_DEFAULT_STORE_ID));
+  const vwfsScriptSrc = process.env.NEXT_PUBLIC_VWFS_SCRIPT_SRC?.trim() || VWFS_UAT_SCRIPT;
   const [isFinanceModalOpen, setIsFinanceModalOpen] = useState(false);
   const [isSimulatingFinance, setIsSimulatingFinance] = useState(false);
   const [didSimulateFinance, setDidSimulateFinance] = useState(false);
@@ -219,6 +319,8 @@ export function VehicleOfferCard({
     consent: true
   });
   const installmentOptions = [12, 24, 36, 48, 60, 72];
+  const hasVwfsConfig = Boolean(vwfsClientKey && vwfsClientToken && vwfsStoreId > 0);
+  const hasVehicleIdForVwfs = Boolean(normalizeMolicar(molicar) || normalizePlateValue(plate));
   const modalTitle = useMemo(() => {
     const normalizedName = normalizeSpaces(name);
     const normalizedSubtitle = normalizeSpaces(subtitle);
@@ -359,25 +461,78 @@ export function VehicleOfferCard({
       return;
     }
     if (isSimulatingFinance || priceValue <= 0) return;
-    if (didSimulateFinance) {
-      setShowProposalForm(true);
-      return;
-    }
-    if (hasMinEntryError) {
-      setEntryError("Necessário ser pelo menos 40% de entrada.");
-      return;
-    }
-    setDidSimulateFinance(false);
-    setIsSimulatingFinance(true);
+    const runLocalSimulation = () => {
+      if (didSimulateFinance) {
+        setShowProposalForm(true);
+        return;
+      }
+      if (hasMinEntryError) {
+        setEntryError("Necessário ser pelo menos 40% de entrada.");
+        return;
+      }
+      setDidSimulateFinance(false);
+      setIsSimulatingFinance(true);
 
-    if (calculationTimerRef.current) {
-      clearTimeout(calculationTimerRef.current);
-    }
+      if (calculationTimerRef.current) {
+        clearTimeout(calculationTimerRef.current);
+      }
 
-    calculationTimerRef.current = setTimeout(() => {
-      setIsSimulatingFinance(false);
-      setDidSimulateFinance(true);
-    }, 3000);
+      calculationTimerRef.current = setTimeout(() => {
+        setIsSimulatingFinance(false);
+        setDidSimulateFinance(true);
+      }, 3000);
+    };
+
+    if (hasVwfsConfig && hasVehicleIdForVwfs && canUseVwfsOnCurrentHost()) {
+      const { manufactureAt, modelYear } = parseVehicleYears(year);
+      const [brandToken = "", modelToken = ""] = name.split(" ");
+      const versionToken = subtitle || name.replace(`${brandToken} ${modelToken}`.trim(), "").trim();
+      const normalizedMolicar = normalizeMolicar(molicar);
+      const normalizedPlate = normalizePlateValue(plate);
+      const carValue = toVwfsMoney(price);
+      if (!carValue) {
+        setEntryError("Preço inválido para simulação oficial. Usando simulador local.");
+        runLocalSimulation();
+      } else {
+      const payload = {
+        clientKey: vwfsClientKey,
+        clientToken: vwfsClientToken,
+        storeId: vwfsStoreId,
+        carType: resolveCarType(`${name} ${subtitle}`),
+        carValue,
+        inputPercent: 40,
+        deadline: installments,
+        manufactureAt,
+        modelYear,
+        ...(normalizedMolicar ? { molicar: normalizedMolicar } : {}),
+        ...(normalizedPlate ? { plate: normalizedPlate } : {}),
+        status: "USED",
+        brand: brandToken || "VW",
+        model: modelToken || name,
+        version: versionToken || subtitle || "Sem versão",
+        vehicleImagem: safeImage
+      } satisfies Record<string, unknown>;
+
+      setIsSimulatingFinance(true);
+      ensureVwfsYieldContainer();
+      void loadVwfsScript(vwfsScriptSrc).then((ok) => {
+        setIsSimulatingFinance(false);
+        if (!ok || !window.bvfs?.simulator) {
+          setEntryError("Simulador oficial indisponível no momento. Usando simulador local.");
+          runLocalSimulation();
+          return;
+        }
+        try {
+          window.bvfs.simulator(payload);
+        } catch {
+          setEntryError("Falha no simulador oficial. Usando simulador local.");
+          runLocalSimulation();
+        }
+      });
+      return;
+      }
+    }
+    runLocalSimulation();
   };
 
   const handleEntryChange = (value: string) => {

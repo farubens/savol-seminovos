@@ -61,6 +61,8 @@ type ApiVehicle = {
   color: string;
   city: string;
   uf: string;
+  molicar?: string;
+  plate?: string;
 };
 
 type CachedVehicles = {
@@ -155,6 +157,10 @@ function parseGalleryUrls(rawValue: string): string[] {
     .map((item) => encodeURI(cleanText(item)))
     .filter((item) => isLikelyImageUrl(item));
   return Array.from(new Set(urls)).slice(0, 12);
+}
+
+function normalizePlateValue(value: string): string {
+  return value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 7);
 }
 
 function pickImageFromMedia(media: WpMedia | null): string | null {
@@ -396,6 +402,8 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
   const metaCambio = getMetaField(vehicle, "cambio");
   const metaCondition = getMetaField(vehicle, "condicao");
   const metaGalleryUrls = getMetaField(vehicle, "autosync_photo_urls");
+  const metaMolicar = getMetaField(vehicle, "molicar");
+  const metaPlate = normalizePlateValue(getMetaField(vehicle, "placa") || getMetaField(vehicle, "plate"));
   const priceData = extractPriceData(content, metaPrice);
 
   const image = encodeURI(getEmbeddedImage(vehicle) ?? FALLBACK_IMAGE);
@@ -423,7 +431,9 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
     version: version || "Versão não informada",
     color: color || "Cor não informada",
     city: city || "Cidade não informada",
-    uf: uf || "UF não informada"
+    uf: uf || "UF não informada",
+    molicar: metaMolicar || "",
+    plate: metaPlate || ""
   };
 }
 

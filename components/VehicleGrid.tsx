@@ -81,6 +81,8 @@ export function VehicleGrid() {
               qualityTag={vehicle.qualityTag}
               delay={index * 0.06}
               variant={viewMode}
+              molicar={vehicle.molicar}
+              plate={vehicle.plate}
             />
           ))}
         </div>
@@ -88,3 +90,4 @@ export function VehicleGrid() {
     </div>
   );
 }
+

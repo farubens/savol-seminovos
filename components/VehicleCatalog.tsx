@@ -1196,6 +1196,8 @@ export function VehicleCatalog() {
                       qualityTag={vehicle.qualityTag}
                       delay={index * 0.01}
                       variant="grid"
+                      molicar={vehicle.molicar}
+                      plate={vehicle.plate}
                     />
                   ))}
                 </div>
@@ -1233,3 +1235,4 @@ export function VehicleCatalog() {
     </>
   );
 }
+
