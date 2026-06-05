@@ -292,7 +292,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
   const breadcrumbCategory = vehicle ? inferCategoryLabel(vehicle) : "";
   const storeTitle = removeStorePrefix(vehicle?.store ?? "Unidade Savol");
   const storeAddress = storeItem?.address || (!isUnknownValue(vehicle?.city ?? "") ? `${vehicle?.city} - ${vehicle?.uf}` : "Endereço sob consulta");
-  const storePhone = storeItem?.phone || "(11) 2222-3333";
+  const storePhone = storeItem?.phone || "(11) 4435-1000";
 
   const technicalRows = useMemo(
     () =>
@@ -352,7 +352,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
   const whatsappHref = useMemo(() => {
     if (!vehicle) return "";
     const digits = normalizePhone(storePhone);
-    const phone = digits.length >= 10 ? `55${digits}` : "551122223333";
+    const phone = digits.length >= 10 ? `55${digits}` : "551144351000";
     const message = encodeURIComponent(`Olá, tenho interesse no veículo ${vehicle.name}.`);
     return `https://wa.me/${phone}?text=${message}`;
   }, [vehicle, storePhone]);

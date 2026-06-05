@@ -1,6 +1,6 @@
 ﻿import Image from "next/image";
 import Link from "next/link";
-import { Facebook, Headphones, Instagram, MapPin, ShieldCheck } from "lucide-react";
+import { Facebook, Headphones, Instagram, MapPin, Phone, ShieldCheck } from "lucide-react";
 
 export function SavolMegaFooter() {
   return (
@@ -62,6 +62,9 @@ export function SavolMegaFooter() {
             <h4>Endereço administrativo</h4>
             <p>
               <MapPin size={18} /> Endereço: Av. Artur de Queirós, 701 - Casa Branca, Santo André - SP, 09015-510
+            </p>
+            <p>
+              <Phone size={18} /> Telefone: <a href="tel:+551144351000">(11) 4435-1000</a>
             </p>
             <hr />
             <p>

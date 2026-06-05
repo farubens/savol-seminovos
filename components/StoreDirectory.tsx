@@ -24,6 +24,12 @@ type LocationSuggestion = {
   cep?: string;
 };
 
+type KnownLocation = {
+  label: string;
+  point: GeoPoint;
+  aliases: string[];
+};
+
 const EXACT_LOCATION_ALIASES: Record<string, string> = {
   scs: "sao caetano do sul",
   sbc: "sao bernardo do campo",
@@ -35,6 +41,64 @@ const EXACT_LOCATION_ALIASES: Record<string, string> = {
 };
 
 const DEFAULT_REFERENCE_POINT: GeoPoint = { lat: -23.6639, lng: -46.5383 };
+
+const KNOWN_LOCATIONS: KnownLocation[] = [
+  {
+    label: "São Bernardo do Campo - SP",
+    point: { lat: -23.6914, lng: -46.5646 },
+    aliases: ["sbc", "s b c", "sao bernardo", "sao bernardo do campo", "s bernardo", "bernardo do campo"]
+  },
+  {
+    label: "Santo André - SP",
+    point: { lat: -23.6639, lng: -46.5383 },
+    aliases: ["sa", "santo andre", "santo and", "sto andre", "s andre"]
+  },
+  {
+    label: "São Caetano do Sul - SP",
+    point: { lat: -23.6232, lng: -46.5548 },
+    aliases: ["scs", "s c s", "sao caetano", "sao caetano do sul", "s caetano", "caetano do sul"]
+  },
+  {
+    label: "São Paulo - SP",
+    point: { lat: -23.5505, lng: -46.6333 },
+    aliases: ["sp", "sao paulo", "sampa", "capital sp"]
+  },
+  {
+    label: "Rio de Janeiro - RJ",
+    point: { lat: -22.9068, lng: -43.1729 },
+    aliases: ["rj", "rio de janeiro", "rio"]
+  },
+  {
+    label: "Santa Catarina - SC",
+    point: { lat: -27.2423, lng: -50.2189 },
+    aliases: ["sc", "santa catarina"]
+  },
+  {
+    label: "Campinas - SP",
+    point: { lat: -22.9056, lng: -47.0608 },
+    aliases: ["campinas"]
+  },
+  {
+    label: "Campina Grande - PB",
+    point: { lat: -7.2291, lng: -35.8808 },
+    aliases: ["campina grande"]
+  },
+  {
+    label: "Campo Grande - MS",
+    point: { lat: -20.4697, lng: -54.6201 },
+    aliases: ["campo grande", "cg", "ms"]
+  },
+  {
+    label: "Mauá - SP",
+    point: { lat: -23.6688, lng: -46.4617 },
+    aliases: ["maua"]
+  },
+  {
+    label: "Praia Grande - SP",
+    point: { lat: -24.0084, lng: -46.4127 },
+    aliases: ["praia grande"]
+  }
+];
 
 const GEO_HINTS: Array<{ keys: string[]; point: GeoPoint }> = [
   { keys: ["praia-grande"], point: { lat: -24.0084, lng: -46.4127 } },
@@ -214,6 +278,44 @@ function fuzzyScore(haystack: string, needle: string): number {
   return hits / Math.max(uniqueNeedle.length, 1);
 }
 
+function locationMatchScore(location: KnownLocation, rawInput: string): number {
+  const input = normalizeForMatch(rawInput);
+  const compactInput = input.replace(/\s+/g, "");
+  if (!input) return 0;
+
+  const candidates = [location.label, ...location.aliases];
+  let best = 0;
+  for (const candidate of candidates) {
+    const normalizedCandidate = normalizeForMatch(candidate);
+    const compactCandidate = normalizedCandidate.replace(/\s+/g, "");
+    const acronym = acronymOf(candidate).toLowerCase();
+    if (compactCandidate === compactInput || acronym === compactInput) best = Math.max(best, 1);
+    if (compactInput.length >= 2 && acronym.startsWith(compactInput)) best = Math.max(best, 0.9);
+    if (compactCandidate.startsWith(compactInput) || compactCandidate.includes(compactInput)) best = Math.max(best, 0.92);
+    if (compactInput.length > 3) {
+      best = Math.max(best, fuzzyScore(candidate, rawInput), matchTokenScore(normalizedCandidate, tokens(rawInput)));
+    }
+  }
+  return best;
+}
+
+function getKnownLocationSuggestions(rawInput: string): LocationSuggestion[] {
+  return KNOWN_LOCATIONS
+    .map((location) => ({ location, score: locationMatchScore(location, rawInput) }))
+    .filter((entry) => entry.score >= 0.4)
+    .sort((a, b) => b.score - a.score)
+    .map(({ location }) => ({
+      id: `known-${normalizeText(location.label)}`,
+      label: location.label,
+      lat: location.point.lat,
+      lng: location.point.lng
+    }));
+}
+
+function findBestKnownLocation(rawInput: string): LocationSuggestion | null {
+  return getKnownLocationSuggestions(rawInput)[0] ?? null;
+}
+
 async function reverseGeocode(point: GeoPoint): Promise<{ label: string; cep: string }> {
   const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&lat=${point.lat}&lon=${point.lng}`;
   const response = await fetch(url, { headers: { Accept: "application/json" }, cache: "no-store" });
@@ -387,6 +489,15 @@ export function StoreDirectory() {
   };
 
   const applyTextLocation = async (rawInput: string) => {
+    const knownLocation = findBestKnownLocation(rawInput);
+    if (knownLocation) {
+      setLocationInput(knownLocation.label);
+      setUserPoint({ lat: knownLocation.lat, lng: knownLocation.lng });
+      setSelectedCep("");
+      setLocationStatus("Local aplicado. Lojas ordenadas por proximidade.");
+      return;
+    }
+
     const normalized = normalizeForMatch(expandLocationAliases(rawInput.toLowerCase()));
     if (normalized.length < 3) {
       setLocationStatus("Digite pelo menos 3 caracteres para buscar local.");
@@ -394,7 +505,7 @@ export function StoreDirectory() {
     }
     setLocationStatus("Localizando endereço...");
     try {
-      const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=1&countrycodes=br&q=${encodeURIComponent(`${normalized}, Brasil`)}`;
+      const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=1&countrycodes=br&q=${encodeURIComponent(`${rawInput}, Brasil`)}`;
       const response = await fetch(url, { headers: { Accept: "application/json" }, cache: "no-store" });
       const payload = (await response.json()) as Array<{ lat: string; lon: string }>;
       const first = payload?.[0];
@@ -467,6 +578,7 @@ export function StoreDirectory() {
     const expanded = normalizeForMatch(expandedRaw);
     const exactAlias = resolveExactAlias(input);
     const aliasExpanded = exactAlias ? normalizeForMatch(exactAlias) : "";
+    const known = getKnownLocationSuggestions(input).slice(0, 6);
     const local = localSuggestions
       .map((item) => ({ item, score: Math.max(fuzzyScore(item.label, expanded), fuzzyScore(item.label, input)) }))
       .filter((entry) => entry.score >= 0.4)
@@ -474,7 +586,7 @@ export function StoreDirectory() {
       .map((entry) => entry.item)
       .slice(0, 6);
     const typedPoint =
-      GEO_HINTS.find((hint) => hint.keys.some((key) => expanded.includes(key)))?.point ?? DEFAULT_REFERENCE_POINT;
+      known[0] ? { lat: known[0].lat, lng: known[0].lng } : GEO_HINTS.find((hint) => hint.keys.some((key) => normalizeText(expanded).includes(key)))?.point ?? DEFAULT_REFERENCE_POINT;
     const typedSuggestion: LocationSuggestion = {
       id: `typed-${normalizeText(input)}`,
       label: exactAlias ? exactAlias.replace(/\b\w/g, (char) => char.toUpperCase()) : input,
@@ -598,7 +710,7 @@ export function StoreDirectory() {
             cep: normalizeCep(postcode)
           };
         }).filter((item): item is LocationSuggestion => item !== null);
-        const merged = [cepSuggestionCandidate, typedSuggestion, ...external, ...local].filter(Boolean) as LocationSuggestion[];
+        const merged = [cepSuggestionCandidate, ...known, typedSuggestion, ...external, ...local].filter(Boolean) as LocationSuggestion[];
         const dedup = new Map<string, LocationSuggestion>();
         for (const item of merged) {
           const key = normalizeText(item.label);
@@ -626,7 +738,7 @@ export function StoreDirectory() {
             .slice(0, 8)
         );
       } catch {
-        setSuggestions([typedSuggestion, ...local]);
+        setSuggestions([...known, typedSuggestion, ...local]);
       } finally {
         setIsFetchingSuggestions(false);
       }
@@ -767,7 +879,7 @@ export function StoreDirectory() {
                 <input
                   id="stores-location"
                   type="text"
-                  placeholder="Digite cidade, estado, bairro ou CEP"
+                  placeholder="Digite CEP, cidade, estado etc."
                   value={locationInput}
                   onFocus={() => setShowSuggestions(true)}
                   onChange={(event) => {

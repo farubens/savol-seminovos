@@ -33,6 +33,20 @@ type UploadedPhoto = {
   previewUrl: string;
 };
 
+type PhotoSlotId =
+  | "front"
+  | "leftSide"
+  | "rightSide"
+  | "rear"
+  | "dashboard"
+  | "odometer"
+  | "spare"
+  | "trunk"
+  | "roof"
+  | "tire"
+  | "engine"
+  | "chassis";
+
 type SellFormData = {
   brand: string;
   model: string;
@@ -49,7 +63,7 @@ type SellFormData = {
   hasSpareKey: string;
   desiredPrice: string;
   notes: string;
-  photos: UploadedPhoto[];
+  photos: Partial<Record<PhotoSlotId, UploadedPhoto>>;
   fullName: string;
   email: string;
   phone: string;
@@ -82,6 +96,20 @@ const DEFAULT_BRANDS = ["Chevrolet", "Fiat", "Ford", "Honda", "Hyundai", "Jeep",
 const DEFAULT_MODELS = ["Onix", "Toro", "HB20", "Corolla", "Compass", "Kicks"];
 const DEFAULT_VERSIONS = ["1.0", "1.3 Turbo", "2.0", "EX", "Limited"];
 const DEFAULT_YEARS = ["2026", "2025", "2024", "2023", "2022", "2021", "2020", "2019", "2018", "2017", "2016", "2015", "2014", "2013", "2012", "2011", "2010"];
+const PHOTO_SLOTS: Array<{ id: PhotoSlotId; label: string }> = [
+  { id: "front", label: "Frente" },
+  { id: "leftSide", label: "Lateral esquerda" },
+  { id: "rightSide", label: "Lateral direita" },
+  { id: "rear", label: "Traseira" },
+  { id: "dashboard", label: "Painel" },
+  { id: "odometer", label: "Odômetro" },
+  { id: "spare", label: "Estepe" },
+  { id: "trunk", label: "Porta malas" },
+  { id: "roof", label: "Teto" },
+  { id: "tire", label: "Pneu" },
+  { id: "engine", label: "Motor" },
+  { id: "chassis", label: "Chassi" }
+];
 
 function createInitialFormState(): SellFormData {
   return {
@@ -100,7 +128,7 @@ function createInitialFormState(): SellFormData {
     hasSpareKey: "",
     desiredPrice: "",
     notes: "",
-    photos: [],
+    photos: {},
     fullName: "",
     email: "",
     phone: "",
@@ -131,6 +159,10 @@ function FieldError({ error }: { error?: string }) {
   return <small className="sell-field-help">{error}</small>;
 }
 
+function getPhotosList(photos: SellFormData["photos"]): UploadedPhoto[] {
+  return PHOTO_SLOTS.map((slot) => photos[slot.id]).filter((photo): photo is UploadedPhoto => Boolean(photo));
+}
+
 export function SellYourCarWizard() {
   const { vehicles } = useHomeSessionData();
   const [step, setStep] = useState<Step>(1);
@@ -139,15 +171,14 @@ export function SellYourCarWizard() {
   const [dragActive, setDragActive] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [protocol, setProtocol] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const photosRef = useRef<UploadedPhoto[]>([]);
+  const photosRef = useRef<SellFormData["photos"]>({});
 
   useEffect(() => {
     photosRef.current = form.photos;
   }, [form.photos]);
 
   useEffect(() => () => {
-    photosRef.current.forEach((photo) => URL.revokeObjectURL(photo.previewUrl));
+    getPhotosList(photosRef.current).forEach((photo) => URL.revokeObjectURL(photo.previewUrl));
   }, []);
 
   const brands = useMemo(() => {
@@ -178,7 +209,7 @@ export function SellYourCarWizard() {
   const isStepDone = (checkStep: Step): boolean => {
     if (checkStep === 1) return Boolean(form.brand && form.model && form.year && form.fuel && form.transmission && form.km && form.color && form.plateEnding);
     if (checkStep === 2) return Boolean(form.bodyType && form.ownerCount && form.hasManual && form.hasSpareKey && form.desiredPrice);
-    if (checkStep === 3) return form.photos.length >= 3;
+    if (checkStep === 3) return PHOTO_SLOTS.every((slot) => Boolean(form.photos[slot.id]));
     if (checkStep === 4) return Boolean(form.fullName && form.email && form.phone && form.city && form.state && form.contactPeriod && form.contactChannel);
     return Boolean(form.acceptedTerms && form.acceptedLgpd);
   };
@@ -213,7 +244,7 @@ export function SellYourCarWizard() {
       if (!form.hasSpareKey) nextErrors.hasSpareKey = "Informe se tem chave reserva";
       if (!form.desiredPrice) nextErrors.desiredPrice = "Informe o valor pretendido";
     }
-    if (targetStep === 3 && form.photos.length < 3) nextErrors.photos = "Envie no mínimo 3 fotos";
+    if (targetStep === 3 && !PHOTO_SLOTS.every((slot) => Boolean(form.photos[slot.id]))) nextErrors.photos = "Envie as 12 fotos obrigatórias do veículo.";
     if (targetStep === 4) {
       if (!form.fullName) nextErrors.fullName = "Informe seu nome";
       if (!form.email || !/^\S+@\S+\.\S+$/.test(form.email)) nextErrors.email = "Informe um e-mail válido";
@@ -239,46 +270,55 @@ export function SellYourCarWizard() {
   const goBack = () => setStep((prev) => (prev > 1 ? ((prev - 1) as Step) : prev));
 
   const resetWizard = () => {
-    photosRef.current.forEach((photo) => URL.revokeObjectURL(photo.previewUrl));
-    photosRef.current = [];
+    getPhotosList(photosRef.current).forEach((photo) => URL.revokeObjectURL(photo.previewUrl));
+    photosRef.current = {};
     setForm(createInitialFormState());
     setErrors({});
     setStep(1);
     setProtocol(null);
   };
 
-  const appendPhotos = (files: FileList | null) => {
-    if (!files?.length) return;
-    const incoming = Array.from(files).filter((file) => file.type.startsWith("image/"));
+  const setSlotPhoto = (slotId: PhotoSlotId, file: File) => {
+    if (!file.type.startsWith("image/")) return;
     setForm((prev) => {
-      const slots = Math.max(0, 12 - prev.photos.length);
-      const next = incoming.slice(0, slots).map((file) => ({
-        id: `${file.name}-${file.size}-${file.lastModified}-${Math.random().toString(36).slice(2, 7)}`,
-        file,
-        previewUrl: URL.createObjectURL(file)
-      }));
-      return { ...prev, photos: [...prev.photos, ...next] };
+      const previousPhoto = prev.photos[slotId];
+      if (previousPhoto) URL.revokeObjectURL(previousPhoto.previewUrl);
+      return {
+        ...prev,
+        photos: {
+          ...prev.photos,
+          [slotId]: {
+            id: `${slotId}-${file.name}-${file.size}-${file.lastModified}-${Math.random().toString(36).slice(2, 7)}`,
+            file,
+            previewUrl: URL.createObjectURL(file)
+          }
+        }
+      };
     });
     clearError("photos");
   };
 
-  const removePhoto = (id: string) => {
+  const removePhoto = (slotId: PhotoSlotId) => {
     setForm((prev) => {
-      const target = prev.photos.find((photo) => photo.id === id);
+      const target = prev.photos[slotId];
       if (target) URL.revokeObjectURL(target.previewUrl);
-      return { ...prev, photos: prev.photos.filter((photo) => photo.id !== id) };
+      const nextPhotos = { ...prev.photos };
+      delete nextPhotos[slotId];
+      return { ...prev, photos: nextPhotos };
     });
   };
 
-  const onInputPhotos = (event: ChangeEvent<HTMLInputElement>) => {
-    appendPhotos(event.target.files);
+  const onInputPhoto = (slotId: PhotoSlotId, event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) setSlotPhoto(slotId, file);
     event.target.value = "";
   };
 
-  const onDropPhotos = (event: DragEvent<HTMLDivElement>) => {
+  const onDropPhoto = (slotId: PhotoSlotId, event: DragEvent<HTMLElement>) => {
     event.preventDefault();
     setDragActive(false);
-    appendPhotos(event.dataTransfer.files);
+    const file = event.dataTransfer.files?.[0];
+    if (file) setSlotPhoto(slotId, file);
   };
 
   const submit = async () => {
@@ -360,20 +400,43 @@ export function SellYourCarWizard() {
                   )}
 
                   {step === 3 && (
-                    <div className="sell-form-grid">
-                      <div className={`sell-dropzone${dragActive ? " is-drag-active" : ""}`} onDrop={onDropPhotos} onDragOver={(event) => { event.preventDefault(); setDragActive(true); }} onDragLeave={() => setDragActive(false)} onClick={() => fileInputRef.current?.click()} role="button" tabIndex={0} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); fileInputRef.current?.click(); } }}>
-                        <input ref={fileInputRef} type="file" accept="image/*" multiple className="sell-dropzone-input" onChange={onInputPhotos} />
-                        <Upload size={24} /><strong>Clique ou arraste as fotos do veículo</strong><span>Envie de 3 a 12 imagens.</span>
-                      </div>
+                    <div className="sell-photos-step">
+                      <p className="sell-photos-help">Envie uma foto para cada ângulo solicitado. São 12 fotos no total.</p>
                       <FieldError error={errors.photos} />
-                      <div className="sell-photo-grid">
-                        {form.photos.map((photo) => (
-                          <figure key={photo.id} className="sell-photo-item">
-                            <Image src={photo.previewUrl} alt={photo.file.name} width={240} height={160} unoptimized />
-                            <figcaption><span>{photo.file.name}</span><button type="button" onClick={() => removePhoto(photo.id)} aria-label="Remover foto"><X size={14} /></button></figcaption>
-                          </figure>
-                        ))}
+                      <div className="sell-photo-slot-grid">
+                        {PHOTO_SLOTS.map((slot) => {
+                          const photo = form.photos[slot.id];
+                          return (
+                            <label
+                              key={slot.id}
+                              className={`sell-photo-slot${photo ? " has-photo" : ""}${dragActive ? " is-drag-active" : ""}`}
+                              onDrop={(event) => onDropPhoto(slot.id, event)}
+                              onDragOver={(event) => {
+                                event.preventDefault();
+                                setDragActive(true);
+                              }}
+                              onDragLeave={() => setDragActive(false)}
+                            >
+                              <input type="file" accept="image/*" onChange={(event) => onInputPhoto(slot.id, event)} />
+                              {photo ? (
+                                <>
+                                  <Image src={photo.previewUrl} alt={slot.label} width={240} height={160} unoptimized />
+                                  <button type="button" onClick={(event) => { event.preventDefault(); removePhoto(slot.id); }} aria-label={`Remover foto ${slot.label}`}>
+                                    <X size={14} />
+                                  </button>
+                                </>
+                              ) : (
+                                <span className="sell-photo-slot-empty">
+                                  <Upload size={22} />
+                                  <small>Clique ou arraste</small>
+                                </span>
+                              )}
+                              <strong>{slot.label}</strong>
+                            </label>
+                          );
+                        })}
                       </div>
+                      <p className="sell-photos-counter">{getPhotosList(form.photos).length} de {PHOTO_SLOTS.length} fotos enviadas</p>
                     </div>
                   )}
 
@@ -394,7 +457,7 @@ export function SellYourCarWizard() {
                     <div className="sell-form-grid">
                       <div className="sell-review-grid">
                         <article><h4>Veículo</h4><ul><li><strong>Marca:</strong> {form.brand || "-"}</li><li><strong>Modelo:</strong> {form.model || "-"}</li><li><strong>Ano:</strong> {form.year || "-"}</li><li><strong>KM:</strong> {form.km || "-"}</li><li><strong>Combustível:</strong> {form.fuel || "-"}</li><li><strong>Câmbio:</strong> {form.transmission || "-"}</li><li><strong>Cor:</strong> {form.color || "-"}</li></ul></article>
-                        <article><h4>Contato</h4><ul><li><strong>Nome:</strong> {form.fullName || "-"}</li><li><strong>E-mail:</strong> {form.email || "-"}</li><li><strong>Telefone:</strong> {form.phone || "-"}</li><li><strong>Cidade/UF:</strong> {form.city ? `${form.city}/${form.state}` : "-"}</li><li><strong>Canal:</strong> {form.contactChannel || "-"}</li><li><strong>Fotos:</strong> {form.photos.length}</li><li><strong>Valor:</strong> {form.desiredPrice ? `R$ ${form.desiredPrice}` : "-"}</li></ul></article>
+                        <article><h4>Contato</h4><ul><li><strong>Nome:</strong> {form.fullName || "-"}</li><li><strong>E-mail:</strong> {form.email || "-"}</li><li><strong>Telefone:</strong> {form.phone || "-"}</li><li><strong>Cidade/UF:</strong> {form.city ? `${form.city}/${form.state}` : "-"}</li><li><strong>Canal:</strong> {form.contactChannel || "-"}</li><li><strong>Fotos:</strong> {getPhotosList(form.photos).length}</li><li><strong>Valor:</strong> {form.desiredPrice ? `R$ ${form.desiredPrice}` : "-"}</li></ul></article>
                       </div>
                       <label className="sell-check"><input type="checkbox" checked={form.acceptedTerms} onChange={(event) => handleChange("acceptedTerms", event.target.checked)} /><span>Li e concordo com os termos de atendimento.</span></label>
                       <FieldError error={errors.acceptedTerms} />
@@ -405,7 +468,7 @@ export function SellYourCarWizard() {
                 </div>
 
                 <aside className="sell-security-card">
-                  <Image src="/images/hero-car.png" alt="Processo seguro Savol" width={777} height={474} className="sell-security-image" />
+                  <Image src="/images/fit.png" alt="Processo seguro Savol" width={777} height={474} className="sell-security-image" />
                   <h4>Processo 100% seguro</h4>
                   <ul>
                     <li><CheckCircle2 size={16} /> Avaliação rápida e gratuita</li>

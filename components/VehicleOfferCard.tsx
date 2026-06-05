@@ -438,6 +438,65 @@ export function VehicleOfferCard({
     loadGalleryOnDemand();
   };
 
+  const buildVwfsPayload = (deadline = 48) => {
+    const { manufactureAt, modelYear } = parseVehicleYears(year);
+    const [brandToken = "", modelToken = ""] = name.split(" ");
+    const versionToken = subtitle || name.replace(`${brandToken} ${modelToken}`.trim(), "").trim();
+    const normalizedMolicar = normalizeMolicar(molicar);
+    const normalizedPlate = normalizePlateValue(plate);
+    const carValue = toVwfsMoney(price);
+
+    if (!carValue) return null;
+
+    return {
+      clientKey: vwfsClientKey,
+      clientToken: vwfsClientToken,
+      storeId: vwfsStoreId,
+      carType: resolveCarType(`${name} ${subtitle}`),
+      carValue,
+      inputPercent: 40,
+      deadline,
+      manufactureAt,
+      modelYear,
+      ...(normalizedMolicar ? { molicar: normalizedMolicar } : {}),
+      ...(normalizedPlate ? { plate: normalizedPlate } : {}),
+      status: "USED",
+      brand: brandToken || "VW",
+      model: modelToken || name,
+      version: versionToken || subtitle || "Sem versão",
+      vehicleImagem: safeImage
+    } satisfies Record<string, unknown>;
+  };
+
+  const openVwfsSimulator = () => {
+    if (isSimulatingFinance) return;
+    if (!hasVwfsConfig || !hasVehicleIdForVwfs) {
+      window.alert("Simulador oficial indisponível para este veículo no momento.");
+      return;
+    }
+
+    const payload = buildVwfsPayload(48);
+    if (!payload) {
+      window.alert("Preço inválido para simulação oficial.");
+      return;
+    }
+
+    setIsSimulatingFinance(true);
+    ensureVwfsYieldContainer();
+    void loadVwfsScript(vwfsScriptSrc).then((ok) => {
+      setIsSimulatingFinance(false);
+      if (!ok || !window.bvfs?.simulator) {
+        window.alert("Simulador oficial indisponível no momento. Tente novamente em instantes.");
+        return;
+      }
+      try {
+        window.bvfs.simulator(payload);
+      } catch {
+        window.alert("Falha ao abrir o simulador oficial. Tente novamente em instantes.");
+      }
+    });
+  };
+
   const closeFinanceModal = () => {
     if (calculationTimerRef.current) {
       clearTimeout(calculationTimerRef.current);
@@ -484,35 +543,11 @@ export function VehicleOfferCard({
     };
 
     if (hasVwfsConfig && hasVehicleIdForVwfs && canUseVwfsOnCurrentHost()) {
-      const { manufactureAt, modelYear } = parseVehicleYears(year);
-      const [brandToken = "", modelToken = ""] = name.split(" ");
-      const versionToken = subtitle || name.replace(`${brandToken} ${modelToken}`.trim(), "").trim();
-      const normalizedMolicar = normalizeMolicar(molicar);
-      const normalizedPlate = normalizePlateValue(plate);
-      const carValue = toVwfsMoney(price);
-      if (!carValue) {
+      const payload = buildVwfsPayload(installments);
+      if (!payload) {
         setEntryError("Preço inválido para simulação oficial. Usando simulador local.");
         runLocalSimulation();
       } else {
-      const payload = {
-        clientKey: vwfsClientKey,
-        clientToken: vwfsClientToken,
-        storeId: vwfsStoreId,
-        carType: resolveCarType(`${name} ${subtitle}`),
-        carValue,
-        inputPercent: 40,
-        deadline: installments,
-        manufactureAt,
-        modelYear,
-        ...(normalizedMolicar ? { molicar: normalizedMolicar } : {}),
-        ...(normalizedPlate ? { plate: normalizedPlate } : {}),
-        status: "USED",
-        brand: brandToken || "VW",
-        model: modelToken || name,
-        version: versionToken || subtitle || "Sem versão",
-        vehicleImagem: safeImage
-      } satisfies Record<string, unknown>;
-
       setIsSimulatingFinance(true);
       ensureVwfsYieldContainer();
       void loadVwfsScript(vwfsScriptSrc).then((ok) => {
@@ -637,8 +672,9 @@ export function VehicleOfferCard({
             </div>
 
             <div className="offer-actions">
-              <button type="button" className="offer-primary" onClick={openFinanceModal}>
-                <WalletCards size={20} /> Ver parcelas
+              <button type="button" className="offer-primary" onClick={openVwfsSimulator} disabled={isSimulatingFinance}>
+                {isSimulatingFinance ? <LoaderCircle size={20} className="spin" /> : <WalletCards size={20} />}
+                {isSimulatingFinance ? "Abrindo simulador..." : "Ver parcelas"}
               </button>
               {detailUrlIsExternal ? (
                 <a className="offer-secondary" href={resolvedDetailUrl} target="_blank" rel="noopener noreferrer">
