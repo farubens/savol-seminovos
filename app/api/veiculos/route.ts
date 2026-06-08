@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { buildOldPriceLabelFromOfficialPrice } from "@/utils/pricing";
 
-const WP_BASE_URL = "https://palevioletred-lark-270684.hostingersite.com";
+const WP_BASE_URL = (process.env.WP_BASE_URL?.trim() || "http://localhost/savol-seminovos-local").replace(/\/+$/, "");
 const VEICULO_ENDPOINT = `${WP_BASE_URL}/wp-json/wp/v2/veiculo`;
 const DEFAULT_PER_PAGE = 12;
-const MAX_PER_PAGE = 24;
+const MAX_PER_PAGE = 200;
+const WP_PAGE_SIZE = 100;
 const FALLBACK_IMAGE = "/images/em-preparacao.jpg";
 const API_CACHE_TTL_MS = 2 * 60 * 1000;
 const WP_DEFAULT_USER = "fa.rubens@gmail.com";
@@ -55,6 +56,7 @@ type ApiVehicle = {
   oldPrice: string;
   price: string;
   qualityTag: string;
+  secondaryHighlights: string[];
   brand: string;
   model: string;
   version: string;
@@ -179,15 +181,20 @@ function getEmbeddedImage(vehicle: WpVehicle): string | null {
 }
 
 function getEmbeddedTerm(vehicle: WpVehicle, taxonomy: string): string {
+  return getEmbeddedTerms(vehicle, taxonomy)[0] ?? "";
+}
+
+function getEmbeddedTerms(vehicle: WpVehicle, taxonomy: string): string[] {
   const groups = vehicle._embedded?.["wp:term"] ?? [];
+  const terms: string[] = [];
   for (const group of groups) {
     for (const term of group) {
       if (term.taxonomy === taxonomy && term.name) {
-        return cleanText(term.name);
+        terms.push(cleanText(term.name));
       }
     }
   }
-  return "";
+  return Array.from(new Set(terms.filter(Boolean)));
 }
 
 function getAuthHeaders(): HeadersInit {
@@ -213,8 +220,9 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<{ data: T 
   return { data: (await response.json()) as T, status: response.status };
 }
 
-function buildVehicleUrl(perPage: number, options?: { context?: "edit"; embed?: boolean }): string {
+function buildVehicleUrl(perPage: number, options?: { context?: "edit"; embed?: boolean; page?: number }): string {
   const query = new URLSearchParams({ per_page: String(perPage) });
+  if (options?.page) query.set("page", String(options.page));
   if (options?.embed) query.set("_embed", "wp:featuredmedia,wp:term");
   if (options?.context) query.set("context", options.context);
   return `${VEICULO_ENDPOINT}?${query.toString()}`;
@@ -229,18 +237,31 @@ function buildVehicleBySlugUrl(slug: string, options?: { context?: "edit"; embed
 }
 
 async function fetchVehiclePosts(perPage: number, authHeaders: HeadersInit): Promise<WpVehicle[]> {
-  if (Object.keys(authHeaders).length) {
-    const editResult = await fetchJson<WpVehicle[]>(buildVehicleUrl(perPage, { context: "edit", embed: true }), {
+  const rows: WpVehicle[] = [];
+  const pageSize = Math.min(WP_PAGE_SIZE, perPage);
+  const maxPages = Math.ceil(perPage / pageSize);
+
+  const fetchPage = async (page: number, options?: { context?: "edit"; embed?: boolean }) => {
+    const result = await fetchJson<WpVehicle[]>(buildVehicleUrl(pageSize, { ...options, page }), {
       headers: authHeaders
     });
-    if (Array.isArray(editResult.data) && editResult.data.length) return editResult.data;
+    return Array.isArray(result.data) ? result.data : [];
+  };
+
+  const strategies: Array<{ context?: "edit"; embed?: boolean }> = Object.keys(authHeaders).length
+    ? [{ context: "edit", embed: true }, { embed: true }, {}]
+    : [{ embed: true }, {}];
+
+  for (const strategy of strategies) {
+    rows.length = 0;
+    for (let page = 1; page <= maxPages; page += 1) {
+      const pageRows = await fetchPage(page, strategy);
+      if (!pageRows.length) break;
+      rows.push(...pageRows);
+      if (pageRows.length < pageSize || rows.length >= perPage) break;
+    }
+    if (rows.length) return rows.slice(0, perPage);
   }
-
-  const embeddedViewResult = await fetchJson<WpVehicle[]>(buildVehicleUrl(perPage, { embed: true }));
-  if (Array.isArray(embeddedViewResult.data) && embeddedViewResult.data.length) return embeddedViewResult.data;
-
-  const viewResult = await fetchJson<WpVehicle[]>(buildVehicleUrl(perPage));
-  if (Array.isArray(viewResult.data) && viewResult.data.length) return viewResult.data;
 
   return [];
 }
@@ -393,6 +414,8 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
   const city = getEmbeddedTerm(vehicle, "veiculo_cidade");
   const uf = getEmbeddedTerm(vehicle, "veiculo_uf");
   const store = getEmbeddedTerm(vehicle, "veiculo_unidade");
+  const primaryHighlight = getEmbeddedTerm(vehicle, "veiculo_informacao_destaque");
+  const secondaryHighlights = getEmbeddedTerms(vehicle, "veiculo_destaque_secundario");
 
   const metaAno = getMetaField(vehicle, "ano");
   const metaAnoModelo = getMetaField(vehicle, "ano_modelo");
@@ -425,7 +448,8 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
     store: buildStoreLabel(store),
     oldPrice: priceData.oldPrice,
     price: priceData.price,
-    qualityTag: getQualityTag(content, metaCondition),
+    qualityTag: primaryHighlight,
+    secondaryHighlights,
     brand: brand || "Marca não informada",
     model: model || "Modelo não informado",
     version: version || "Versão não informada",

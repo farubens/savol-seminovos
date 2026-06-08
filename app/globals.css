@@ -1565,13 +1565,6 @@ h2 {
   flex-shrink: 0;
 }
 
-.offer-tag--laudo {
-  background: #eef3ff;
-  color: var(--blue-dark);
-  border-color: #c7d7fb;
-  --tag-dot-color: var(--blue);
-}
-
 .offer-tag--garantia {
   background: #ecf8f0;
   color: #1d7a45;
@@ -1579,7 +1572,21 @@ h2 {
   --tag-dot-color: #2f9d5d;
 }
 
-.offer-tag--disponivel {
+.offer-tag--repasse {
+  background: #fff1f1;
+  color: #b42318;
+  border-color: #f3b7b7;
+  --tag-dot-color: #dc2626;
+}
+
+.offer-tag--unico-dono {
+  background: #eef5ff;
+  color: #174ea6;
+  border-color: #bfd5ff;
+  --tag-dot-color: #2563eb;
+}
+
+.offer-tag--default {
   background: #fffaf2;
   color: #a85b00;
   border-color: #f2cb92;
@@ -1679,6 +1686,65 @@ h2 {
 
 .offer-highlight--warranty svg {
   color: #a85b00;
+}
+
+.offer-highlight--repasse {
+  border-color: #f3b7b7;
+  background: #fff1f1;
+  color: #b42318;
+}
+
+.offer-highlight--garantia {
+  border-color: #b9e0c6;
+  background: #edf8f0;
+  color: #1f7a45;
+}
+
+.offer-highlight--unico-dono {
+  border-color: #bfd5ff;
+  background: #eef5ff;
+  color: #174ea6;
+}
+
+.offer-highlight--baixa-km {
+  border-color: #f4dc7d;
+  background: #fff8d8;
+  color: #7a5700;
+}
+
+.offer-highlight--fipe {
+  border-color: #f2cb92;
+  background: #fff3df;
+  color: #a85b00;
+}
+
+.offer-highlight--impecavel {
+  border-color: #b7e4f3;
+  background: #ecfbff;
+  color: #0e7490;
+}
+
+.offer-highlight--completo {
+  border-color: #1f2937;
+  background: #111827;
+  color: #ffffff;
+}
+
+.offer-highlight--default {
+  border-color: #d9e4f8;
+  background: #f5f9ff;
+  color: #274a85;
+}
+
+.offer-highlight--repasse svg,
+.offer-highlight--garantia svg,
+.offer-highlight--unico-dono svg,
+.offer-highlight--baixa-km svg,
+.offer-highlight--fipe svg,
+.offer-highlight--impecavel svg,
+.offer-highlight--completo svg,
+.offer-highlight--default svg {
+  color: currentColor;
 }
 
 .offer-footer {
@@ -3565,6 +3631,54 @@ h2 {
   padding: 0 14px;
 }
 
+.vehicle-media-badge--repasse {
+  border-color: #f3b7b7;
+  background: #dc2626;
+  color: #ffffff;
+}
+
+.vehicle-media-badge--garantia {
+  border-color: #bde4cb;
+  background: #2f9d5d;
+  color: #ffffff;
+}
+
+.vehicle-media-badge--unico-dono {
+  border-color: #bfd5ff;
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.vehicle-media-badge--baixa-km {
+  border-color: #f4dc7d;
+  background: #facc15;
+  color: #3f2d00;
+}
+
+.vehicle-media-badge--fipe {
+  border-color: #f2cb92;
+  background: #f97316;
+  color: #ffffff;
+}
+
+.vehicle-media-badge--impecavel {
+  border-color: #b7e4f3;
+  background: #06b6d4;
+  color: #083344;
+}
+
+.vehicle-media-badge--completo {
+  border-color: #1f2937;
+  background: #111827;
+  color: #ffffff;
+}
+
+.vehicle-media-badge--default {
+  border-color: #e2b433;
+  background: #f4b400;
+  color: #1f2f57;
+}
+
 .vehicle-media-arrow {
   position: absolute;
   top: 50%;
@@ -4097,6 +4211,54 @@ h2 {
   align-items: center;
   gap: 6px;
   padding: 0 10px;
+}
+
+.vehicle-extra-badges .vehicle-extra-badge--repasse {
+  border-color: #f3b7b7;
+  background: #fff1f1;
+  color: #b42318;
+}
+
+.vehicle-extra-badges .vehicle-extra-badge--garantia {
+  border-color: #b9e0c6;
+  background: #edf8f0;
+  color: #1f7a45;
+}
+
+.vehicle-extra-badges .vehicle-extra-badge--unico-dono {
+  border-color: #bfd5ff;
+  background: #eef5ff;
+  color: #174ea6;
+}
+
+.vehicle-extra-badges .vehicle-extra-badge--baixa-km {
+  border-color: #f4dc7d;
+  background: #fff8d8;
+  color: #7a5700;
+}
+
+.vehicle-extra-badges .vehicle-extra-badge--fipe {
+  border-color: #f2cb92;
+  background: #fff3df;
+  color: #a85b00;
+}
+
+.vehicle-extra-badges .vehicle-extra-badge--impecavel {
+  border-color: #b7e4f3;
+  background: #ecfbff;
+  color: #0e7490;
+}
+
+.vehicle-extra-badges .vehicle-extra-badge--completo {
+  border-color: #1f2937;
+  background: #111827;
+  color: #ffffff;
+}
+
+.vehicle-extra-badges .vehicle-extra-badge--default {
+  border-color: #d9e4f8;
+  background: #f5f9ff;
+  color: #274a85;
 }
 
 .vehicle-optionals-grid {
@@ -6054,6 +6216,18 @@ h2 {
   color: #5b6f95;
   font-size: 14px;
   padding: 0 2px;
+}
+
+.catalog-infinite-sentinel {
+  width: 100%;
+  height: 1px;
+}
+
+.catalog-infinite-status {
+  margin: 18px 0 0;
+  text-align: center;
+  color: #506795;
+  font-size: 14px;
 }
 
 .contact-page {

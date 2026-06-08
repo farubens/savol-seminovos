@@ -76,6 +76,12 @@ type SellFormData = {
   acceptedLgpd: boolean;
 };
 
+type SellYourCarSubmitResponse = {
+  ok?: boolean;
+  protocol?: string;
+  error?: string;
+};
+
 const STEPS: Array<{ id: Step; label: string }> = [
   { id: 1, label: "Dados do veículo" },
   { id: 2, label: "Detalhes adicionais" },
@@ -161,6 +167,73 @@ function FieldError({ error }: { error?: string }) {
 
 function getPhotosList(photos: SellFormData["photos"]): UploadedPhoto[] {
   return PHOTO_SLOTS.map((slot) => photos[slot.id]).filter((photo): photo is UploadedPhoto => Boolean(photo));
+}
+
+function toNumberValue(value: string): number | null {
+  const digits = value.replace(/[^\d]/g, "");
+  if (!digits) return null;
+  const parsed = Number(digits);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function buildSellYourCarPayload(form: SellFormData) {
+  const submittedAt = new Date().toISOString();
+
+  return {
+    schemaVersion: "1.0",
+    source: {
+      form: "venda-seu-carro",
+      channel: "site",
+      pageUrl: typeof window !== "undefined" ? window.location.href : "",
+      userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "",
+      submittedAt
+    },
+    vehicle: {
+      brand: form.brand,
+      model: form.model,
+      version: form.version,
+      year: form.year,
+      fuel: form.fuel,
+      transmission: form.transmission,
+      km: toNumberValue(form.km),
+      color: form.color,
+      plateEnding: form.plateEnding,
+      bodyType: form.bodyType,
+      ownerCount: form.ownerCount,
+      hasManual: form.hasManual,
+      hasSpareKey: form.hasSpareKey,
+      desiredPrice: toNumberValue(form.desiredPrice),
+      notes: form.notes.trim()
+    },
+    seller: {
+      fullName: form.fullName.trim(),
+      email: form.email.trim(),
+      phone: form.phone,
+      whatsapp: form.whatsapp,
+      city: form.city.trim(),
+      state: form.state.trim().toUpperCase(),
+      contactPeriod: form.contactPeriod,
+      contactChannel: form.contactChannel
+    },
+    consents: {
+      acceptedTerms: form.acceptedTerms,
+      acceptedLgpd: form.acceptedLgpd,
+      acceptedAt: submittedAt
+    },
+    photos: PHOTO_SLOTS.map((slot) => {
+      const photo = form.photos[slot.id];
+      return {
+        slotId: slot.id,
+        label: slot.label,
+        required: true,
+        fieldName: `photo_${slot.id}`,
+        fileName: photo?.file.name ?? "",
+        mimeType: photo?.file.type ?? "",
+        sizeBytes: photo?.file.size ?? 0,
+        lastModified: photo?.file.lastModified ? new Date(photo.file.lastModified).toISOString() : ""
+      };
+    })
+  };
 }
 
 export function SellYourCarWizard() {
@@ -324,9 +397,35 @@ export function SellYourCarWizard() {
   const submit = async () => {
     if (!validateStep(5)) return;
     setIsSubmitting(true);
-    await new Promise((resolve) => setTimeout(resolve, 900));
-    setProtocol(`SAVOL-${Math.floor(100000 + Math.random() * 900000)}`);
-    setIsSubmitting(false);
+
+    try {
+      const formData = new FormData();
+      formData.append("payload", JSON.stringify(buildSellYourCarPayload(form)));
+
+      for (const slot of PHOTO_SLOTS) {
+        const photo = form.photos[slot.id];
+        if (photo) formData.append(`photo_${slot.id}`, photo.file, photo.file.name);
+      }
+
+      const response = await fetch("/api/venda-seu-carro", {
+        method: "POST",
+        body: formData
+      });
+      const payload = (await response.json()) as SellYourCarSubmitResponse;
+
+      if (!response.ok || !payload.ok || !payload.protocol) {
+        throw new Error(payload.error || "Não foi possível enviar a avaliação.");
+      }
+
+      setProtocol(payload.protocol);
+    } catch {
+      setErrors((current) => ({
+        ...current,
+        submit: "Não foi possível enviar sua avaliação agora. Tente novamente em instantes."
+      }));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -480,6 +579,7 @@ export function SellYourCarWizard() {
               </div>
 
               <footer className="sell-form-footer">
+                <FieldError error={errors.submit} />
                 <button type="button" className="btn btn-outline" onClick={resetWizard}>Cancelar</button>
                 <div className="sell-form-footer-right">
                   {step > 1 && <button type="button" className="btn btn-outline" onClick={goBack}><ChevronLeft size={16} /> Voltar</button>}

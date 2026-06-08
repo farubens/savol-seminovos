@@ -624,6 +624,7 @@ export function CategoryFinder() {
                 price={vehicle.price}
                 detailUrl={vehicle.url}
                 qualityTag={vehicle.qualityTag}
+                secondaryHighlights={vehicle.secondaryHighlights}
                 delay={index * 0.05}
                 variant="grid"
               />

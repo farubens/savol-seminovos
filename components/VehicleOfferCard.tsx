@@ -36,6 +36,7 @@ type Props = {
   price: string;
   detailUrl?: string;
   qualityTag?: string;
+  secondaryHighlights?: string[];
   delay?: number;
   variant?: "grid" | "list";
   molicar?: string;
@@ -58,11 +59,24 @@ function normalizeTag(value: string): string {
     .trim();
 }
 
-function resolveTagTone(value: string): "laudo" | "garantia" | "disponivel" {
+function resolveTagTone(value: string): "repasse" | "garantia" | "unico-dono" | "default" {
   const normalized = normalizeTag(value);
-  if (normalized.includes("laudo")) return "laudo";
+  if (normalized.includes("repasse")) return "repasse";
   if (normalized.includes("garantia")) return "garantia";
-  return "disponivel";
+  if (normalized.includes("unico dono")) return "unico-dono";
+  return "default";
+}
+
+function resolveHighlightTone(value: string): "repasse" | "garantia" | "unico-dono" | "baixa-km" | "fipe" | "impecavel" | "completo" | "default" {
+  const normalized = normalizeTag(value);
+  if (normalized.includes("repasse")) return "repasse";
+  if (normalized.includes("garantia")) return "garantia";
+  if (normalized.includes("unico dono")) return "unico-dono";
+  if (normalized.includes("baixa km")) return "baixa-km";
+  if (normalized.includes("abaixo") && normalized.includes("fipe")) return "fipe";
+  if (normalized.includes("impecavel")) return "impecavel";
+  if (normalized.includes("completo")) return "completo";
+  return "default";
 }
 
 function parseMoney(value: string): number | null {
@@ -268,7 +282,8 @@ export function VehicleOfferCard({
   oldPrice = "",
   price,
   detailUrl = "#",
-  qualityTag = "Disponível",
+  qualityTag = "",
+  secondaryHighlights = [],
   delay = 0,
   variant = "grid",
   molicar = "",
@@ -291,6 +306,10 @@ export function VehicleOfferCard({
   const normalizedTag = normalizeTag(qualityTag);
   const showTag = Boolean(qualityTag.trim()) && !normalizedTag.includes("seminovo") && !isPreparationFallback;
   const tagTone = resolveTagTone(qualityTag);
+  const resolvedSecondaryHighlights = useMemo(
+    () => secondaryHighlights.slice(0, 4),
+    [secondaryHighlights]
+  );
   const resolvedOldPrice = resolveOldPrice(oldPrice, price);
   const priceValue = parseMoney(price) ?? 0;
   const minEntryValue = useMemo(() => Math.round(priceValue * 0.4), [priceValue]);
@@ -645,14 +664,18 @@ export function VehicleOfferCard({
               </span>
             </div>
 
-            <div className="offer-highlights">
-              <span className="offer-highlight offer-highlight--owner">
-                <UserRound size={18} /> Único dono
-              </span>
-              <span className="offer-highlight offer-highlight--warranty">
-                <ShieldCheck size={18} /> Garantia de fábrica
-              </span>
-            </div>
+            {Boolean(resolvedSecondaryHighlights.length) && (
+              <div className="offer-highlights">
+                {resolvedSecondaryHighlights.map((highlight, index) => {
+                  const tone = resolveHighlightTone(highlight);
+                  return (
+                    <span key={`${highlight}-${index}`} className={`offer-highlight offer-highlight--${tone}`}>
+                      {index % 2 === 0 ? <UserRound size={18} /> : <ShieldCheck size={18} />} {highlight}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <div className="offer-footer">

@@ -9,7 +9,7 @@ type HomeSessionDataContextValue = {
   loading: boolean;
 };
 
-const SESSION_KEY = "savol_home_payload_v3";
+const SESSION_KEY = "savol_home_payload_v4";
 const HOME_API_URL = "/api/home";
 const SESSION_CACHE_TTL_MS = 2 * 60 * 1000;
 
@@ -21,13 +21,14 @@ function isValidPayload(value: unknown): value is HomeDataPayload {
   return Array.isArray(candidate.vehicles) && Array.isArray(candidate.stores) && typeof candidate.fetchedAt === "number";
 }
 
-export function HomeSessionDataProvider({ children }: { children: ReactNode }) {
+export function HomeSessionDataProvider({ children, vehiclesPerPage = 24 }: { children: ReactNode; vehiclesPerPage?: number }) {
   const [vehicles, setVehicles] = useState<ApiVehicle[]>([]);
   const [stores, setStores] = useState<ApiStore[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const cachedRaw = sessionStorage.getItem(SESSION_KEY);
+    const sessionKey = `${SESSION_KEY}_${vehiclesPerPage}`;
+    const cachedRaw = sessionStorage.getItem(sessionKey);
     if (cachedRaw) {
       try {
         const cachedParsed = JSON.parse(cachedRaw) as unknown;
@@ -45,14 +46,14 @@ export function HomeSessionDataProvider({ children }: { children: ReactNode }) {
           }
         }
       } catch {
-        sessionStorage.removeItem(SESSION_KEY);
+        sessionStorage.removeItem(sessionKey);
       }
     }
 
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), 10000);
 
-    fetch(HOME_API_URL, { signal: controller.signal })
+    fetch(`${HOME_API_URL}?vehicles_per_page=${vehiclesPerPage}`, { signal: controller.signal })
       .then((response) => (response.ok ? response.json() : null))
       .then((payload: HomeDataPayload | null) => {
         if (!isValidPayload(payload)) {
@@ -63,7 +64,7 @@ export function HomeSessionDataProvider({ children }: { children: ReactNode }) {
 
         setVehicles(payload.vehicles);
         setStores(payload.stores);
-        sessionStorage.setItem(SESSION_KEY, JSON.stringify(payload));
+        sessionStorage.setItem(sessionKey, JSON.stringify(payload));
       })
       .catch(() => {
         setVehicles([]);
@@ -78,7 +79,7 @@ export function HomeSessionDataProvider({ children }: { children: ReactNode }) {
       window.clearTimeout(timeoutId);
       controller.abort();
     };
-  }, []);
+  }, [vehiclesPerPage]);
 
   const value = useMemo<HomeSessionDataContextValue>(() => ({ vehicles, stores, loading }), [vehicles, stores, loading]);
 

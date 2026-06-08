@@ -72,6 +72,18 @@ function normalize(value: string): string {
     .trim();
 }
 
+function resolveHighlightTone(value: string): "repasse" | "garantia" | "unico-dono" | "baixa-km" | "fipe" | "impecavel" | "completo" | "default" {
+  const normalized = normalize(value);
+  if (normalized.includes("repasse")) return "repasse";
+  if (normalized.includes("garantia")) return "garantia";
+  if (normalized.includes("unico dono")) return "unico-dono";
+  if (normalized.includes("baixa km")) return "baixa-km";
+  if (normalized.includes("abaixo") && normalized.includes("fipe")) return "fipe";
+  if (normalized.includes("impecavel")) return "impecavel";
+  if (normalized.includes("completo")) return "completo";
+  return "default";
+}
+
 function removeStorePrefix(value: string): string {
   return value.replace(/^loja:\s*/i, "").trim();
 }
@@ -293,6 +305,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
   const storeTitle = removeStorePrefix(vehicle?.store ?? "Unidade Savol");
   const storeAddress = storeItem?.address || (!isUnknownValue(vehicle?.city ?? "") ? `${vehicle?.city} - ${vehicle?.uf}` : "Endereço sob consulta");
   const storePhone = storeItem?.phone || "(11) 4435-1000";
+  const secondaryHighlights = vehicle?.secondaryHighlights ?? [];
 
   const technicalRows = useMemo(
     () =>
@@ -443,7 +456,9 @@ export function VehicleDetailsPageClient({ slug }: Props) {
       <div className="vehicle-details-layout">
         <div className="vehicle-details-gallery-col">
           <article className="vehicle-media-card">
-            {!isPreparationFallback && <span className="vehicle-media-badge">{normalize(vehicle.qualityTag).includes("dono") ? "Único dono" : vehicle.qualityTag}</span>}
+            {!isPreparationFallback && vehicle.qualityTag ? (
+              <span className={`vehicle-media-badge vehicle-media-badge--${resolveHighlightTone(vehicle.qualityTag)}`}>{vehicle.qualityTag}</span>
+            ) : null}
 
             {!isPreparationFallback && (
               <>
@@ -682,20 +697,19 @@ export function VehicleDetailsPageClient({ slug }: Props) {
                 <p>
                   Unidade: {storeTitle}. {isUnknownValue(storeAddress) ? "Endereço sob consulta." : storeAddress}
                 </p>
-                <div className="vehicle-extra-badges">
-                  <span>
-                    <UserRound size={15} /> Histórico verificado
-                  </span>
-                  <span>
-                    <BadgeCheck size={15} /> Revisão em dia
-                  </span>
-                  <span>
-                    <ShieldCheck size={15} /> Garantia de fábrica
-                  </span>
-                  <span>
-                    <CheckCircle2 size={15} /> Laudo cautelar aprovado
-                  </span>
-                </div>
+                {Boolean(secondaryHighlights.length) && (
+                  <div className="vehicle-extra-badges">
+                    {secondaryHighlights.map((highlight, index) => {
+                      const Icon = [UserRound, BadgeCheck, ShieldCheck, CheckCircle2][index % 4];
+                      const tone = resolveHighlightTone(highlight);
+                      return (
+                        <span key={`${highlight}-${index}`} className={`vehicle-extra-badge--${tone}`}>
+                          <Icon size={15} /> {highlight}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
 
@@ -792,6 +806,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
                   price={item.price}
                   detailUrl={item.url}
                   qualityTag={item.qualityTag}
+                  secondaryHighlights={item.secondaryHighlights}
                 />
               ))}
           </div>

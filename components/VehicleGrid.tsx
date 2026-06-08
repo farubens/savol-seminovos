@@ -79,6 +79,7 @@ export function VehicleGrid() {
               price={vehicle.price}
               detailUrl={vehicle.url}
               qualityTag={vehicle.qualityTag}
+              secondaryHighlights={vehicle.secondaryHighlights}
               delay={index * 0.06}
               variant={viewMode}
               molicar={vehicle.molicar}

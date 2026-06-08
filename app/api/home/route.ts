@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { ApiStore, ApiVehicle, HomeDataPayload } from "@/types/home";
 
-const VEHICLES_PER_PAGE = 24;
+const DEFAULT_VEHICLES_PER_PAGE = 24;
+const MAX_VEHICLES_PER_PAGE = 200;
 const STORES_PER_PAGE = 60;
 const HOME_CACHE_TTL_MS = 2 * 60 * 1000;
 
@@ -19,6 +20,15 @@ let homeInFlight: Promise<HomeDataPayload> | null = null;
 
 export const dynamic = "force-dynamic";
 
+function toInt(value: string | null | undefined, fallback: number): number {
+  const parsed = Number.parseInt(value ?? "", 10);
+  return Number.isNaN(parsed) ? fallback : parsed;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
 async function fetchList<T>(url: string): Promise<T[]> {
   const response = await fetch(url, { cache: "no-store" });
   if (!response.ok) return [];
@@ -29,14 +39,18 @@ async function fetchList<T>(url: string): Promise<T[]> {
 
 export async function GET(request: NextRequest) {
   try {
+    const vehiclesPerPage = clamp(toInt(request.nextUrl.searchParams.get("vehicles_per_page"), DEFAULT_VEHICLES_PER_PAGE), 1, MAX_VEHICLES_PER_PAGE);
     const now = Date.now();
     if (homeCache && homeCache.expiresAt > now) {
-      return NextResponse.json(homeCache.payload);
+      return NextResponse.json({
+        ...homeCache.payload,
+        vehicles: homeCache.payload.vehicles.slice(0, vehiclesPerPage)
+      });
     }
 
     if (!homeInFlight) {
       const origin = request.nextUrl.origin;
-      const vehiclesUrl = `${origin}/api/veiculos?per_page=${VEHICLES_PER_PAGE}`;
+      const vehiclesUrl = `${origin}/api/veiculos?per_page=${MAX_VEHICLES_PER_PAGE}`;
       const storesUrl = `${origin}/api/lojas?per_page=${STORES_PER_PAGE}`;
 
       homeInFlight = (async () => {
@@ -74,7 +88,10 @@ export async function GET(request: NextRequest) {
     }
 
     const payload = await homeInFlight;
-    return NextResponse.json(payload);
+    return NextResponse.json({
+      ...payload,
+      vehicles: payload.vehicles.slice(0, vehiclesPerPage)
+    });
   } catch {
     return NextResponse.json(
       homeCache?.payload ?? {

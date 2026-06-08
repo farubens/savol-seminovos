@@ -5,6 +5,11 @@ const nextConfig = {
       {
         protocol: "https",
         hostname: "palevioletred-lark-270684.hostingersite.com"
+      },
+      {
+        protocol: "http",
+        hostname: "localhost",
+        pathname: "/savol-seminovos-local/**"
       }
     ]
   }

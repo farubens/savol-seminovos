@@ -1,15 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ChevronLeft, ChevronRight, Search, SlidersHorizontal, X } from "lucide-react";
+import { Search, SlidersHorizontal, X } from "lucide-react";
 import type { ApiVehicle } from "@/types/home";
 import { useHomeSessionData } from "@/components/HomeSessionDataProvider";
 import { SellYourCarCta } from "@/components/SellYourCarCta";
 import { VehicleOfferCard } from "@/components/VehicleOfferCard";
 
 const DEFAULT_SORT = "destaques";
-const PAGE_SIZE = 24;
+const PAGE_SIZE = 20;
+const LOAD_MORE_DELAY_MS = 350;
 
 type OptionEntry = [slug: string, label: string];
 type BodyInfo = { slug: string; label: string };
@@ -158,7 +159,6 @@ function buildQueryString(options: {
   kmMax: number | null;
   query: string;
   sort: string;
-  page: number;
   aiMock?: boolean;
   aiSeed?: string | null;
 }): string {
@@ -182,28 +182,10 @@ function buildQueryString(options: {
 
   if (options.query.trim()) params.set("q", options.query.trim());
   if (options.sort !== DEFAULT_SORT) params.set("sort", options.sort);
-  if (options.page > 1) params.set("page", String(options.page));
   if (options.aiMock) params.set("aiMock", "1");
   if (options.aiMock && options.aiSeed) params.set("aiSeed", options.aiSeed);
 
   return params.toString();
-}
-
-function getPaginationPages(currentPage: number, totalPages: number): Array<number | "dots"> {
-  if (totalPages <= 7) {
-    return Array.from({ length: totalPages }, (_, index) => index + 1);
-  }
-
-  const pages: Array<number | "dots"> = [1];
-  const windowStart = Math.max(2, currentPage - 1);
-  const windowEnd = Math.min(totalPages - 1, currentPage + 1);
-
-  if (windowStart > 2) pages.push("dots");
-  for (let page = windowStart; page <= windowEnd; page += 1) pages.push(page);
-  if (windowEnd < totalPages - 1) pages.push("dots");
-
-  pages.push(totalPages);
-  return pages;
 }
 
 function toggleListValue(list: string[], value: string): string[] {
@@ -235,9 +217,16 @@ export function VehicleCatalog() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { vehicles, loading } = useHomeSessionData();
+  const loadMoreRef = useRef<HTMLParagraphElement | null>(null);
+  const isLoadingMoreRef = useRef(false);
+  const visibleCountRef = useRef(PAGE_SIZE);
+  const resultLengthRef = useRef(0);
+  const loadMoreTimeoutRef = useRef<number | null>(null);
 
   const [isHydrated, setIsHydrated] = useState(false);
   const [showFilters, setShowFilters] = useState(true);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   const storesParam = searchParams.get("stores");
   const brandsParam = searchParams.get("brands");
@@ -264,7 +253,6 @@ export function VehicleCatalog() {
   const aiMockParam = searchParams.get("aiMock");
   const aiSeedParam = searchParams.get("aiSeed");
   const sortParam = searchParams.get("sort");
-  const pageParam = searchParams.get("page");
 
   const urlStores = useMemo(() => parseListParam(storesParam), [storesParam]);
   const urlBrands = useMemo(() => parseListParam(brandsParam), [brandsParam]);
@@ -296,7 +284,6 @@ export function VehicleCatalog() {
     return parsed;
   }, [aiSeedParam]);
   const urlSort = sortParam ?? DEFAULT_SORT;
-  const urlPage = Number(pageParam ?? "1");
 
   const [selectedStores, setSelectedStores] = useState<string[]>(urlStores.length ? urlStores : legacyStore !== "all" ? [legacyStore] : []);
   const [selectedBrands, setSelectedBrands] = useState<string[]>(urlBrands.length ? urlBrands : legacyBrand !== "all" ? [legacyBrand] : []);
@@ -316,7 +303,6 @@ export function VehicleCatalog() {
 
   const [query, setQuery] = useState(urlQuery);
   const [sort, setSort] = useState(urlSort);
-  const [page, setPage] = useState(Number.isFinite(urlPage) && urlPage > 0 ? urlPage : 1);
 
   useEffect(() => {
     setSelectedStores(urlStores.length ? urlStores : legacyStore !== "all" ? [legacyStore] : []);
@@ -337,7 +323,6 @@ export function VehicleCatalog() {
 
     setQuery(urlQuery);
     setSort(urlSort);
-    setPage(Number.isFinite(urlPage) && urlPage > 0 ? urlPage : 1);
   }, [
     urlStores,
     urlBrands,
@@ -357,8 +342,7 @@ export function VehicleCatalog() {
     urlKmMin,
     urlKmMax,
     urlQuery,
-    urlSort,
-    urlPage
+    urlSort
   ]);
 
   useEffect(() => {
@@ -534,17 +518,81 @@ export function VehicleCatalog() {
     return seededShuffle(filteredVehicles, aiSeed).slice(0, 5);
   }, [isAiMock, filteredVehicles, sortedVehicles, aiSeed]);
 
-  const totalPages = Math.max(1, Math.ceil(resultVehicles.length / PAGE_SIZE));
-  const currentPage = Math.min(Math.max(page, 1), totalPages);
+  const visibleVehicles = useMemo(() => resultVehicles.slice(0, visibleCount), [resultVehicles, visibleCount]);
+  const hasMoreVehicles = visibleCount < resultVehicles.length;
+  const loadMoreSkeletonCount = Math.min(PAGE_SIZE, Math.max(resultVehicles.length - visibleCount, 0));
 
-  const pageVehicles = useMemo(() => {
-    const start = (currentPage - 1) * PAGE_SIZE;
-    return resultVehicles.slice(start, start + PAGE_SIZE);
-  }, [resultVehicles, currentPage]);
+  useEffect(() => {
+    if (loadMoreTimeoutRef.current != null) {
+      window.clearTimeout(loadMoreTimeoutRef.current);
+      loadMoreTimeoutRef.current = null;
+    }
+    setVisibleCount(PAGE_SIZE);
+    setIsLoadingMore(false);
+    isLoadingMoreRef.current = false;
+  }, [resultVehicles]);
 
-  const paginationItems = useMemo(() => getPaginationPages(currentPage, totalPages), [currentPage, totalPages]);
+  useEffect(() => {
+    visibleCountRef.current = visibleCount;
+  }, [visibleCount]);
 
-  const pushQuery = (nextPage: number, nextSort = sort) => {
+  useEffect(() => {
+    resultLengthRef.current = resultVehicles.length;
+  }, [resultVehicles.length]);
+
+  const loadNextVehicleBatch = useCallback(() => {
+    if (isLoadingMoreRef.current) return;
+    if (visibleCountRef.current >= resultLengthRef.current) return;
+
+    isLoadingMoreRef.current = true;
+    setIsLoadingMore(true);
+
+    loadMoreTimeoutRef.current = window.setTimeout(() => {
+      setVisibleCount((current) => Math.min(current + PAGE_SIZE, resultLengthRef.current));
+      isLoadingMoreRef.current = false;
+      setIsLoadingMore(false);
+      loadMoreTimeoutRef.current = null;
+    }, LOAD_MORE_DELAY_MS);
+  }, []);
+
+  useEffect(() => {
+    const target = loadMoreRef.current;
+    if (!target || loading || !hasMoreVehicles) return;
+
+    let frameId = 0;
+
+    const isTargetVisible = () => {
+      const rect = target.getBoundingClientRect();
+      return rect.top <= window.innerHeight && rect.bottom >= 0;
+    };
+
+    const loadIfMessageIsVisible = () => {
+      if (!isTargetVisible()) return;
+      loadNextVehicleBatch();
+    };
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) loadNextVehicleBatch();
+      },
+      { rootMargin: "0px" }
+    );
+
+    observer.observe(target);
+    window.addEventListener("scroll", loadIfMessageIsVisible, { passive: true });
+    window.addEventListener("resize", loadIfMessageIsVisible);
+
+    frameId = window.requestAnimationFrame(loadIfMessageIsVisible);
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      window.removeEventListener("scroll", loadIfMessageIsVisible);
+      window.removeEventListener("resize", loadIfMessageIsVisible);
+      observer.disconnect();
+    };
+  }, [hasMoreVehicles, loadNextVehicleBatch, loading, resultVehicles.length]);
+
+  const pushQuery = (nextSort = sort) => {
     const priceRange = normalizeOptionalRange(priceMin, priceMax, priceSliderMinBound, priceSliderMaxBound);
     const kmRange = normalizeOptionalRange(kmMin, kmMax, kmSliderMinBound, kmSliderMaxBound);
 
@@ -565,7 +613,6 @@ export function VehicleCatalog() {
       kmMax: kmRange.max,
       query,
       sort: nextSort,
-      page: nextPage,
       aiMock: isAiMock,
       aiSeed: aiSeedParam
     });
@@ -574,8 +621,7 @@ export function VehicleCatalog() {
   };
 
   const applyFilters = () => {
-    setPage(1);
-    pushQuery(1);
+    pushQuery();
   };
 
   const clearFilters = () => {
@@ -597,7 +643,6 @@ export function VehicleCatalog() {
 
     setQuery("");
     setSort(DEFAULT_SORT);
-    setPage(1);
 
     router.push("/veiculos");
   };
@@ -761,7 +806,7 @@ export function VehicleCatalog() {
               onChange={(event) => {
                 const nextSort = event.target.value;
                 setSort(nextSort);
-                pushQuery(1, nextSort);
+                pushQuery(nextSort);
               }}
             >
               <option value="destaques">Destaques</option>
@@ -1167,17 +1212,17 @@ export function VehicleCatalog() {
               </div>
             )}
 
-            {!loading && !pageVehicles.length && (
+            {!loading && !visibleVehicles.length && (
               <article className="catalog-empty-state">
                 <h3>Nenhum veículo encontrado</h3>
                 <p>Ajuste os filtros para ampliar sua busca.</p>
               </article>
             )}
 
-            {!loading && Boolean(pageVehicles.length) && (
+            {!loading && Boolean(visibleVehicles.length) && (
               <>
                 <div className="catalog-results-grid catalog-results-grid--full">
-                  {pageVehicles.map((vehicle, index) => (
+                  {visibleVehicles.map((vehicle, index) => (
                     <VehicleOfferCard
                       key={vehicle.id}
                       vehicleId={vehicle.id}
@@ -1194,36 +1239,32 @@ export function VehicleCatalog() {
                       price={vehicle.price}
                       detailUrl={vehicle.url}
                       qualityTag={vehicle.qualityTag}
+                      secondaryHighlights={vehicle.secondaryHighlights}
                       delay={index * 0.01}
                       variant="grid"
                       molicar={vehicle.molicar}
                       plate={vehicle.plate}
                     />
                   ))}
+
+                  {isLoadingMore &&
+                    Array.from({ length: loadMoreSkeletonCount }).map((_, index) => (
+                      <article className="offer-card skeleton" key={`catalog-load-more-skeleton-${index}`}>
+                        <div className="skeleton-box image" />
+                        <div className="skeleton-body">
+                          <div className="skeleton-box title" />
+                          <div className="skeleton-box subtitle" />
+                          <div className="skeleton-box price" />
+                          <div className="skeleton-box button" />
+                        </div>
+                      </article>
+                    ))}
                 </div>
 
-                {totalPages > 1 && (
-                  <nav className="catalog-pagination" aria-label="Paginação da listagem de veículos">
-                    <button type="button" onClick={() => pushQuery(Math.max(1, currentPage - 1))} disabled={currentPage === 1} aria-label="Página anterior">
-                      <ChevronLeft size={16} />
-                    </button>
-
-                    {paginationItems.map((item, index) =>
-                      item === "dots" ? (
-                        <span key={`dots-${index}`} className="catalog-pagination-dots">
-                          ...
-                        </span>
-                      ) : (
-                        <button key={item} type="button" className={item === currentPage ? "is-active" : ""} onClick={() => pushQuery(item)}>
-                          {item}
-                        </button>
-                      )
-                    )}
-
-                    <button type="button" onClick={() => pushQuery(Math.min(totalPages, currentPage + 1))} disabled={currentPage === totalPages} aria-label="Próxima página">
-                      <ChevronRight size={16} />
-                    </button>
-                  </nav>
+                {hasMoreVehicles && (
+                  <p ref={loadMoreRef} className="catalog-infinite-status">
+                    {isLoadingMore ? "Carregando mais veículos..." : `Exibindo ${visibleVehicles.length} de ${resultVehicles.length} veículos`}
+                  </p>
                 )}
               </>
             )}

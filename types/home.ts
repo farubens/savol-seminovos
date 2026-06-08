@@ -14,6 +14,7 @@ export type ApiVehicle = {
   oldPrice: string;
   price: string;
   qualityTag: string;
+  secondaryHighlights: string[];
   brand: string;
   model: string;
   version: string;
