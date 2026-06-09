@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { buildOldPriceLabelFromOfficialPrice } from "@/utils/pricing";
 
-const WP_BASE_URL = (process.env.WP_BASE_URL?.trim() || "http://localhost/savol-seminovos-local").replace(/\/+$/, "");
+const DEFAULT_WP_BASE_URL =
+  process.env.NODE_ENV === "production" ? "https://palevioletred-lark-270684.hostingersite.com" : "http://localhost/savol-seminovos-local";
+const WP_BASE_URL = (process.env.WP_BASE_URL?.trim() || DEFAULT_WP_BASE_URL).replace(/\/+$/, "");
 const VEICULO_ENDPOINT = `${WP_BASE_URL}/wp-json/wp/v2/veiculo`;
 const DEFAULT_PER_PAGE = 12;
 const MAX_PER_PAGE = 200;

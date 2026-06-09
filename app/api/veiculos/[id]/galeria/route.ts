@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const WP_BASE_URL = (process.env.WP_BASE_URL?.trim() || "http://localhost/savol-seminovos-local").replace(/\/+$/, "");
+const DEFAULT_WP_BASE_URL =
+  process.env.NODE_ENV === "production" ? "https://palevioletred-lark-270684.hostingersite.com" : "http://localhost/savol-seminovos-local";
+const WP_BASE_URL = (process.env.WP_BASE_URL?.trim() || DEFAULT_WP_BASE_URL).replace(/\/+$/, "");
 const VEICULO_ENDPOINT = `${WP_BASE_URL}/wp-json/wp/v2/veiculo`;
 const MEDIA_ENDPOINT = `${WP_BASE_URL}/wp-json/wp/v2/media`;
 const GALLERY_TTL_MS = 5 * 60 * 1000;

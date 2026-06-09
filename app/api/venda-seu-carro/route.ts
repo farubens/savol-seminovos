@@ -18,7 +18,9 @@ const REQUIRED_PHOTO_FIELDS = [
 
 const MAX_PHOTO_SIZE_BYTES = 8 * 1024 * 1024;
 const SIGNING_SECRET = process.env.SELL_YOUR_CAR_TOKEN_SECRET || process.env.NEXTAUTH_SECRET || "dev-only-sell-your-car-secret";
-const WP_BASE_URL = (process.env.WP_BASE_URL?.trim() || "http://localhost/savol-seminovos-local").replace(/\/+$/, "");
+const DEFAULT_WP_BASE_URL =
+  process.env.NODE_ENV === "production" ? "https://palevioletred-lark-270684.hostingersite.com" : "http://localhost/savol-seminovos-local";
+const WP_BASE_URL = (process.env.WP_BASE_URL?.trim() || DEFAULT_WP_BASE_URL).replace(/\/+$/, "");
 const WP_SELL_YOUR_CAR_ENDPOINT = `${WP_BASE_URL}/wp-json/savol/v1/venda-seu-carro`;
 
 export const dynamic = "force-dynamic";
