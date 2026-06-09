@@ -4,15 +4,19 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
+  BadgeCheck,
   CalendarDays,
   ChevronLeft,
   ChevronRight,
+  CheckCircle2,
   Fuel,
   Gauge,
   GitBranch,
   LoaderCircle,
   MapPin,
   ShieldCheck,
+  Sparkles,
+  Tag,
   UserRound,
   WalletCards,
   X
@@ -77,6 +81,18 @@ function resolveHighlightTone(value: string): "repasse" | "garantia" | "unico-do
   if (normalized.includes("impecavel")) return "impecavel";
   if (normalized.includes("completo")) return "completo";
   return "default";
+}
+
+function resolveHighlightIcon(value: string) {
+  const tone = resolveHighlightTone(value);
+  if (tone === "repasse") return Tag;
+  if (tone === "garantia") return ShieldCheck;
+  if (tone === "unico-dono") return UserRound;
+  if (tone === "baixa-km") return Gauge;
+  if (tone === "fipe") return WalletCards;
+  if (tone === "impecavel") return Sparkles;
+  if (tone === "completo") return CheckCircle2;
+  return BadgeCheck;
 }
 
 function parseMoney(value: string): number | null {
@@ -668,9 +684,10 @@ export function VehicleOfferCard({
               <div className="offer-highlights">
                 {resolvedSecondaryHighlights.map((highlight, index) => {
                   const tone = resolveHighlightTone(highlight);
+                  const HighlightIcon = resolveHighlightIcon(highlight);
                   return (
                     <span key={`${highlight}-${index}`} className={`offer-highlight offer-highlight--${tone}`}>
-                      {index % 2 === 0 ? <UserRound size={18} /> : <ShieldCheck size={18} />} {highlight}
+                      <HighlightIcon size={18} /> {highlight}
                     </span>
                   );
                 })}

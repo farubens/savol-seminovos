@@ -15,11 +15,15 @@ import {
   Fuel,
   Gauge,
   GitBranch,
+  LoaderCircle,
   MapPin,
   Printer,
   Share2,
   ShieldCheck,
+  Sparkles,
+  Tag,
   UserRound,
+  WalletCards,
   X
 } from "lucide-react";
 import type { ApiVehicle } from "@/types/home";
@@ -62,6 +66,12 @@ type DetailsTab = "sobre" | "opcionais" | "ficha" | "financiamento" | "loja";
 
 const FALLBACK_IMAGE = "/images/em-preparacao.jpg";
 const PREPARATION_IMAGE_TOKEN = "/images/em-preparacao";
+const VWFS_UAT_SCRIPT = "https://uat.vwfsbrasil.com.br/seller/partners/simulator.js";
+const VWFS_UAT_CLIENT_KEY = "M7alq91A0YbgWoXjZDQqx5NrJK83dB5RwGnmp4xP";
+const VWFS_UAT_CLIENT_TOKEN = "dcfc4f7a26fc8e704465e0e7892011d3cca98aad2eb21c18b47c4901a0eed82b";
+const VWFS_DEFAULT_STORE_ID = 123454;
+
+let vwfsScriptPromise: Promise<boolean> | null = null;
 
 function normalize(value: string): string {
   return value
@@ -82,6 +92,98 @@ function resolveHighlightTone(value: string): "repasse" | "garantia" | "unico-do
   if (normalized.includes("impecavel")) return "impecavel";
   if (normalized.includes("completo")) return "completo";
   return "default";
+}
+
+function resolveHighlightIcon(value: string) {
+  const tone = resolveHighlightTone(value);
+  if (tone === "repasse") return Tag;
+  if (tone === "garantia") return ShieldCheck;
+  if (tone === "unico-dono") return UserRound;
+  if (tone === "baixa-km") return Gauge;
+  if (tone === "fipe") return WalletCards;
+  if (tone === "impecavel") return Sparkles;
+  if (tone === "completo") return CheckCircle2;
+  return BadgeCheck;
+}
+
+function parseMoney(value: string): number | null {
+  if (!value) return null;
+  let cleaned = value.replace(/[^\d,.-]/g, "");
+  if (!cleaned) return null;
+
+  if (cleaned.includes(",")) {
+    cleaned = cleaned.replace(/\./g, "").replace(",", ".");
+  } else {
+    cleaned = cleaned.replace(/\./g, "");
+  }
+
+  const parsed = Number(cleaned);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function toVwfsMoney(value: string): string {
+  const numeric = parseMoney(value);
+  if (!numeric || numeric <= 0) return "";
+  return new Intl.NumberFormat("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(numeric);
+}
+
+function parseVehicleYears(value: string): { manufactureAt: number; modelYear: number } {
+  const matches = value.match(/(19|20)\d{2}/g) ?? [];
+  const manufactureAt = Number(matches[0]) || new Date().getFullYear();
+  const modelYear = Number(matches[1]) || manufactureAt;
+  return { manufactureAt, modelYear };
+}
+
+function resolveCarType(text: string): "AUTOMOVEIS" | "UTILITARIOS" {
+  const normalized = normalize(text);
+  if (/\b(van|furgao|furgão|utilitario|utilitário|pickup|picape)\b/.test(normalized)) return "UTILITARIOS";
+  return "AUTOMOVEIS";
+}
+
+function normalizeMolicar(value: string): string {
+  return value.replace(/[^0-9-]/g, "").trim();
+}
+
+function normalizePlateValue(value: string): string {
+  return value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 7);
+}
+
+function ensureVwfsYieldContainer() {
+  if (typeof document === "undefined") return;
+  if (document.getElementById("bvfs-yield")) return;
+  const container = document.createElement("div");
+  container.id = "bvfs-yield";
+  container.innerHTML = '<div class="vw"></div>';
+  document.body.appendChild(container);
+}
+
+function loadVwfsScript(src: string): Promise<boolean> {
+  if (typeof window === "undefined") return Promise.resolve(false);
+  if (window.bvfs?.simulator) return Promise.resolve(true);
+  if (vwfsScriptPromise) return vwfsScriptPromise;
+
+  vwfsScriptPromise = new Promise((resolve) => {
+    const existing = document.querySelector<HTMLScriptElement>(`script[data-vwfs="${src}"]`);
+    if (existing) {
+      existing.addEventListener("load", () => resolve(Boolean(window.bvfs?.simulator)), { once: true });
+      existing.addEventListener("error", () => resolve(false), { once: true });
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = src;
+    script.async = true;
+    script.defer = true;
+    script.dataset.vwfs = src;
+    script.onload = () => resolve(Boolean(window.bvfs?.simulator));
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+
+  return vwfsScriptPromise;
 }
 
 function removeStorePrefix(value: string): string {
@@ -147,6 +249,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
   const [leadErrors, setLeadErrors] = useState<Record<string, string>>({});
   const [leadSuccess, setLeadSuccess] = useState(false);
   const [isDirectionsOpen, setIsDirectionsOpen] = useState(false);
+  const [isOpeningFinanceSimulator, setIsOpeningFinanceSimulator] = useState(false);
 
   const thumbsRef = useRef<HTMLDivElement | null>(null);
 
@@ -306,6 +409,10 @@ export function VehicleDetailsPageClient({ slug }: Props) {
   const storeAddress = storeItem?.address || (!isUnknownValue(vehicle?.city ?? "") ? `${vehicle?.city} - ${vehicle?.uf}` : "Endereço sob consulta");
   const storePhone = storeItem?.phone || "(11) 4435-1000";
   const secondaryHighlights = vehicle?.secondaryHighlights ?? [];
+  const vwfsClientKey = process.env.NEXT_PUBLIC_VWFS_CLIENT_KEY?.trim() || VWFS_UAT_CLIENT_KEY;
+  const vwfsClientToken = process.env.NEXT_PUBLIC_VWFS_CLIENT_TOKEN?.trim() || VWFS_UAT_CLIENT_TOKEN;
+  const vwfsStoreId = Number(process.env.NEXT_PUBLIC_VWFS_STORE_ID ?? String(VWFS_DEFAULT_STORE_ID));
+  const vwfsScriptSrc = process.env.NEXT_PUBLIC_VWFS_SCRIPT_SRC?.trim() || VWFS_UAT_SCRIPT;
 
   const technicalRows = useMemo(
     () =>
@@ -323,6 +430,60 @@ export function VehicleDetailsPageClient({ slug }: Props) {
         : [],
     [vehicle, storeTitle]
   );
+
+  const openFinanceSimulator = () => {
+    if (!vehicle || isOpeningFinanceSimulator) return;
+
+    const normalizedMolicar = normalizeMolicar(vehicle.molicar ?? "");
+    const normalizedPlate = normalizePlateValue(vehicle.plate ?? "");
+    const carValue = toVwfsMoney(vehicle.price);
+
+    if (!vwfsClientKey || !vwfsClientToken || vwfsStoreId <= 0 || (!normalizedMolicar && !normalizedPlate)) {
+      window.alert("Simulador oficial indisponível para este veículo no momento.");
+      return;
+    }
+
+    if (!carValue) {
+      window.alert("Preço inválido para simulação oficial.");
+      return;
+    }
+
+    const { manufactureAt, modelYear } = parseVehicleYears(vehicle.year);
+    const payload = {
+      clientKey: vwfsClientKey,
+      clientToken: vwfsClientToken,
+      storeId: vwfsStoreId,
+      carType: resolveCarType(`${vehicle.name} ${vehicle.subtitle}`),
+      carValue,
+      inputPercent: 40,
+      deadline: 48,
+      manufactureAt,
+      modelYear,
+      ...(normalizedMolicar ? { molicar: normalizedMolicar } : {}),
+      ...(normalizedPlate ? { plate: normalizedPlate } : {}),
+      status: "USED",
+      brand: vehicle.brand || vehicle.name.split(" ")[0] || "VW",
+      model: vehicle.model || vehicle.name,
+      version: vehicle.version || vehicle.subtitle || "Sem versão",
+      vehicleImagem: vehicle.image || FALLBACK_IMAGE
+    } satisfies Record<string, unknown>;
+
+    setIsOpeningFinanceSimulator(true);
+    ensureVwfsYieldContainer();
+    void loadVwfsScript(vwfsScriptSrc).then((ok) => {
+      setIsOpeningFinanceSimulator(false);
+      if (!ok || !window.bvfs?.simulator) {
+        window.alert("Simulador oficial indisponível no momento. Tente novamente em instantes.");
+        return;
+      }
+
+      try {
+        window.bvfs.simulator(payload);
+      } catch {
+        window.alert("Falha ao abrir o simulador oficial. Tente novamente em instantes.");
+      }
+    });
+  };
 
   const optionals = useMemo(
     () => [
@@ -700,7 +861,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
                 {Boolean(secondaryHighlights.length) && (
                   <div className="vehicle-extra-badges">
                     {secondaryHighlights.map((highlight, index) => {
-                      const Icon = [UserRound, BadgeCheck, ShieldCheck, CheckCircle2][index % 4];
+                      const Icon = resolveHighlightIcon(highlight);
                       const tone = resolveHighlightTone(highlight);
                       return (
                         <span key={`${highlight}-${index}`} className={`vehicle-extra-badge--${tone}`}>
@@ -756,8 +917,9 @@ export function VehicleDetailsPageClient({ slug }: Props) {
               <div className="vehicle-extra-panel">
                 <h3>Simule seu financiamento</h3>
                 <p>As melhores taxas com aprovação rápida. Entrada facilitada e parcelas ajustadas ao seu perfil.</p>
-                <button type="button" className="vehicle-finance-btn">
-                  Simular agora
+                <button type="button" className="vehicle-finance-btn" onClick={openFinanceSimulator} disabled={isOpeningFinanceSimulator}>
+                  {isOpeningFinanceSimulator ? <LoaderCircle size={18} className="spin" /> : <WalletCards size={18} />}
+                  {isOpeningFinanceSimulator ? "Abrindo simulador..." : "Simular agora"}
                 </button>
               </div>
             )}
