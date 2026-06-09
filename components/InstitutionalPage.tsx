@@ -6,7 +6,7 @@ const ICON_SIZE = 24;
 const historyStats = [
   {
     icon: Users,
-    value: "+60",
+    value: "63",
     title: "anos de história",
     description: "Tradição que se renova a cada dia."
   },
@@ -82,7 +82,7 @@ export function InstitutionalPage() {
           <p className="institutional-head-breadcrumb">Início / Institucional / Sobre o Grupo Savol</p>
           <h1>Sobre o Grupo Savol</h1>
           <span className="institutional-head-line" />
-          <p className="institutional-head-lead">Há mais de 60 anos movendo pessoas, construindo relações e gerando valor.</p>
+          <p className="institutional-head-lead">Há 63 anos movendo pessoas, construindo relações e gerando valor.</p>
         </div>
         <div className="institutional-hero-photo" aria-hidden="true" />
       </header>
@@ -90,7 +90,7 @@ export function InstitutionalPage() {
       <section className="institutional-overview">
         <article className="institutional-about">
           <p>Somos um grupo empresarial familiar, sólido e com forte presença no Grande ABC, São Paulo e Baixada Santista.</p>
-          <p>Fundado em 1963, nosso grupo atua no varejo automotivo com foco em experiência, credibilidade e relacionamento.</p>
+          <p>São 63 anos de história no varejo automotivo, com foco em experiência, credibilidade e relacionamento.</p>
           <p>Com orgulho, representamos grandes marcas e seguimos evoluindo com inovação e foco total no cliente.</p>
         </article>
 

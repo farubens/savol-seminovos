@@ -1668,6 +1668,10 @@ h2 {
   color: var(--blue-dark);
 }
 
+.offer-highlight:only-child {
+  grid-column: 1 / -1;
+}
+
 .offer-highlight--owner {
   border-color: #b9e0c6;
   background: #edf8f0;
