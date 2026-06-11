@@ -224,6 +224,10 @@ function isPreparationImage(src: string): boolean {
   return src.toLowerCase().includes(PREPARATION_IMAGE_TOKEN);
 }
 
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "AbortError";
+}
+
 export function VehicleDetailsPageClient({ slug }: Props) {
   const [vehicle, setVehicle] = useState<ApiVehicle | null>(null);
   const [storeItem, setStoreItem] = useState<StoreItem | null>(null);
@@ -256,6 +260,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
   useEffect(() => {
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), 12000);
+    let isActive = true;
 
     setLoadingVehicle(true);
     setVehicle(null);
@@ -263,6 +268,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
     fetch(`/api/veiculos?slug=${encodeURIComponent(slug)}`, { signal: controller.signal })
       .then((response) => (response.ok ? response.json() : null))
       .then((payload: VehicleApiResponse | null) => {
+        if (!isActive) return;
         const firstVehicle = payload?.items?.[0] ?? null;
         setVehicle(firstVehicle);
         if (firstVehicle) {
@@ -270,14 +276,18 @@ export function VehicleDetailsPageClient({ slug }: Props) {
           setLeadForm((current) => ({ ...current, interest: firstVehicle.name }));
         }
       })
+      .catch((error: unknown) => {
+        if (!isAbortError(error) && isActive) setVehicle(null);
+      })
       .finally(() => {
         window.clearTimeout(timeoutId);
-        setLoadingVehicle(false);
+        if (isActive) setLoadingVehicle(false);
       });
 
     return () => {
+      isActive = false;
       window.clearTimeout(timeoutId);
-      controller.abort();
+      if (!controller.signal.aborted) controller.abort();
     };
   }, [slug]);
 
@@ -287,24 +297,30 @@ export function VehicleDetailsPageClient({ slug }: Props) {
 
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), 9000);
+    let isActive = true;
     setLoadingGallery(true);
 
     fetch(`/api/veiculos/${vehicle.id}/galeria`, { signal: controller.signal })
       .then((response) => (response.ok ? response.json() : null))
       .then((payload: GalleryApiResponse | null) => {
+        if (!isActive) return;
         const remoteGallery = Array.isArray(payload?.gallery) ? payload.gallery.filter(Boolean) : [];
         if (remoteGallery.length) {
           setGallery(Array.from(new Set(remoteGallery)));
         }
       })
+      .catch((error: unknown) => {
+        if (!isAbortError(error) && isActive) setGallery((current) => current);
+      })
       .finally(() => {
         window.clearTimeout(timeoutId);
-        setLoadingGallery(false);
+        if (isActive) setLoadingGallery(false);
       });
 
     return () => {
+      isActive = false;
       window.clearTimeout(timeoutId);
-      controller.abort();
+      if (!controller.signal.aborted) controller.abort();
     };
   }, [vehicle?.id, vehicle?.image]);
 
@@ -313,24 +329,27 @@ export function VehicleDetailsPageClient({ slug }: Props) {
 
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), 9000);
+    let isActive = true;
 
     fetch("/api/lojas?per_page=30", { signal: controller.signal })
       .then((response) => (response.ok ? response.json() : null))
       .then((payload: StoreApiResponse | null) => {
+        if (!isActive) return;
         const items = Array.isArray(payload?.items) ? payload.items : [];
         const matchedStore = getStoreMatch(vehicle.store, items);
         setStoreItem(matchedStore);
       })
-      .catch(() => {
-        setStoreItem(null);
+      .catch((error: unknown) => {
+        if (!isAbortError(error) && isActive) setStoreItem(null);
       })
       .finally(() => {
         window.clearTimeout(timeoutId);
       });
 
     return () => {
+      isActive = false;
       window.clearTimeout(timeoutId);
-      controller.abort();
+      if (!controller.signal.aborted) controller.abort();
     };
   }, [vehicle?.store]);
 
@@ -339,11 +358,13 @@ export function VehicleDetailsPageClient({ slug }: Props) {
 
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), 9000);
+    let isActive = true;
     setLoadingRelated(true);
 
     fetch("/api/veiculos?per_page=24", { signal: controller.signal })
       .then((response) => (response.ok ? response.json() : null))
       .then((payload: VehicleApiResponse | null) => {
+        if (!isActive) return;
         const all = Array.isArray(payload?.items) ? payload.items : [];
         const others = all.filter((item) => item.id !== vehicle.id);
         const sameBrand = others.filter((item) => normalize(item.brand) === normalize(vehicle.brand));
@@ -356,14 +377,18 @@ export function VehicleDetailsPageClient({ slug }: Props) {
 
         setRelatedVehicles([...sameBrand, ...sameCategory, ...fallback].slice(0, 3));
       })
+      .catch((error: unknown) => {
+        if (!isAbortError(error) && isActive) setRelatedVehicles([]);
+      })
       .finally(() => {
         window.clearTimeout(timeoutId);
-        setLoadingRelated(false);
+        if (isActive) setLoadingRelated(false);
       });
 
     return () => {
+      isActive = false;
       window.clearTimeout(timeoutId);
-      controller.abort();
+      if (!controller.signal.aborted) controller.abort();
     };
   }, [vehicle?.id]);
 
@@ -916,7 +941,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
             {detailsTab === "financiamento" && (
               <div className="vehicle-extra-panel">
                 <h3>Simule seu financiamento</h3>
-                <p>As melhores taxas com aprovação rápida. Entrada facilitada e parcelas ajustadas ao seu perfil.</p>
+                <p>Condições de financiamento com aprovação rápida, entrada facilitada e parcelas ajustadas ao seu perfil.</p>
                 <button type="button" className="vehicle-finance-btn" onClick={openFinanceSimulator} disabled={isOpeningFinanceSimulator}>
                   {isOpeningFinanceSimulator ? <LoaderCircle size={18} className="spin" /> : <WalletCards size={18} />}
                   {isOpeningFinanceSimulator ? "Abrindo simulador..." : "Simular agora"}

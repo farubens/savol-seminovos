@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { CircleDollarSign, ShieldCheck, Store } from "lucide-react";
+import { ShieldCheck, Store } from "lucide-react";
 
 export function SellYourCarCta() {
   return (
@@ -10,23 +10,20 @@ export function SellYourCarCta() {
       </div>
       <div className="sell-copy">
         <h2>Venda seu carro</h2>
-        <p>Aqui no Grupo Savol você vende seu carro com segurança, rapidez e o melhor valor.</p>
+        <p>Aqui no Grupo Savol você vende seu carro com segurança, agilidade e atendimento especializado.</p>
         <Link href="/venda-seu-carro" className="btn">
           Quero vender
         </Link>
       </div>
       <ul className="sell-checks">
         <li>
-          <ShieldCheck size={18} /> Avaliação gratuita
-        </li>
-        <li>
-          <CircleDollarSign size={18} /> Pagamento à vista
+          <ShieldCheck size={18} /> Transparência na avaliação
         </li>
         <li>
           <ShieldCheck size={18} /> Processo seguro
         </li>
         <li>
-          <Store size={18} /> Divulgação em + de 15 lojas
+          <Store size={18} /> Divulgação pelo Grupo Savol
         </li>
       </ul>
     </section>

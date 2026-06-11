@@ -34,7 +34,7 @@ export default function Home() {
               para você.
             </h1>
             <p>
-              São mais de 1.000 veículos de qualidade e as melhores lojas do
+              Centenas de veículos de qualidade com a confiança e a estrutura do
               <br />
               Grupo Savol.
             </p>
@@ -96,7 +96,7 @@ export default function Home() {
                 <Mail size={18} /> Só para quem gosta de boas escolhas
               </p>
               <h2>Receba ofertas exclusivas</h2>
-              <p className="newsletter-description">Cadastre seu e-mail e receba as melhores oportunidades, novidades e condições especiais.</p>
+              <p className="newsletter-description">Cadastre seu e-mail e receba oportunidades, novidades e condições especiais.</p>
 
               <form className="newsletter-form">
                 <label className="newsletter-input-wrap" htmlFor="newsletter-email">

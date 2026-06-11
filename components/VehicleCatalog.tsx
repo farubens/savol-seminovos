@@ -216,17 +216,20 @@ function seededShuffle<T>(items: T[], seed: number): T[] {
 export function VehicleCatalog() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const searchKey = searchParams.toString();
   const { vehicles, loading } = useHomeSessionData();
   const loadMoreRef = useRef<HTMLParagraphElement | null>(null);
   const isLoadingMoreRef = useRef(false);
   const visibleCountRef = useRef(PAGE_SIZE);
   const resultLengthRef = useRef(0);
   const loadMoreTimeoutRef = useRef<number | null>(null);
+  const lastSearchKeyRef = useRef(searchKey);
 
   const [isHydrated, setIsHydrated] = useState(false);
   const [showFilters, setShowFilters] = useState(true);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isCatalogRefreshing, setIsCatalogRefreshing] = useState(Boolean(searchKey));
 
   const storesParam = searchParams.get("stores");
   const brandsParam = searchParams.get("brands");
@@ -323,7 +326,13 @@ export function VehicleCatalog() {
 
     setQuery(urlQuery);
     setSort(urlSort);
+
+    if (lastSearchKeyRef.current !== searchKey) {
+      lastSearchKeyRef.current = searchKey;
+      setIsCatalogRefreshing(true);
+    }
   }, [
+    searchKey,
     urlStores,
     urlBrands,
     urlModels,
@@ -521,6 +530,18 @@ export function VehicleCatalog() {
   const visibleVehicles = useMemo(() => resultVehicles.slice(0, visibleCount), [resultVehicles, visibleCount]);
   const hasMoreVehicles = visibleCount < resultVehicles.length;
   const loadMoreSkeletonCount = Math.min(PAGE_SIZE, Math.max(resultVehicles.length - visibleCount, 0));
+  const isUrlRefreshing = searchKey !== lastSearchKeyRef.current;
+  const isResultsLoading = loading || isCatalogRefreshing || isUrlRefreshing;
+
+  useEffect(() => {
+    if (loading || !isCatalogRefreshing) return;
+
+    const timeoutId = window.setTimeout(() => {
+      setIsCatalogRefreshing(false);
+    }, 450);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [isCatalogRefreshing, loading, resultVehicles.length]);
 
   useEffect(() => {
     if (loadMoreTimeoutRef.current != null) {
@@ -617,6 +638,7 @@ export function VehicleCatalog() {
       aiSeed: aiSeedParam
     });
 
+    setIsCatalogRefreshing(true);
     router.push(`/veiculos${queryString ? `?${queryString}` : ""}`);
   };
 
@@ -644,6 +666,7 @@ export function VehicleCatalog() {
     setQuery("");
     setSort(DEFAULT_SORT);
 
+    setIsCatalogRefreshing(true);
     router.push("/veiculos");
   };
 
@@ -1193,10 +1216,10 @@ export function VehicleCatalog() {
 
           <div className="catalog-results catalog-results--full">
             <header className="catalog-results-head catalog-results-head--full">
-              <p>{loading ? "Carregando veículos..." : `${resultVehicles.length} veículo(s) encontrados`}</p>
+              <p>{isResultsLoading ? "Carregando veículos..." : `${resultVehicles.length} veículo(s) encontrados`}</p>
             </header>
 
-            {loading && (
+            {isResultsLoading && (
               <div className="catalog-results-grid catalog-results-grid--full">
                 {Array.from({ length: PAGE_SIZE }).map((_, index) => (
                   <article className="offer-card skeleton" key={`catalog-skeleton-${index}`}>
@@ -1212,14 +1235,14 @@ export function VehicleCatalog() {
               </div>
             )}
 
-            {!loading && !visibleVehicles.length && (
+            {!isResultsLoading && !visibleVehicles.length && (
               <article className="catalog-empty-state">
                 <h3>Nenhum veículo encontrado</h3>
                 <p>Ajuste os filtros para ampliar sua busca.</p>
               </article>
             )}
 
-            {!loading && Boolean(visibleVehicles.length) && (
+            {!isResultsLoading && Boolean(visibleVehicles.length) && (
               <>
                 <div className="catalog-results-grid catalog-results-grid--full">
                   {visibleVehicles.map((vehicle, index) => (

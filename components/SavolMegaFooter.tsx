@@ -8,7 +8,9 @@ export function SavolMegaFooter() {
       <section className="savol-footer-bottom">
         <div className="container savol-footer-bottom-grid">
           <div className="savol-footer-company">
-            <Image src="/images/logo-branco.png" alt="Savol" width={220} height={62} className="savol-footer-logo" />
+            <Link href="/" aria-label="Ir para a página inicial">
+              <Image src="/images/logo-branco.png" alt="Savol" width={220} height={62} className="savol-footer-logo" />
+            </Link>
             <p>Somos um grupo empresarial familiar, sólido e com forte presença nas regiões do Grande ABC, São Paulo e Baixada Santista.</p>
             <div className="savol-footer-socials">
               <a href="https://www.facebook.com/gruposavol/" target="_blank" rel="noopener noreferrer" aria-label="Facebook Savol">

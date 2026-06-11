@@ -15,7 +15,7 @@ const items = [
   {
     id: "variedade",
     title: "Variedade",
-    description: "Mais de 1.000 veículos de todas as marcas para você escolher.",
+    description: "Centenas de veículos de todas as marcas para você escolher.",
     icon: Car
   },
   {
@@ -33,13 +33,13 @@ const items = [
   {
     id: "facilidade",
     title: "Facilidade",
-    description: "As melhores condições de financiamento para caber no seu plano.",
+    description: "Condições de financiamento pensadas para caber no seu plano.",
     icon: Dollar
   },
   {
     id: "atendimento",
     title: "Atendimento",
-    description: "Especialistas prontos para entender suas necessidades e ajudar você a fazer o melhor negócio.",
+    description: "Especialistas prontos para entender suas necessidades e apoiar sua escolha.",
     icon: Customer,
     wide: true
   }

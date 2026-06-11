@@ -1,5 +1,5 @@
 ﻿import Image from "next/image";
-import { BadgeCheck, Boxes, Handshake, ShieldCheck } from "lucide-react";
+import { CarFront, Monitor, ShieldCheck, Store } from "lucide-react";
 import { SavolMegaFooter } from "@/components/SavolMegaFooter";
 import { SiteHeader } from "@/components/SiteHeader";
 
@@ -11,14 +11,13 @@ export default function VendaPorAtacadoPage() {
       <section className="container wholesale-page">
         <article className="wholesale-hero-v2">
           <div className="wholesale-hero-v2-copy">
-            <p className="wholesale-hero-v2-kicker">Condições especiais para lojistas e revendedores</p>
+            <p className="wholesale-hero-v2-kicker">Oportunidades voltadas para lojistas e revendedores</p>
             <h1>
               Venda
               <span>por atacado</span>
             </h1>
             <p>
-              Soluções inteligentes para compra em volume. Veículos revisados, procedência validada e negociação dedicada
-              para o seu negócio ir mais longe.
+              Consulte os veículos disponíveis e realize todo o processo de negociação diretamente pela plataforma AUTOAVALIAR.
             </p>
             <div className="wholesale-hero-v2-actions">
               <a href="https://autoavaliar.com.br/cadastre-se/" target="_blank" rel="noopener noreferrer" className="btn wholesale-hero-v2-primary">
@@ -33,34 +32,34 @@ export default function VendaPorAtacadoPage() {
         </article>
 
         <section className="wholesale-benefits-v2">
-          <h2>Vantagens de comprar com a Savol Seminovos</h2>
+          <h2>Informações importantes para compra de repasse</h2>
           <div className="wholesale-benefits-v2-grid">
             <article>
-              <span><Boxes size={22} /></span>
+              <span><Store size={22} /></span>
               <div>
-                <h3>Estoque selecionado</h3>
-                <p>Variedade de modelos com alta liquidez e giro rápido.</p>
-              </div>
-            </article>
-            <article>
-              <span><Handshake size={22} /></span>
-              <div>
-                <h3>Negociação dedicada</h3>
-                <p>Condições exclusivas para compras em volume.</p>
+                <h3>Venda para lojistas</h3>
+                <p>Oferta exclusiva para empresas com CNPJ ativo.</p>
               </div>
             </article>
             <article>
               <span><ShieldCheck size={22} /></span>
               <div>
-                <h3>Veículos revisados</h3>
-                <p>Inspeção completa e rigoroso padrão de qualidade.</p>
+                <h3>Modelo de repasse</h3>
+                <p>Veículos destinados à revenda, com informações e condições disponíveis na plataforma.</p>
               </div>
             </article>
             <article>
-              <span><BadgeCheck size={22} /></span>
+              <span><CarFront size={22} /></span>
               <div>
-                <h3>Procedência validada</h3>
-                <p>Histórico transparente e documentação em dia.</p>
+                <h3>Venda no estado</h3>
+                <p>Unidades comercializadas conforme se encontram.</p>
+              </div>
+            </article>
+            <article>
+              <span><Monitor size={22} /></span>
+              <div>
+                <h3>Processo via AUTOAVALIAR</h3>
+                <p>Consulta, negociação e compra realizadas na plataforma.</p>
               </div>
             </article>
           </div>
@@ -73,21 +72,21 @@ export default function VendaPorAtacadoPage() {
               <strong>01</strong>
               <div>
                 <h3>Cadastro</h3>
-                <p>Preencha seus dados e informações da empresa para iniciar.</p>
+                <p>Faça seu cadastro como lojista utilizando o CNPJ da empresa.</p>
               </div>
             </article>
             <article>
               <strong>02</strong>
               <div>
-                <h3>Aprovação</h3>
-                <p>Nossa equipe analisa e entra em contato para validação.</p>
+                <h3>Acesso à plataforma</h3>
+                <p>Entre na AUTOAVALIAR para visualizar os veículos disponíveis.</p>
               </div>
             </article>
             <article>
               <strong>03</strong>
               <div>
-                <h3>Acesso ao estoque</h3>
-                <p>Acesse as oportunidades exclusivas e compre com segurança.</p>
+                <h3>Negociação e compra</h3>
+                <p>Todo o processo de negociação e fechamento ocorre dentro da plataforma.</p>
               </div>
             </article>
           </div>

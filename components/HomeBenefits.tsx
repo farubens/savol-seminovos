@@ -37,8 +37,8 @@ export function HomeBenefits() {
           <Shop {...homeBenefitIconProps} />
         </span>
         <div>
-          <h3>Melhores lojas</h3>
-          <p>Do Grupo Savol</p>
+          <h3>Lojas do Grupo</h3>
+          <p>Savol Seminovos</p>
         </div>
       </article>
       <article className="benefit">

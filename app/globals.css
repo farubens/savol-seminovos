@@ -1046,10 +1046,11 @@ h2 {
 .brand-slider {
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: minmax(120px, 150px);
-  gap: 14px;
+  grid-auto-columns: clamp(154px, 15vw, 190px);
+  gap: 18px;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
   scrollbar-width: none;
   padding: 4px 2px 8px;
 }
@@ -1147,6 +1148,16 @@ h2 {
 .category-nav-btn:hover {
   background: var(--blue);
   color: #fff;
+}
+
+.category-nav-btn:disabled {
+  cursor: default;
+  opacity: 0.42;
+}
+
+.category-nav-btn:disabled:hover {
+  background: #fff;
+  color: var(--blue);
 }
 
 .category-visual-grid {
@@ -6323,6 +6334,7 @@ h2 {
 }
 
 .contact-form input,
+.contact-form select,
 .contact-form textarea {
   width: 100%;
   border: 1px solid #d5dff2;
@@ -6334,12 +6346,22 @@ h2 {
   outline: none;
 }
 
+.contact-form select {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, #37507f 50%), linear-gradient(135deg, #37507f 50%, transparent 50%);
+  background-position: calc(100% - 18px) 50%, calc(100% - 12px) 50%;
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+  padding-right: 36px;
+}
+
 .contact-form textarea {
   resize: vertical;
   min-height: 140px;
 }
 
 .contact-form input:focus,
+.contact-form select:focus,
 .contact-form textarea:focus {
   border-color: #9fb8ea;
   box-shadow: 0 0 0 2px rgba(25, 84, 198, 0.12);

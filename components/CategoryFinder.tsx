@@ -208,6 +208,8 @@ export function CategoryFinder() {
   const [exampleIndex, setExampleIndex] = useState(0);
   const [typedLength, setTypedLength] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
   const sliderRef = useRef<HTMLDivElement | null>(null);
 
   const cards = useMemo(() => {
@@ -282,9 +284,7 @@ export function CategoryFinder() {
   }, [selectedMarca, vehicles]);
 
   const brandItems = useMemo<BrandItem[]>(() => {
-    if (!marcaOptions.length) return fallbackBrands;
-
-    return marcaOptions.map((term) => {
+    const apiBrands = marcaOptions.map((term) => {
       const slug = term.slug || toSlug(term.name);
       const logo = brandLogoMap[slug] ?? "/images/logo.png";
       return {
@@ -293,6 +293,14 @@ export function CategoryFinder() {
         logo
       };
     });
+
+    const bySlug = new Map<string, BrandItem>();
+    for (const brand of [...apiBrands, ...fallbackBrands]) {
+      const slug = toSlug(brand.name);
+      if (!bySlug.has(slug)) bySlug.set(slug, brand);
+    }
+
+    return Array.from(bySlug.values()).sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
   }, [marcaOptions]);
 
   const priceOptions = useMemo<number[]>(() => {
@@ -378,6 +386,26 @@ export function CategoryFinder() {
 
     return () => window.clearTimeout(timer);
   }, [activeTab, exampleIndex, isDeleting, typedLength]);
+
+  useEffect(() => {
+    const slider = sliderRef.current;
+    if (!slider) return;
+
+    const updateScrollState = () => {
+      const maxScrollLeft = slider.scrollWidth - slider.clientWidth;
+      setCanScrollLeft(slider.scrollLeft > 1);
+      setCanScrollRight(slider.scrollLeft < maxScrollLeft - 1);
+    };
+
+    updateScrollState();
+    slider.addEventListener("scroll", updateScrollState, { passive: true });
+    window.addEventListener("resize", updateScrollState);
+
+    return () => {
+      slider.removeEventListener("scroll", updateScrollState);
+      window.removeEventListener("resize", updateScrollState);
+    };
+  }, [activeTab, brandItems.length, cards.length]);
 
   const placeholderText = activeTab === "descrever" ? `${aiExamples[exampleIndex]?.slice(0, typedLength) ?? ""}${typedLength > 0 ? "..." : ""}` : "";
   const showModelSelect = selectedMarca !== "all";
@@ -537,6 +565,7 @@ export function CategoryFinder() {
               className="category-nav-btn category-nav-btn--prev"
               aria-label="Deslizar para a esquerda"
               onClick={() => scrollCards("left")}
+              disabled={!canScrollLeft}
             >
               <ChevronLeft size={18} />
             </button>
@@ -545,6 +574,7 @@ export function CategoryFinder() {
               className="category-nav-btn category-nav-btn--next"
               aria-label="Deslizar para a direita"
               onClick={() => scrollCards("right")}
+              disabled={!canScrollRight}
             >
               <ChevronRight size={18} />
             </button>

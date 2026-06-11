@@ -37,7 +37,9 @@ export function SiteHeader({ active = "home", showEnvNote = false }: HeaderProps
       </div>
 
       <header className={`header container${mobileMenuOpen ? " is-mobile-open" : ""}`}>
-        <Image src="/images/logo.png" alt="Savol" width={200} height={48} className="site-logo" />
+        <Link href="/" aria-label="Ir para a página inicial">
+          <Image src="/images/logo.png" alt="Savol" width={200} height={48} className="site-logo" />
+        </Link>
 
         <button
           type="button"

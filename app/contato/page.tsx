@@ -1,4 +1,5 @@
-﻿import { HomeSessionDataProvider } from "@/components/HomeSessionDataProvider";
+import { ContactForm } from "@/components/ContactForm";
+import { HomeSessionDataProvider } from "@/components/HomeSessionDataProvider";
 import { SavolMegaFooter } from "@/components/SavolMegaFooter";
 import { SiteHeader } from "@/components/SiteHeader";
 import { StoresCarousel } from "@/components/StoresCarousel";
@@ -19,34 +20,7 @@ export default function ContatoPage() {
 
         <section className="contact-form-section">
           <h2>Envie sua mensagem</h2>
-          <form className="contact-form">
-            <label>
-              <span>Nome</span>
-              <input type="text" name="name" placeholder="Seu nome completo" />
-            </label>
-
-            <label>
-              <span>E-mail</span>
-              <input type="email" name="email" placeholder="seuemail@exemplo.com" />
-            </label>
-
-            <label>
-              <span>Telefone</span>
-              <input type="tel" name="phone" placeholder="(11) 99999-9999" />
-            </label>
-
-            <label>
-              <span>Assunto</span>
-              <input type="text" name="subject" placeholder="Ex.: Dúvida sobre financiamento" />
-            </label>
-
-            <label className="contact-form-message">
-              <span>Mensagem</span>
-              <textarea name="message" rows={6} placeholder="Escreva sua mensagem..." />
-            </label>
-
-            <button type="submit">Enviar mensagem</button>
-          </form>
+          <ContactForm />
         </section>
       </section>
 

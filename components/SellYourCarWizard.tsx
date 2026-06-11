@@ -568,7 +568,7 @@ export function SellYourCarWizard() {
 
                 <aside className="sell-security-card">
                   <Image src="/images/fit.png" alt="Processo seguro Savol" width={777} height={474} className="sell-security-image" />
-                  <h4>Processo 100% seguro</h4>
+                  <h4>Processo seguro</h4>
                   <ul>
                     <li><CheckCircle2 size={16} /> Avaliação rápida e gratuita</li>
                     <li><CheckCircle2 size={16} /> Seus dados protegidos</li>
@@ -592,15 +592,15 @@ export function SellYourCarWizard() {
           <section className="sell-proof">
             <article className="sell-proof-main"><div className="sell-proof-icon"><CheckCircle2 size={24} /></div><div><h3>Por que vender com a Savol?</h3><p>Somos referência em seminovos e oferecemos negociação transparente com suporte completo.</p></div></article>
             <article><strong>+15</strong><span>anos de experiência</span></article>
-            <article><strong>+10 mil</strong><span>negociações realizadas</span></article>
-            <article><strong>100%</strong><span>avaliação justa e transparente</span></article>
+            <article><strong>Milhares</strong><span>de negociações realizadas</span></article>
+            <article><strong>Processo</strong><span>claro e transparente</span></article>
           </section>
 
           <section className="sell-advantage-grid">
             <article><span><Calendar size={17} /></span><div><strong>Avaliação rápida</strong><p>Resposta em pouco tempo.</p></div></article>
-            <article><span><ShieldCheck size={17} /></span><div><strong>100% seguro</strong><p>Dados protegidos e processo claro.</p></div></article>
-            <article><span><CircleDollarSign size={17} /></span><div><strong>Melhor oferta</strong><p>Avaliação justa para seu carro.</p></div></article>
-            <article><span><Store size={17} /></span><div><strong>Rede Savol</strong><p>Mais de 15 lojas para vender rápido.</p></div></article>
+            <article><span><ShieldCheck size={17} /></span><div><strong>Processo seguro</strong><p>Dados protegidos e processo claro.</p></div></article>
+            <article><span><CircleDollarSign size={17} /></span><div><strong>Oferta transparente</strong><p>Avaliação justa para seu carro.</p></div></article>
+            <article><span><Store size={17} /></span><div><strong>Grupo Savol</strong><p>Divulgação com suporte da nossa equipe.</p></div></article>
           </section>
 
           <section className="sell-summary-bar">
