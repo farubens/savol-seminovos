@@ -9,8 +9,10 @@ import type { ApiStore } from "@/types/home";
 const WHATSAPP_PHONE = "551144351000";
 const WHATSAPP_TEXT = "Olá! Quero atendimento da Savol.";
 const AUTO_OPEN_STORAGE_KEY = "savol-whatsapp-chat-opened";
+const TYPING_DELAY_MS = 800;
 
 type ChatStep = "intro" | "name" | "email" | "phone" | "store" | "done";
+const CHAT_STEP_ORDER: ChatStep[] = ["intro", "name", "email", "phone", "store", "done"];
 
 type ChatForm = {
   name: string;
@@ -50,6 +52,11 @@ function formatStoreName(value: string): string {
   return value.replace(/^Unidade Savol\s*/i, "Savol ").trim();
 }
 
+function isAgentStepVisible(current: ChatStep | null, target: ChatStep): boolean {
+  if (!current) return false;
+  return CHAT_STEP_ORDER.indexOf(current) >= CHAT_STEP_ORDER.indexOf(target);
+}
+
 export function FloatingWhatsAppButton() {
   const pathname = usePathname();
   const isVehicleDetail = isVehicleDetailPath(pathname);
@@ -58,10 +65,13 @@ export function FloatingWhatsAppButton() {
   const [loading, setLoading] = useState(false);
   const [selectedStoreId, setSelectedStoreId] = useState("");
   const [step, setStep] = useState<ChatStep>("intro");
+  const [visibleAgentStep, setVisibleAgentStep] = useState<ChatStep | null>(null);
+  const [isTyping, setIsTyping] = useState(false);
   const [chatForm, setChatForm] = useState<ChatForm>({ name: "", email: "", phone: "" });
   const [currentValue, setCurrentValue] = useState("");
   const [fieldError, setFieldError] = useState("");
   const hasLoadedStoresRef = useRef(false);
+  const chatBodyRef = useRef<HTMLDivElement | null>(null);
 
   const sortedStores = useMemo(
     () => [...stores].sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
@@ -120,14 +130,46 @@ export function FloatingWhatsAppButton() {
   }, [step]);
 
   useEffect(() => {
+    if (!isOpen || step === "done" || visibleAgentStep === step) return;
+
+    setIsTyping(true);
+    const timerId = window.setTimeout(() => {
+      setVisibleAgentStep(step);
+      setIsTyping(false);
+    }, TYPING_DELAY_MS);
+
+    return () => window.clearTimeout(timerId);
+  }, [isOpen, step, visibleAgentStep]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const chatBody = chatBodyRef.current;
+    if (!chatBody) return;
+    chatBody.scrollTo({ top: chatBody.scrollHeight, behavior: "smooth" });
+  }, [chatForm.email, chatForm.name, chatForm.phone, isOpen, isTyping, visibleAgentStep]);
+
+  useEffect(() => {
     if (selectedStoreId || sortedStores.length === 0) return;
     setSelectedStoreId(String(sortedStores[0].id));
   }, [selectedStoreId, sortedStores]);
 
   const selectedStore = sortedStores.find((store) => String(store.id) === selectedStoreId);
   const canSubmitTextStep = step === "intro" || step === "name" || step === "email" || step === "phone";
+  const isCurrentStepReady = visibleAgentStep === step && !isTyping;
+
+  const resetChat = () => {
+    setStep("intro");
+    setVisibleAgentStep(null);
+    setIsTyping(false);
+    setChatForm({ name: "", email: "", phone: "" });
+    setCurrentValue("");
+    setFieldError("");
+  };
 
   const openChat = () => {
+    if (!isOpen && step === "done") {
+      resetChat();
+    }
     setIsOpen((current) => !current);
     if (typeof window !== "undefined") {
       window.sessionStorage.setItem(AUTO_OPEN_STORAGE_KEY, "true");
@@ -227,23 +269,32 @@ export function FloatingWhatsAppButton() {
             </div>
           </header>
 
-          <div className="whatsapp-chat-body">
-            <p className="whatsapp-chat-bubble whatsapp-chat-bubble--agent">Olá, como posso te ajudar hoje?</p>
+          <div className="whatsapp-chat-body" ref={chatBodyRef}>
+            {isAgentStepVisible(visibleAgentStep, "intro") ? (
+              <p className="whatsapp-chat-bubble whatsapp-chat-bubble--agent">Olá, como posso te ajudar hoje?</p>
+            ) : null}
 
             {step !== "intro" ? <p className="whatsapp-chat-bubble whatsapp-chat-bubble--user">Quero atendimento</p> : null}
-            {step === "name" ? <p className="whatsapp-chat-bubble whatsapp-chat-bubble--agent">Claro. Primeiro, qual é o seu nome?</p> : null}
+            {isAgentStepVisible(visibleAgentStep, "name") ? <p className="whatsapp-chat-bubble whatsapp-chat-bubble--agent">Claro. Primeiro, qual é o seu nome?</p> : null}
             {chatForm.name ? <p className="whatsapp-chat-bubble whatsapp-chat-bubble--user">{chatForm.name}</p> : null}
-            {step !== "intro" && step !== "name" ? <p className="whatsapp-chat-bubble whatsapp-chat-bubble--agent">Perfeito. Qual é o seu e-mail?</p> : null}
+            {isAgentStepVisible(visibleAgentStep, "email") ? <p className="whatsapp-chat-bubble whatsapp-chat-bubble--agent">Perfeito. Qual é o seu e-mail?</p> : null}
             {chatForm.email ? <p className="whatsapp-chat-bubble whatsapp-chat-bubble--user">{chatForm.email}</p> : null}
-            {step === "phone" || step === "store" || step === "done" ? <p className="whatsapp-chat-bubble whatsapp-chat-bubble--agent">Agora me informe seu telefone.</p> : null}
+            {isAgentStepVisible(visibleAgentStep, "phone") ? <p className="whatsapp-chat-bubble whatsapp-chat-bubble--agent">Agora me informe seu telefone.</p> : null}
             {chatForm.phone ? <p className="whatsapp-chat-bubble whatsapp-chat-bubble--user">{chatForm.phone}</p> : null}
-            {step === "store" ? <p className="whatsapp-chat-bubble whatsapp-chat-bubble--agent">Por último, escolha a unidade de atendimento.</p> : null}
+            {isAgentStepVisible(visibleAgentStep, "store") ? <p className="whatsapp-chat-bubble whatsapp-chat-bubble--agent">Por último, escolha a unidade de atendimento.</p> : null}
+            {isTyping ? (
+              <p className="whatsapp-chat-bubble whatsapp-chat-bubble--agent whatsapp-chat-typing" aria-label="Atendente digitando">
+                <span />
+                <span />
+                <span />
+              </p>
+            ) : null}
           </div>
 
           <div className="whatsapp-store-form whatsapp-chat-controls">
             {loading ? <p className="whatsapp-store-loading">Carregando lojas...</p> : null}
 
-            {canSubmitTextStep ? (
+            {canSubmitTextStep && isCurrentStepReady ? (
               <div className="whatsapp-chat-input-row">
                 {step === "intro" ? (
                   <button type="button" className="whatsapp-start-btn" onClick={submitCurrentStep}>
@@ -267,7 +318,7 @@ export function FloatingWhatsAppButton() {
               </div>
             ) : null}
 
-            {step === "store" ? (
+            {step === "store" && isCurrentStepReady ? (
               <>
                 <label className="whatsapp-store-field">
                   <span className="sr-only">Unidade de atendimento</span>

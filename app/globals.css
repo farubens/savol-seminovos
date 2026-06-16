@@ -5847,6 +5847,30 @@ h2 {
   color: #17331f;
 }
 
+.whatsapp-chat-typing {
+  min-width: 58px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 12px 14px;
+}
+
+.whatsapp-chat-typing span {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #7b8f84;
+  animation: whatsapp-typing-dot 0.9s ease-in-out infinite;
+}
+
+.whatsapp-chat-typing span:nth-child(2) {
+  animation-delay: 0.14s;
+}
+
+.whatsapp-chat-typing span:nth-child(3) {
+  animation-delay: 0.28s;
+}
+
 .whatsapp-store-form {
   display: grid;
   gap: 10px;
@@ -9651,6 +9675,19 @@ button.stores-filter-input svg {
   }
   to {
     transform: rotate(360deg);
+  }
+}
+
+@keyframes whatsapp-typing-dot {
+  0%,
+  80%,
+  100% {
+    opacity: 0.36;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-3px);
   }
 }
 
