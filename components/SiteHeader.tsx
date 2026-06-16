@@ -4,10 +4,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { Facebook, Instagram, Menu, Search, ShieldCheck, X } from "lucide-react";
+import { Facebook, Heart, Instagram, Menu, Search, ShieldCheck, X } from "lucide-react";
 
 type HeaderProps = {
-  active?: "home" | "veiculos" | "lojas" | "venda" | "atacado" | "institucional" | "contato";
+  active?: "home" | "veiculos" | "lojas" | "venda" | "atacado" | "institucional" | "contato" | "conta";
   showEnvNote?: boolean;
 };
 
@@ -76,6 +76,9 @@ export function SiteHeader({ active = "home", showEnvNote = false }: HeaderProps
           </Link>
           <Link href="/veiculos" className="icon-btn" aria-label="Buscar">
             <Search size={16} />
+          </Link>
+          <Link href="/minha-conta" className={`icon-btn ${active === "conta" ? "active" : ""}`} aria-label="Minha conta e favoritos">
+            <Heart size={16} />
           </Link>
         </nav>
       </header>

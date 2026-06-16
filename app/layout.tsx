@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { FloatingWhatsAppButton } from "@/components/FloatingWhatsAppButton";
 import { PageTransition } from "@/components/PageTransition";
+import { SavolAccountProvider } from "@/components/SavolAccountProvider";
 import "leaflet/dist/leaflet.css";
 import "./globals.css";
 
@@ -17,8 +18,10 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <body>
-        <PageTransition>{children}</PageTransition>
-        <FloatingWhatsAppButton />
+        <SavolAccountProvider>
+          <PageTransition>{children}</PageTransition>
+          <FloatingWhatsAppButton />
+        </SavolAccountProvider>
       </body>
     </html>
   );

@@ -10,9 +10,11 @@ import {
   ChevronLeft,
   ChevronRight,
   CheckCircle2,
+  Eye,
   Fuel,
   Gauge,
   GitBranch,
+  Heart,
   LoaderCircle,
   MapPin,
   ShieldCheck,
@@ -25,6 +27,7 @@ import {
 import { AnimatePresence, motion } from "framer-motion";
 import { FinanceFollowUpModal } from "@/components/FinanceFollowUpModal";
 import { MapDirectionsModal } from "@/components/MapDirectionsModal";
+import { type SavedVehicle, useSavolAccount } from "@/components/SavolAccountProvider";
 import { buildOldPriceLabelFromOfficialPrice } from "@/utils/pricing";
 import { watchVwfsSimulatorClose } from "@/utils/vwfsModalWatcher";
 
@@ -166,6 +169,12 @@ function shouldIgnoreCardNavigation(target: EventTarget | null): boolean {
 
 function normalizeStoreName(value: string): string {
   return value.replace(/^loja:\s*/i, "").trim();
+}
+
+function resolveSlugFromDetailUrl(url: string): string {
+  const cleanUrl = url.split("?")[0].replace(/\/+$/, "");
+  const chunks = cleanUrl.split("/").filter(Boolean);
+  return chunks.at(-1) ?? "";
 }
 
 let vwfsScriptPromise: Promise<boolean> | null = null;
@@ -322,6 +331,7 @@ export function VehicleOfferCard({
   };
 
   const router = useRouter();
+  const { hasVisited, isFavorite, toggleFavorite } = useSavolAccount();
   const financeId = useId();
   const safeImage = image || FALLBACK_IMAGE;
   const isPreparationFallback = isPreparationImage(safeImage);
@@ -688,6 +698,31 @@ export function VehicleOfferCard({
   const resolvedDetailUrl = detailUrl && detailUrl !== "#" ? detailUrl : "/veiculos";
   const detailUrlIsExternal = isExternalUrl(resolvedDetailUrl);
   const directionsStoreName = normalizeStoreName(store);
+  const savedVehicle = useMemo<SavedVehicle>(
+    () => ({
+      id: vehicleId,
+      slug: resolveSlugFromDetailUrl(resolvedDetailUrl),
+      url: resolvedDetailUrl,
+      name,
+      subtitle,
+      image: safeImage,
+      gallery,
+      year,
+      transmission,
+      fuel,
+      km,
+      store,
+      oldPrice,
+      price,
+      qualityTag,
+      secondaryHighlights,
+      molicar,
+      plate
+    }),
+    [fuel, gallery, km, molicar, name, oldPrice, plate, price, qualityTag, resolvedDetailUrl, safeImage, secondaryHighlights, store, subtitle, transmission, vehicleId, year]
+  );
+  const isSavedAsFavorite = isFavorite(vehicleId);
+  const wasVisited = hasVisited(vehicleId);
 
   const navigateToDetails = () => {
     if (detailUrlIsExternal) {
@@ -733,6 +768,22 @@ export function VehicleOfferCard({
       >
         <div className={`offer-media${isPreparationFallback ? " offer-media--preparation" : ""}`}>
           {showTag && <span className={`offer-tag offer-tag--${tagTone}`}>{qualityTag}</span>}
+          <div className="offer-card-actions-floating">
+            <button
+              type="button"
+              className={`offer-favorite-btn${isSavedAsFavorite ? " is-active" : ""}`}
+              aria-label={isSavedAsFavorite ? "Remover dos favoritos" : "Adicionar aos favoritos"}
+              aria-pressed={isSavedAsFavorite}
+              onClick={() => toggleFavorite(savedVehicle)}
+            >
+              <Heart size={18} fill={isSavedAsFavorite ? "currentColor" : "none"} />
+            </button>
+            {wasVisited ? (
+              <span className="offer-visited-pill" title="Você já visitou este veículo">
+                <Eye size={15} /> Visitado
+              </span>
+            ) : null}
+          </div>
           <Image src={safeImage} alt={name} width={630} height={360} />
         </div>
 

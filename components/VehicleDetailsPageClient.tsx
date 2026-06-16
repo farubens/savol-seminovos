@@ -17,6 +17,7 @@ import {
   Fuel,
   Gauge,
   GitBranch,
+  Heart,
   LoaderCircle,
   MapPin,
   Printer,
@@ -28,6 +29,7 @@ import {
   WalletCards,
   X
 } from "lucide-react";
+import { type SavedVehicle, useSavolAccount } from "@/components/SavolAccountProvider";
 import type { ApiVehicle } from "@/types/home";
 
 type Props = {
@@ -230,7 +232,37 @@ function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === "AbortError";
 }
 
+function toSavedVehicle(vehicle: ApiVehicle): SavedVehicle {
+  return {
+    id: vehicle.id,
+    slug: vehicle.slug,
+    url: vehicle.url,
+    name: vehicle.name,
+    subtitle: vehicle.subtitle,
+    image: vehicle.image,
+    gallery: vehicle.gallery,
+    year: vehicle.year,
+    transmission: vehicle.transmission,
+    fuel: vehicle.fuel,
+    km: vehicle.km,
+    store: vehicle.store,
+    oldPrice: vehicle.oldPrice,
+    price: vehicle.price,
+    qualityTag: vehicle.qualityTag,
+    secondaryHighlights: vehicle.secondaryHighlights,
+    brand: vehicle.brand,
+    model: vehicle.model,
+    version: vehicle.version,
+    color: vehicle.color,
+    city: vehicle.city,
+    uf: vehicle.uf,
+    molicar: vehicle.molicar,
+    plate: vehicle.plate
+  };
+}
+
 export function VehicleDetailsPageClient({ slug }: Props) {
+  const { isFavorite, registerVisit, toggleFavorite } = useSavolAccount();
   const [vehicle, setVehicle] = useState<ApiVehicle | null>(null);
   const [storeItem, setStoreItem] = useState<StoreItem | null>(null);
   const [loadingVehicle, setLoadingVehicle] = useState(true);
@@ -407,6 +439,11 @@ export function VehicleDetailsPageClient({ slug }: Props) {
   }, [gallery, selectedIndex]);
 
   useEffect(() => {
+    if (!vehicle) return;
+    registerVisit(toSavedVehicle(vehicle));
+  }, [registerVisit, vehicle]);
+
+  useEffect(() => {
     return () => {
       if (vwfsCloseWatcherRef.current) {
         vwfsCloseWatcherRef.current();
@@ -441,6 +478,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
     () => (isPreparationFallback ? [vehicle?.image || FALLBACK_IMAGE] : gallery.length ? gallery : [vehicle?.image || FALLBACK_IMAGE]),
     [gallery, isPreparationFallback, vehicle?.image]
   );
+  const isCurrentVehicleFavorite = vehicle ? isFavorite(vehicle.id) : false;
 
   const breadcrumbCategory = vehicle ? inferCategoryLabel(vehicle) : "";
   const storeTitle = removeStorePrefix(vehicle?.store ?? "Unidade Savol");
@@ -782,6 +820,9 @@ export function VehicleDetailsPageClient({ slug }: Props) {
                 />
                 WhatsApp
               </a>
+              <button type="button" className={`vehicle-quick-btn${isCurrentVehicleFavorite ? " is-favorite" : ""}`} onClick={() => vehicle && toggleFavorite(toSavedVehicle(vehicle))}>
+                <Heart size={16} fill={isCurrentVehicleFavorite ? "currentColor" : "none"} /> {isCurrentVehicleFavorite ? "Favorito" : "Favoritar"}
+              </button>
             </div>
           </article>
 
