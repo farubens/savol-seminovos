@@ -66,9 +66,13 @@ function SavedVehicleCard({ vehicle, index }: { vehicle: SavedVehicle; index: nu
 }
 
 export function SavolAccountPageClient() {
-  const { favoriteIds, favorites, isSyncing, login, logout, user, visited, visitedIds } = useSavolAccount();
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const { favoriteIds, favorites, isSyncing, login, logout, register, user, visited, visitedIds } = useSavolAccount();
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [registerEmail, setRegisterEmail] = useState("");
+  const [registerPassword, setRegisterPassword] = useState("");
+  const [registerPasswordConfirmation, setRegisterPasswordConfirmation] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [catalogVehicles, setCatalogVehicles] = useState<SavedVehicle[]>([]);
@@ -98,27 +102,66 @@ export function SavolAccountPageClient() {
     [catalogVehicles, visited, visitedIds]
   );
 
+  const selectAuthMode = (nextMode: "login" | "register") => {
+    setAuthMode(nextMode);
+    setError("");
+  };
+
   const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const cleanName = name.trim();
-    const cleanEmail = email.trim().toLowerCase();
-
-    if (!cleanName) {
-      setError("Informe seu nome.");
-      return;
-    }
+    const cleanEmail = loginEmail.trim().toLowerCase();
 
     if (!/^\S+@\S+\.\S+$/.test(cleanEmail)) {
       setError("Informe um e-mail válido.");
       return;
     }
 
+    if (!loginPassword) {
+      setError("Informe sua senha.");
+      return;
+    }
+
     setSubmitting(true);
-    const result = await login({ name: cleanName, email: cleanEmail });
+    const result = await login({ email: cleanEmail, password: loginPassword });
     setSubmitting(false);
 
     if (!result.ok) {
       setError(result.message || "Não foi possível entrar agora.");
+      return;
+    }
+
+    setError("");
+  };
+
+  const handleRegister = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const cleanEmail = registerEmail.trim().toLowerCase();
+
+    if (!/^\S+@\S+\.\S+$/.test(cleanEmail)) {
+      setError("Informe um e-mail válido.");
+      return;
+    }
+
+    if (registerPassword.length < 6) {
+      setError("A senha precisa ter pelo menos 6 caracteres.");
+      return;
+    }
+
+    if (registerPassword !== registerPasswordConfirmation) {
+      setError("As senhas não conferem.");
+      return;
+    }
+
+    setSubmitting(true);
+    const result = await register({
+      email: cleanEmail,
+      password: registerPassword,
+      passwordConfirmation: registerPasswordConfirmation
+    });
+    setSubmitting(false);
+
+    if (!result.ok) {
+      setError(result.message || "Não foi possível criar sua conta agora.");
       return;
     }
 
@@ -135,23 +178,64 @@ export function SavolAccountPageClient() {
             <p>Salve veículos, acompanhe os modelos que você já visitou e retome sua busca quando quiser.</p>
           </div>
 
-          <form className="account-login-form" onSubmit={handleLogin}>
-            <label>
-              <span>Nome</span>
-              <input type="text" value={name} onChange={(event) => setName(event.target.value)} />
-            </label>
+          <div className="account-auth-card">
+            <div className="account-auth-tabs" role="tablist" aria-label="Acesso à conta">
+              <button type="button" className={authMode === "login" ? "is-active" : ""} onClick={() => selectAuthMode("login")}>
+                Entrar
+              </button>
+              <button type="button" className={authMode === "register" ? "is-active" : ""} onClick={() => selectAuthMode("register")}>
+                Cadastrar
+              </button>
+            </div>
 
-            <label>
-              <span>E-mail</span>
-              <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
-            </label>
+            {authMode === "login" ? (
+              <form className="account-login-form" onSubmit={handleLogin}>
+                <label>
+                  <span>E-mail</span>
+                  <input type="email" autoComplete="email" value={loginEmail} onChange={(event) => setLoginEmail(event.target.value)} />
+                </label>
 
-            {error ? <p className="account-form-error">{error}</p> : null}
+                <label>
+                  <span>Senha</span>
+                  <input type="password" autoComplete="current-password" value={loginPassword} onChange={(event) => setLoginPassword(event.target.value)} />
+                </label>
 
-            <button type="submit" disabled={submitting}>
-              <UserRound size={18} /> {submitting ? "Entrando..." : "Entrar / cadastrar"}
-            </button>
-          </form>
+                {error ? <p className="account-form-error">{error}</p> : null}
+
+                <button type="submit" disabled={submitting}>
+                  <UserRound size={18} /> {submitting ? "Entrando..." : "Entrar"}
+                </button>
+              </form>
+            ) : (
+              <form className="account-login-form" onSubmit={handleRegister}>
+                <label>
+                  <span>E-mail</span>
+                  <input type="email" autoComplete="email" value={registerEmail} onChange={(event) => setRegisterEmail(event.target.value)} />
+                </label>
+
+                <label>
+                  <span>Nova senha</span>
+                  <input type="password" autoComplete="new-password" value={registerPassword} onChange={(event) => setRegisterPassword(event.target.value)} />
+                </label>
+
+                <label>
+                  <span>Confirmar senha</span>
+                  <input
+                    type="password"
+                    autoComplete="new-password"
+                    value={registerPasswordConfirmation}
+                    onChange={(event) => setRegisterPasswordConfirmation(event.target.value)}
+                  />
+                </label>
+
+                {error ? <p className="account-form-error">{error}</p> : null}
+
+                <button type="submit" disabled={submitting}>
+                  <UserRound size={18} /> {submitting ? "Cadastrando..." : "Cadastrar"}
+                </button>
+              </form>
+            )}
+          </div>
         </div>
       </section>
     );

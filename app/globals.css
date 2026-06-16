@@ -9740,6 +9740,37 @@ button.stores-filter-input svg {
   gap: 12px;
 }
 
+.account-auth-card {
+  display: grid;
+  gap: 14px;
+}
+
+.account-auth-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  border: 1px solid #dce6f6;
+  border-radius: 12px;
+  background: #f8fbff;
+  padding: 4px;
+}
+
+.account-auth-tabs button {
+  min-height: 40px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #334a78;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.account-auth-tabs button.is-active {
+  background: #ffffff;
+  color: var(--blue);
+  box-shadow: 0 8px 18px rgba(8, 30, 95, 0.08);
+}
+
 .account-login-form label {
   display: grid;
   gap: 6px;
@@ -9776,6 +9807,11 @@ button.stores-filter-input svg {
   gap: 8px;
   font-weight: 900;
   cursor: pointer;
+}
+
+.account-login-form button:disabled {
+  cursor: wait;
+  opacity: 0.72;
 }
 
 .account-form-error {

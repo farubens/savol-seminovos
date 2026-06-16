@@ -21,6 +21,18 @@ add_action('rest_api_init', function () {
         'permission_callback' => '__return_true',
     ]);
 
+    register_rest_route('savol/v1', '/customer/login', [
+        'methods' => 'POST',
+        'callback' => 'savol_account_login',
+        'permission_callback' => '__return_true',
+    ]);
+
+    register_rest_route('savol/v1', '/customer/register', [
+        'methods' => 'POST',
+        'callback' => 'savol_account_register',
+        'permission_callback' => '__return_true',
+    ]);
+
     register_rest_route('savol/v1', '/customer/garage', [
         [
             'methods' => 'GET',
@@ -140,6 +152,111 @@ function savol_account_create_session(WP_REST_Request $request)
         'token' => $token,
         'garage' => savol_account_read_garage($user_id),
     ];
+}
+
+function savol_account_get_or_create_token(int $user_id): string
+{
+    $token = get_user_meta($user_id, SAVOL_ACCOUNT_TOKEN_META, true);
+    if (!$token) {
+        $token = wp_generate_password(48, false, false);
+        update_user_meta($user_id, SAVOL_ACCOUNT_TOKEN_META, $token);
+    }
+
+    return $token;
+}
+
+function savol_account_user_payload(int $user_id): array
+{
+    $user = get_user_by('id', $user_id);
+    $name = $user ? ($user->display_name ?: current(explode('@', $user->user_email))) : 'Cliente Savol';
+    $email = $user ? $user->user_email : '';
+
+    return [
+        'id' => $user_id,
+        'name' => $name,
+        'email' => $email,
+    ];
+}
+
+function savol_account_session_response(int $user_id): array
+{
+    return [
+        'user' => savol_account_user_payload($user_id),
+        'token' => savol_account_get_or_create_token($user_id),
+        'garage' => savol_account_read_garage($user_id),
+    ];
+}
+
+function savol_account_login(WP_REST_Request $request)
+{
+    $email = savol_account_normalize_email($request->get_param('email'));
+    $password = (string) $request->get_param('password');
+
+    if (!$email || !is_email($email)) {
+        return savol_account_json_error('Informe um e-mail válido.');
+    }
+
+    if (!$password) {
+        return savol_account_json_error('Informe sua senha.');
+    }
+
+    $user = get_user_by('email', $email);
+    if (!$user || !wp_check_password($password, $user->user_pass, $user->ID)) {
+        return savol_account_json_error('E-mail ou senha inválidos.', 401);
+    }
+
+    return savol_account_session_response((int) $user->ID);
+}
+
+function savol_account_register(WP_REST_Request $request)
+{
+    $email = savol_account_normalize_email($request->get_param('email'));
+    $password = (string) $request->get_param('password');
+    $password_confirmation = (string) $request->get_param('passwordConfirmation');
+
+    if (!$email || !is_email($email)) {
+        return savol_account_json_error('Informe um e-mail válido.');
+    }
+
+    if (email_exists($email)) {
+        return savol_account_json_error('Este e-mail já está cadastrado. Use a opção Entrar.', 409);
+    }
+
+    if (strlen($password) < 6) {
+        return savol_account_json_error('A senha precisa ter pelo menos 6 caracteres.');
+    }
+
+    if ($password !== $password_confirmation) {
+        return savol_account_json_error('As senhas não conferem.');
+    }
+
+    $username = sanitize_user(current(explode('@', $email)), true);
+    if (!$username) {
+        $username = 'cliente';
+    }
+
+    $base_username = $username;
+    $suffix = 1;
+    while (username_exists($username)) {
+        $suffix++;
+        $username = $base_username . $suffix;
+    }
+
+    $display_name = current(explode('@', $email));
+    $user_id = wp_insert_user([
+        'user_login' => $username,
+        'user_email' => $email,
+        'display_name' => $display_name,
+        'first_name' => $display_name,
+        'role' => 'subscriber',
+        'user_pass' => $password,
+    ]);
+
+    if (is_wp_error($user_id)) {
+        return savol_account_json_error('Não foi possível criar o usuário.', 500);
+    }
+
+    return savol_account_session_response((int) $user_id);
 }
 
 function savol_account_read_garage(int $user_id): array

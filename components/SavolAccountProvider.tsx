@@ -8,6 +8,17 @@ export type SavolAccountUser = {
   email: string;
 };
 
+export type SavolLoginCredentials = {
+  email: string;
+  password: string;
+};
+
+export type SavolRegisterCredentials = {
+  email: string;
+  password: string;
+  passwordConfirmation: string;
+};
+
 export type SavedVehicle = Pick<
   ApiVehicle,
   | "id"
@@ -38,7 +49,8 @@ type SavolAccountContextValue = {
   isSyncing: boolean;
   isFavorite: (vehicleId: number) => boolean;
   hasVisited: (vehicleId: number) => boolean;
-  login: (user: SavolAccountUser) => Promise<{ ok: boolean; message?: string }>;
+  login: (credentials: SavolLoginCredentials) => Promise<{ ok: boolean; message?: string }>;
+  register: (credentials: SavolRegisterCredentials) => Promise<{ ok: boolean; message?: string }>;
   logout: () => void;
   toggleFavorite: (vehicle: SavedVehicle) => boolean;
   registerVisit: (vehicle: SavedVehicle) => void;
@@ -161,46 +173,46 @@ export function SavolAccountProvider({ children }: { children: ReactNode }) {
   const isFavorite = useCallback((vehicleId: number) => favoriteIds.includes(vehicleId), [favoriteIds]);
   const hasVisited = useCallback((vehicleId: number) => visitedIds.includes(vehicleId), [visitedIds]);
 
-  const login = useCallback(
-    async (nextUser: SavolAccountUser) => {
+  const authenticate = useCallback(
+    async (endpoint: "/api/account/login" | "/api/account/register", payload: SavolLoginCredentials | SavolRegisterCredentials) => {
       setIsSyncing(true);
       try {
-        const response = await fetch("/api/account/session", {
+        const response = await fetch(endpoint, {
           method: "POST",
           headers: {
             "Content-Type": "application/json"
           },
-          body: JSON.stringify({
-            name: nextUser.name.trim(),
-            email: nextUser.email.trim().toLowerCase()
-          })
+          body: JSON.stringify(payload)
         });
 
-        const payload = (await response.json().catch(() => ({}))) as SessionPayload;
+        const sessionPayload = (await response.json().catch(() => ({}))) as SessionPayload;
 
-        if (!response.ok || !payload.user || !payload.token) {
-          return { ok: false, message: payload.message || "Não foi possível entrar agora." };
+        if (!response.ok || !sessionPayload.user || !sessionPayload.token) {
+          return { ok: false, message: sessionPayload.message || "Nao foi possivel entrar agora." };
         }
 
-        const nextFavorites = uniqueIds([...(payload.garage?.favorites ?? []), ...favorites.map((vehicle) => vehicle.id)]);
-        const nextVisited = uniqueIds([...(payload.garage?.visited ?? []), ...visited.map((vehicle) => vehicle.id)]).slice(0, MAX_VISITED);
+        const nextFavorites = uniqueIds([...(sessionPayload.garage?.favorites ?? []), ...favorites.map((vehicle) => vehicle.id)]);
+        const nextVisited = uniqueIds([...(sessionPayload.garage?.visited ?? []), ...visited.map((vehicle) => vehicle.id)]).slice(0, MAX_VISITED);
 
-        setUser(payload.user);
-        setToken(payload.token);
+        setUser(sessionPayload.user);
+        setToken(sessionPayload.token);
         setRemoteFavoriteIds(nextFavorites);
         setRemoteVisitedIds(nextVisited);
 
-        await syncGarage(payload.token, nextFavorites, nextVisited);
+        await syncGarage(sessionPayload.token, nextFavorites, nextVisited);
         return { ok: true };
       } catch (error) {
         console.error("Erro ao entrar na conta Savol", error);
-        return { ok: false, message: "Não foi possível acessar o WordPress agora." };
+        return { ok: false, message: "Nao foi possivel acessar o WordPress agora." };
       } finally {
         setIsSyncing(false);
       }
     },
     [favorites, visited]
   );
+
+  const login = useCallback((credentials: SavolLoginCredentials) => authenticate("/api/account/login", credentials), [authenticate]);
+  const register = useCallback((credentials: SavolRegisterCredentials) => authenticate("/api/account/register", credentials), [authenticate]);
 
   const logout = useCallback(() => {
     setUser(null);
@@ -239,11 +251,12 @@ export function SavolAccountProvider({ children }: { children: ReactNode }) {
       isFavorite,
       hasVisited,
       login,
+      register,
       logout,
       toggleFavorite,
       registerVisit
     }),
-    [favoriteIds, favorites, hasVisited, isFavorite, isSyncing, login, logout, registerVisit, toggleFavorite, user, visited, visitedIds]
+    [favoriteIds, favorites, hasVisited, isFavorite, isSyncing, login, logout, register, registerVisit, toggleFavorite, user, visited, visitedIds]
   );
 
   return <SavolAccountContext.Provider value={value}>{children}</SavolAccountContext.Provider>;
