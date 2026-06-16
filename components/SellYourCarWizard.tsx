@@ -34,20 +34,12 @@ type UploadedPhoto = {
 };
 
 type PhotoSlotId =
-  | "front"
-  | "leftSide"
-  | "rightSide"
-  | "rear"
-  | "dashboard"
-  | "odometer"
-  | "spare"
-  | "trunk"
-  | "roof"
-  | "tire"
-  | "engine"
-  | "chassis";
+  | "vehicle"
+  | "documentFront"
+  | "documentBack";
 
 type SellFormData = {
+  plate: string;
   brand: string;
   model: string;
   version: string;
@@ -56,7 +48,6 @@ type SellFormData = {
   transmission: string;
   km: string;
   color: string;
-  plateEnding: string;
   bodyType: string;
   ownerCount: string;
   hasManual: string;
@@ -83,9 +74,9 @@ type SellYourCarSubmitResponse = {
 };
 
 const STEPS: Array<{ id: Step; label: string }> = [
-  { id: 1, label: "Dados do veículo" },
-  { id: 2, label: "Detalhes adicionais" },
-  { id: 3, label: "Fotos do veículo" },
+  { id: 1, label: "Placa" },
+  { id: 2, label: "Dados do veículo" },
+  { id: 3, label: "Fotos e documento" },
   { id: 4, label: "Seus dados" },
   { id: 5, label: "Confirmação" }
 ];
@@ -103,22 +94,65 @@ const DEFAULT_MODELS = ["Onix", "Toro", "HB20", "Corolla", "Compass", "Kicks"];
 const DEFAULT_VERSIONS = ["1.0", "1.3 Turbo", "2.0", "EX", "Limited"];
 const DEFAULT_YEARS = ["2026", "2025", "2024", "2023", "2022", "2021", "2020", "2019", "2018", "2017", "2016", "2015", "2014", "2013", "2012", "2011", "2010"];
 const PHOTO_SLOTS: Array<{ id: PhotoSlotId; label: string }> = [
-  { id: "front", label: "Frente" },
-  { id: "leftSide", label: "Lateral esquerda" },
-  { id: "rightSide", label: "Lateral direita" },
-  { id: "rear", label: "Traseira" },
-  { id: "dashboard", label: "Painel" },
-  { id: "odometer", label: "Odômetro" },
-  { id: "spare", label: "Estepe" },
-  { id: "trunk", label: "Porta malas" },
-  { id: "roof", label: "Teto" },
-  { id: "tire", label: "Pneu" },
-  { id: "engine", label: "Motor" },
-  { id: "chassis", label: "Chassi" }
+  { id: "vehicle", label: "Foto do carro" },
+  { id: "documentFront", label: "Documento frente" },
+  { id: "documentBack", label: "Documento verso" }
+];
+
+const MOCK_VEHICLES: Array<Partial<SellFormData>> = [
+  {
+    brand: "Honda",
+    model: "Fit",
+    version: "EXL 1.5 CVT",
+    year: "2021",
+    fuel: "Flex",
+    transmission: "CVT",
+    km: "48200",
+    color: "Vermelho",
+    bodyType: "Hatch",
+    ownerCount: "Único dono",
+    hasManual: "Sim",
+    hasSpareKey: "Sim",
+    desiredPrice: "79000",
+    notes: "Dados preenchidos automaticamente a partir da placa para simulação."
+  },
+  {
+    brand: "Hyundai",
+    model: "HB20",
+    version: "Comfort 1.0",
+    year: "2023",
+    fuel: "Flex",
+    transmission: "Manual",
+    km: "26700",
+    color: "Prata",
+    bodyType: "Hatch",
+    ownerCount: "2 donos",
+    hasManual: "Sim",
+    hasSpareKey: "Não",
+    desiredPrice: "68500",
+    notes: "Dados preenchidos automaticamente a partir da placa para simulação."
+  },
+  {
+    brand: "Toyota",
+    model: "Corolla",
+    version: "XEi 2.0",
+    year: "2022",
+    fuel: "Flex",
+    transmission: "Automática",
+    km: "39100",
+    color: "Branco",
+    bodyType: "Sedan",
+    ownerCount: "Único dono",
+    hasManual: "Sim",
+    hasSpareKey: "Sim",
+    desiredPrice: "128000",
+    notes: "Dados preenchidos automaticamente a partir da placa para simulação."
+  }
 ];
 
 function createInitialFormState(): SellFormData {
   return {
+    plate: "",
     brand: "",
     model: "",
     version: "",
@@ -127,7 +161,6 @@ function createInitialFormState(): SellFormData {
     transmission: "",
     km: "",
     color: "",
-    plateEnding: "",
     bodyType: "",
     ownerCount: "",
     hasManual: "",
@@ -157,7 +190,30 @@ function cleanDigits(value: string, max: number): string {
 }
 
 function cleanPlate(value: string): string {
-  return value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
+  return value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 7);
+}
+
+function getPlateKind(plate: string): "mercosul" | "old" | "unknown" {
+  if (/^[A-Z]{3}\d[A-Z]\d{2}$/.test(plate)) return "mercosul";
+  if (/^[A-Z]{3}\d{4}$/.test(plate)) return "old";
+  return "unknown";
+}
+
+function formatPlateDisplay(plate: string): string {
+  if (getPlateKind(plate) === "old" && plate.length === 7) return `${plate.slice(0, 3)}-${plate.slice(3)}`;
+  return plate;
+}
+
+function getPlateSeed(plate: string): number {
+  return plate.split("").reduce((sum, char) => sum + char.charCodeAt(0), 0);
+}
+
+function getMockVehicleFromPlate(plate: string): Partial<SellFormData> {
+  const vehicle = MOCK_VEHICLES[getPlateSeed(plate) % MOCK_VEHICLES.length];
+  return {
+    ...vehicle,
+    notes: `Dados simulados a partir da placa ${formatPlateDisplay(plate)}.`
+  };
 }
 
 function FieldError({ error }: { error?: string }) {
@@ -189,6 +245,7 @@ function buildSellYourCarPayload(form: SellFormData) {
       submittedAt
     },
     vehicle: {
+      plate: form.plate,
       brand: form.brand,
       model: form.model,
       version: form.version,
@@ -197,7 +254,7 @@ function buildSellYourCarPayload(form: SellFormData) {
       transmission: form.transmission,
       km: toNumberValue(form.km),
       color: form.color,
-      plateEnding: form.plateEnding,
+      plateEnding: form.plate.slice(-4),
       bodyType: form.bodyType,
       ownerCount: form.ownerCount,
       hasManual: form.hasManual,
@@ -280,8 +337,8 @@ export function SellYourCarWizard() {
   }, [vehicles]);
 
   const isStepDone = (checkStep: Step): boolean => {
-    if (checkStep === 1) return Boolean(form.brand && form.model && form.year && form.fuel && form.transmission && form.km && form.color && form.plateEnding);
-    if (checkStep === 2) return Boolean(form.bodyType && form.ownerCount && form.hasManual && form.hasSpareKey && form.desiredPrice);
+    if (checkStep === 1) return form.plate.length === 7;
+    if (checkStep === 2) return Boolean(form.brand && form.model && form.year && form.fuel && form.transmission && form.km && form.color && form.bodyType && form.ownerCount && form.hasManual && form.hasSpareKey && form.desiredPrice);
     if (checkStep === 3) return PHOTO_SLOTS.every((slot) => Boolean(form.photos[slot.id]));
     if (checkStep === 4) return Boolean(form.fullName && form.email && form.phone && form.city && form.state && form.contactPeriod && form.contactChannel);
     return Boolean(form.acceptedTerms && form.acceptedLgpd);
@@ -301,6 +358,9 @@ export function SellYourCarWizard() {
   const validateStep = (targetStep: Step): boolean => {
     const nextErrors: Record<string, string> = {};
     if (targetStep === 1) {
+      if (form.plate.length !== 7) nextErrors.plate = "Informe a placa completa";
+    }
+    if (targetStep === 2) {
       if (!form.brand) nextErrors.brand = "Selecione a marca";
       if (!form.model) nextErrors.model = "Selecione o modelo";
       if (!form.year) nextErrors.year = "Selecione o ano";
@@ -308,7 +368,6 @@ export function SellYourCarWizard() {
       if (!form.transmission) nextErrors.transmission = "Selecione o câmbio";
       if (!form.km) nextErrors.km = "Informe a quilometragem";
       if (!form.color) nextErrors.color = "Selecione a cor";
-      if (!form.plateEnding) nextErrors.plateEnding = "Informe o final da placa";
     }
     if (targetStep === 2) {
       if (!form.bodyType) nextErrors.bodyType = "Selecione a carroceria";
@@ -317,7 +376,7 @@ export function SellYourCarWizard() {
       if (!form.hasSpareKey) nextErrors.hasSpareKey = "Informe se tem chave reserva";
       if (!form.desiredPrice) nextErrors.desiredPrice = "Informe o valor pretendido";
     }
-    if (targetStep === 3 && !PHOTO_SLOTS.every((slot) => Boolean(form.photos[slot.id]))) nextErrors.photos = "Envie as 12 fotos obrigatórias do veículo.";
+    if (targetStep === 3 && !PHOTO_SLOTS.every((slot) => Boolean(form.photos[slot.id]))) nextErrors.photos = "Envie a foto do carro e as duas fotos do documento.";
     if (targetStep === 4) {
       if (!form.fullName) nextErrors.fullName = "Informe seu nome";
       if (!form.email || !/^\S+@\S+\.\S+$/.test(form.email)) nextErrors.email = "Informe um e-mail válido";
@@ -337,10 +396,26 @@ export function SellYourCarWizard() {
 
   const goNext = () => {
     if (!validateStep(step)) return;
+    if (step === 1) {
+      setForm((prev) => ({ ...prev, ...getMockVehicleFromPlate(prev.plate) }));
+    }
     setStep((prev) => (prev < 5 ? ((prev + 1) as Step) : prev));
   };
 
   const goBack = () => setStep((prev) => (prev > 1 ? ((prev - 1) as Step) : prev));
+
+  const goToStep = (targetStep: Step) => {
+    if (targetStep <= step) {
+      setStep(targetStep);
+      return;
+    }
+
+    if (!validateStep(step)) return;
+    if (step === 1) {
+      setForm((prev) => ({ ...prev, ...getMockVehicleFromPlate(prev.plate) }));
+    }
+    setStep((step + 1) as Step);
+  };
 
   const resetWizard = () => {
     getPhotosList(photosRef.current).forEach((photo) => URL.revokeObjectURL(photo.previewUrl));
@@ -428,6 +503,11 @@ export function SellYourCarWizard() {
     }
   };
 
+  const plateKind = getPlateKind(form.plate);
+  const plateVisualClass = plateKind === "old" ? "sell-plate-frame--old" : "sell-plate-frame--mercosul";
+  const plateRegionLabel = plateKind === "old" ? "SANTO ANDRÉ - SP" : "BRASIL";
+  const plateKindLabel = plateKind === "old" ? "Placa cinza" : "Placa Mercosul";
+
   return (
     <section className="sell-page">
       <div className="container sell-page-content">
@@ -451,7 +531,7 @@ export function SellYourCarWizard() {
               const isDone = item.id < step || (item.id === step && isStepDone(item.id));
               return (
                 <li key={item.id}>
-                  <button type="button" className={`sell-step-node${isCurrent ? " is-current" : ""}${isDone ? " is-done" : ""}`} onClick={() => (item.id <= step ? setStep(item.id) : validateStep(step) && setStep(item.id))}>
+                  <button type="button" className={`sell-step-node${isCurrent ? " is-current" : ""}${isDone ? " is-done" : ""}`} onClick={() => goToStep(item.id)}>
                     <span>{isDone ? <CheckCircle2 size={15} /> : item.id}</span>
                     <strong>{item.label}</strong>
                   </button>
@@ -471,9 +551,30 @@ export function SellYourCarWizard() {
             </article>
           ) : (
             <form className="sell-form" onSubmit={(event) => event.preventDefault()}>
-              <div className="sell-form-main">
+              <div className={`sell-form-main${step === 1 ? " sell-form-main--plate" : ""}`}>
                 <div className="sell-form-fields">
                   {step === 1 && (
+                    <div className="sell-plate-step">
+                      <div className={`sell-plate-frame ${plateVisualClass}`}>
+                        <div className="sell-plate-top">
+                          <span>{plateRegionLabel}</span>
+                          {plateKind !== "old" ? <strong>BR</strong> : null}
+                        </div>
+                        <input
+                          type="text"
+                          inputMode="text"
+                          aria-label="Placa do veículo"
+                          placeholder={plateKind === "old" ? "ABC1234" : "ABC1D23"}
+                          value={formatPlateDisplay(form.plate)}
+                          onChange={(event) => handleChange("plate", cleanPlate(event.target.value))}
+                        />
+                      </div>
+                      <FieldError error={errors.plate} />
+                      <p className="sell-plate-caption">{form.plate.length === 7 ? `${plateKindLabel} identificada. Os dados serão preenchidos no próximo passo.` : "Digite a placa completa para começar a avaliação."}</p>
+                    </div>
+                  )}
+
+                  {step === 2 && (
                     <div className="sell-form-grid">
                       <label className="sell-field"><span>Marca *</span><select value={form.brand} onChange={(event) => { handleChange("brand", event.target.value); handleChange("model", ""); handleChange("version", ""); }}><option value="">Selecione</option>{brands.map((item) => <option key={item} value={item}>{item}</option>)}</select><FieldError error={errors.brand} /></label>
                       <label className="sell-field"><span>Modelo *</span><select value={form.model} onChange={(event) => { handleChange("model", event.target.value); handleChange("version", ""); }}><option value="">Selecione</option>{models.map((item) => <option key={item} value={item}>{item}</option>)}</select><FieldError error={errors.model} /></label>
@@ -483,7 +584,7 @@ export function SellYourCarWizard() {
                       <label className="sell-field"><span>Câmbio *</span><select value={form.transmission} onChange={(event) => handleChange("transmission", event.target.value)}><option value="">Selecione</option>{TRANSMISSION_OPTIONS.map((item) => <option key={item} value={item}>{item}</option>)}</select><FieldError error={errors.transmission} /></label>
                       <label className="sell-field"><span>Quilometragem *</span><input type="text" inputMode="numeric" placeholder="Ex.: 45000" value={form.km} onChange={(event) => handleChange("km", cleanDigits(event.target.value, 7))} /><FieldError error={errors.km} /></label>
                       <label className="sell-field"><span>Cor *</span><select value={form.color} onChange={(event) => handleChange("color", event.target.value)}><option value="">Selecione</option>{COLOR_OPTIONS.map((item) => <option key={item} value={item}>{item}</option>)}</select><FieldError error={errors.color} /></label>
-                      <label className="sell-field"><span>Final da placa *</span><input type="text" placeholder="Ex.: 1A23" value={form.plateEnding} onChange={(event) => handleChange("plateEnding", cleanPlate(event.target.value))} /><FieldError error={errors.plateEnding} /></label>
+                      <label className="sell-field"><span>Placa</span><input type="text" value={formatPlateDisplay(form.plate)} readOnly /></label>
                     </div>
                   )}
 
@@ -500,7 +601,7 @@ export function SellYourCarWizard() {
 
                   {step === 3 && (
                     <div className="sell-photos-step">
-                      <p className="sell-photos-help">Envie uma foto para cada ângulo solicitado. São 12 fotos no total.</p>
+                      <p className="sell-photos-help">Envie apenas as 3 imagens necessárias: carro, frente do documento e verso do documento.</p>
                       <FieldError error={errors.photos} />
                       <div className="sell-photo-slot-grid">
                         {PHOTO_SLOTS.map((slot) => {
@@ -555,7 +656,7 @@ export function SellYourCarWizard() {
                   {step === 5 && (
                     <div className="sell-form-grid">
                       <div className="sell-review-grid">
-                        <article><h4>Veículo</h4><ul><li><strong>Marca:</strong> {form.brand || "-"}</li><li><strong>Modelo:</strong> {form.model || "-"}</li><li><strong>Ano:</strong> {form.year || "-"}</li><li><strong>KM:</strong> {form.km || "-"}</li><li><strong>Combustível:</strong> {form.fuel || "-"}</li><li><strong>Câmbio:</strong> {form.transmission || "-"}</li><li><strong>Cor:</strong> {form.color || "-"}</li></ul></article>
+                        <article><h4>Veículo</h4><ul><li><strong>Placa:</strong> {formatPlateDisplay(form.plate) || "-"}</li><li><strong>Marca:</strong> {form.brand || "-"}</li><li><strong>Modelo:</strong> {form.model || "-"}</li><li><strong>Ano:</strong> {form.year || "-"}</li><li><strong>KM:</strong> {form.km || "-"}</li><li><strong>Combustível:</strong> {form.fuel || "-"}</li><li><strong>Câmbio:</strong> {form.transmission || "-"}</li><li><strong>Cor:</strong> {form.color || "-"}</li></ul></article>
                         <article><h4>Contato</h4><ul><li><strong>Nome:</strong> {form.fullName || "-"}</li><li><strong>E-mail:</strong> {form.email || "-"}</li><li><strong>Telefone:</strong> {form.phone || "-"}</li><li><strong>Cidade/UF:</strong> {form.city ? `${form.city}/${form.state}` : "-"}</li><li><strong>Canal:</strong> {form.contactChannel || "-"}</li><li><strong>Fotos:</strong> {getPhotosList(form.photos).length}</li><li><strong>Valor:</strong> {form.desiredPrice ? `R$ ${form.desiredPrice}` : "-"}</li></ul></article>
                       </div>
                       <label className="sell-check"><input type="checkbox" checked={form.acceptedTerms} onChange={(event) => handleChange("acceptedTerms", event.target.checked)} /><span>Li e concordo com os termos de atendimento.</span></label>
@@ -578,7 +679,7 @@ export function SellYourCarWizard() {
                 </aside>
               </div>
 
-              <footer className="sell-form-footer">
+              <footer className={`sell-form-footer${step === 1 ? " sell-form-footer--plate" : ""}`}>
                 <FieldError error={errors.submit} />
                 <button type="button" className="btn btn-outline" onClick={resetWizard}>Cancelar</button>
                 <div className="sell-form-footer-right">

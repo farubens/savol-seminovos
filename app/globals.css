@@ -5459,11 +5459,105 @@ h2 {
   align-items: start;
 }
 
+.sell-form-main--plate {
+  grid-template-columns: 1fr;
+}
+
+.sell-form-main--plate .sell-security-card {
+  display: none;
+}
+
 .sell-form-fields {
   border: 1px solid #d8e3f8;
   border-radius: 16px;
   background: #fff;
   padding: 16px;
+}
+
+.sell-form-fields > .sell-form-grid + .sell-form-grid {
+  margin-top: 12px;
+}
+
+.sell-plate-step {
+  min-height: 360px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 16px;
+  text-align: center;
+}
+
+.sell-plate-frame {
+  width: min(100%, 620px);
+  aspect-ratio: 3.25 / 1;
+  border: 8px solid #171b22;
+  border-radius: 18px;
+  background: #f7f8fb;
+  overflow: hidden;
+  box-shadow: 0 22px 48px rgba(8, 35, 99, 0.16);
+}
+
+.sell-plate-top {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 0 18px;
+  background: #174ea6;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sell-plate-top strong {
+  min-width: 34px;
+  min-height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #174ea6;
+  font-size: 12px;
+}
+
+.sell-plate-frame input {
+  width: 100%;
+  height: calc(100% - 42px);
+  border: 0;
+  background: transparent;
+  color: #111827;
+  font-size: clamp(48px, 8vw, 88px);
+  font-weight: 950;
+  letter-spacing: 0;
+  text-align: center;
+  text-transform: uppercase;
+  outline: none;
+}
+
+.sell-plate-frame--old {
+  border-color: #2b2f36;
+  background: #eef0f3;
+}
+
+.sell-plate-frame--old .sell-plate-top {
+  background: #d4d8df;
+  color: #1f2937;
+}
+
+.sell-plate-frame--old input {
+  color: #1f2937;
+}
+
+.sell-plate-caption {
+  max-width: 540px;
+  margin: 0;
+  color: #385184;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.45;
 }
 
 .sell-form-grid {
@@ -5556,7 +5650,7 @@ h2 {
 
 .sell-photo-slot-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
 }
 
@@ -5652,6 +5746,24 @@ h2 {
   .sell-photo-slot-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .sell-plate-step {
+    min-height: 280px;
+  }
+
+  .sell-plate-frame {
+    border-width: 5px;
+    border-radius: 12px;
+  }
+
+  .sell-plate-top {
+    min-height: 34px;
+    font-size: 12px;
+  }
+
+  .sell-plate-frame input {
+    height: calc(100% - 34px);
+  }
 }
 
 .sell-review-grid {
@@ -5729,6 +5841,14 @@ h2 {
   justify-content: space-between;
   align-items: center;
   gap: 10px;
+}
+
+.sell-form-footer--plate {
+  justify-content: center;
+}
+
+.sell-form-footer--plate > .btn-outline {
+  display: none;
 }
 
 .sell-form-footer-right {
@@ -9909,6 +10029,47 @@ button.stores-filter-input svg {
   color: #d51d43;
 }
 
+.favorite-login-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  z-index: 1200;
+  width: min(calc(100vw - 32px), 520px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border: 1px solid rgba(15, 79, 228, 0.18);
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 18px 48px rgba(8, 30, 95, 0.18);
+  padding: 14px 14px 14px 18px;
+  transform: translateX(-50%);
+}
+
+.favorite-login-toast p {
+  margin: 0;
+  color: #183871;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.favorite-login-toast a {
+  flex: 0 0 auto;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: var(--blue);
+  color: #ffffff;
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 900;
+  text-decoration: none;
+}
+
 @media (max-width: 980px) {
   .account-login-panel,
   .account-vehicle-grid {
@@ -9931,6 +10092,11 @@ button.stores-filter-input svg {
 
   .account-stats {
     grid-template-columns: 1fr;
+  }
+
+  .favorite-login-toast {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 

@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ApiVehicle } from "@/types/home";
 
 export type SavolAccountUser = {
@@ -127,6 +128,8 @@ export function SavolAccountProvider({ children }: { children: ReactNode }) {
   const [remoteFavoriteIds, setRemoteFavoriteIds] = useState<number[]>([]);
   const [remoteVisitedIds, setRemoteVisitedIds] = useState<number[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [showFavoriteLoginPrompt, setShowFavoriteLoginPrompt] = useState(false);
+  const favoriteLoginPromptTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     setUser(readJson<SavolAccountUser | null>(USER_KEY, null));
@@ -159,7 +162,18 @@ export function SavolAccountProvider({ children }: { children: ReactNode }) {
     }
   }, [token]);
 
-  const favoriteIds = useMemo(() => uniqueIds([...remoteFavoriteIds, ...favorites.map((vehicle) => vehicle.id)]), [favorites, remoteFavoriteIds]);
+  useEffect(() => {
+    return () => {
+      if (favoriteLoginPromptTimerRef.current) {
+        clearTimeout(favoriteLoginPromptTimerRef.current);
+      }
+    };
+  }, []);
+
+  const favoriteIds = useMemo(() => {
+    if (!user || !token) return [];
+    return uniqueIds([...remoteFavoriteIds, ...favorites.map((vehicle) => vehicle.id)]);
+  }, [favorites, remoteFavoriteIds, token, user]);
   const visitedIds = useMemo(() => uniqueIds([...remoteVisitedIds, ...visited.map((vehicle) => vehicle.id)]).slice(0, MAX_VISITED), [remoteVisitedIds, visited]);
 
   useEffect(() => {
@@ -214,6 +228,17 @@ export function SavolAccountProvider({ children }: { children: ReactNode }) {
   const login = useCallback((credentials: SavolLoginCredentials) => authenticate("/api/account/login", credentials), [authenticate]);
   const register = useCallback((credentials: SavolRegisterCredentials) => authenticate("/api/account/register", credentials), [authenticate]);
 
+  const openFavoriteLoginPrompt = useCallback(() => {
+    setShowFavoriteLoginPrompt(true);
+    if (favoriteLoginPromptTimerRef.current) {
+      clearTimeout(favoriteLoginPromptTimerRef.current);
+    }
+    favoriteLoginPromptTimerRef.current = setTimeout(() => {
+      setShowFavoriteLoginPrompt(false);
+      favoriteLoginPromptTimerRef.current = null;
+    }, 7000);
+  }, []);
+
   const logout = useCallback(() => {
     setUser(null);
     setToken("");
@@ -223,12 +248,17 @@ export function SavolAccountProvider({ children }: { children: ReactNode }) {
 
   const toggleFavorite = useCallback(
     (vehicle: SavedVehicle) => {
+      if (!user || !token) {
+        openFavoriteLoginPrompt();
+        return false;
+      }
+
       const exists = favoriteIds.includes(vehicle.id);
       setFavorites((current) => (exists ? current.filter((item) => item.id !== vehicle.id) : uniqueByVehicleId([vehicle, ...current])));
       setRemoteFavoriteIds((current) => (exists ? current.filter((id) => id !== vehicle.id) : uniqueIds([vehicle.id, ...current])));
       return !exists;
     },
-    [favoriteIds]
+    [favoriteIds, openFavoriteLoginPrompt, token, user]
   );
 
   const registerVisit = useCallback((vehicle: SavedVehicle) => {
@@ -259,7 +289,19 @@ export function SavolAccountProvider({ children }: { children: ReactNode }) {
     [favoriteIds, favorites, hasVisited, isFavorite, isSyncing, login, logout, register, registerVisit, toggleFavorite, user, visited, visitedIds]
   );
 
-  return <SavolAccountContext.Provider value={value}>{children}</SavolAccountContext.Provider>;
+  return (
+    <SavolAccountContext.Provider value={value}>
+      {children}
+      {showFavoriteLoginPrompt ? (
+        <div className="favorite-login-toast" role="status" aria-live="polite">
+          <p>Para adicionar e ver seus favoritos, por favor, faça login</p>
+          <Link href="/minha-conta" onClick={() => setShowFavoriteLoginPrompt(false)}>
+            Fazer login
+          </Link>
+        </div>
+      ) : null}
+    </SavolAccountContext.Provider>
+  );
 }
 
 export function useSavolAccount() {

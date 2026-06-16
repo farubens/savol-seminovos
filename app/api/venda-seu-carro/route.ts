@@ -2,18 +2,9 @@ import crypto from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 
 const REQUIRED_PHOTO_FIELDS = [
-  "photo_front",
-  "photo_leftSide",
-  "photo_rightSide",
-  "photo_rear",
-  "photo_dashboard",
-  "photo_odometer",
-  "photo_spare",
-  "photo_trunk",
-  "photo_roof",
-  "photo_tire",
-  "photo_engine",
-  "photo_chassis"
+  "photo_vehicle",
+  "photo_documentFront",
+  "photo_documentBack"
 ];
 
 const MAX_PHOTO_SIZE_BYTES = 8 * 1024 * 1024;
