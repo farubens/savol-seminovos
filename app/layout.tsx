@@ -9,8 +9,8 @@ export const metadata: Metadata = {
   title: "Savol Seminovos",
   description: "Encontre o carro ideal para você",
   icons: {
-    icon: "/icon.svg",
-    shortcut: "/icon.svg"
+    icon: "/favicon.webp",
+    shortcut: "/favicon.webp"
   }
 };
 
