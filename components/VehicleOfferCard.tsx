@@ -680,6 +680,17 @@ export function VehicleOfferCard({
               </span>
             </div>
 
+            <div className="offer-mobile-commerce">
+              {Boolean(resolvedOldPrice) && <p className="offer-mobile-old-price">{resolvedOldPrice}</p>}
+              <p className="offer-mobile-price">
+                Por <strong>{price}</strong>
+              </p>
+              <p className="offer-mobile-store">
+                <MapPin size={13} />
+                <span>Loja: {store}</span>
+              </p>
+            </div>
+
             {Boolean(resolvedSecondaryHighlights.length) && (
               <div className="offer-highlights">
                 {resolvedSecondaryHighlights.map((highlight, index) => {

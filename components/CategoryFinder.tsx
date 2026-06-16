@@ -557,8 +557,8 @@ export function CategoryFinder() {
             </div>
           </div>
         </article>
-      ) : activeTab === "marca" ? (
-        <div className="category-slider-wrap">
+      ) : activeTab === "marca" || activeTab === "categoria" ? (
+        <div className={`category-slider-wrap category-slider-wrap--${activeTab}`}>
           <div className="category-slider-nav">
             <button
               type="button"
@@ -605,11 +605,23 @@ export function CategoryFinder() {
             </div>
           ) : (
             <div className="category-grid category-grid-visual category-slider" ref={sliderRef}>
-              {cards.map((card) => {
+              {visualCards.map((card) => {
                 const CardIcon = iconMap[card.icon];
 
                 return (
-                  <article className="category-card category-card-visual" key={card.id}>
+                  <article
+                    className={`category-card category-card-visual${card.id.startsWith("view-all") ? " category-card-visual--cta" : ""}`}
+                    key={card.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => router.push(card.href)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        router.push(card.href);
+                      }
+                    }}
+                  >
                     <div className="category-bg" style={{ backgroundImage: `url("${card.bgImage}")` }} />
                     <div className="category-overlay" />
 
