@@ -7,7 +7,11 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Savol Seminovos",
-  description: "Encontre o carro ideal para você"
+  description: "Encontre o carro ideal para você",
+  icons: {
+    icon: "/icon.svg",
+    shortcut: "/icon.svg"
+  }
 };
 
 export default function RootLayout({

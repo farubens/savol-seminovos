@@ -20,7 +20,7 @@ export default function VendaPorAtacadoPage() {
               Consulte os veículos disponíveis e realize todo o processo de negociação diretamente pela plataforma AUTOAVALIAR.
             </p>
             <div className="wholesale-hero-v2-actions">
-              <a href="https://autoavaliar.com.br/cadastre-se/" target="_blank" rel="noopener noreferrer" className="btn wholesale-hero-v2-primary">
+              <a href="https://b2b.autoavaliar.com.br/avaliacoes/sorria" target="_blank" rel="noopener noreferrer" className="btn wholesale-hero-v2-primary">
                 Saiba mais
               </a>
             </div>
