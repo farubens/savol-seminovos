@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   BadgeCheck,
   CalendarDays,
@@ -22,8 +23,10 @@ import {
   X
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
+import { FinanceFollowUpModal } from "@/components/FinanceFollowUpModal";
 import { MapDirectionsModal } from "@/components/MapDirectionsModal";
 import { buildOldPriceLabelFromOfficialPrice } from "@/utils/pricing";
+import { watchVwfsSimulatorClose } from "@/utils/vwfsModalWatcher";
 
 type Props = {
   vehicleId: number;
@@ -50,7 +53,7 @@ type Props = {
 declare global {
   interface Window {
     bvfs?: {
-      simulator: (payload: Record<string, unknown>) => void;
+      simulator: (payload: Record<string, unknown>, onFinish?: () => void) => void;
     };
   }
 }
@@ -154,6 +157,11 @@ function normalizeSpaces(value: string): string {
 
 function isExternalUrl(url: string): boolean {
   return /^https?:\/\//i.test(url);
+}
+
+function shouldIgnoreCardNavigation(target: EventTarget | null): boolean {
+  if (typeof Element === "undefined" || !(target instanceof Element)) return false;
+  return Boolean(target.closest("a, button, input, select, textarea, label, [role='button']"));
 }
 
 function normalizeStoreName(value: string): string {
@@ -313,11 +321,13 @@ export function VehicleOfferCard({
     consent: boolean;
   };
 
+  const router = useRouter();
   const financeId = useId();
   const safeImage = image || FALLBACK_IMAGE;
   const isPreparationFallback = isPreparationImage(safeImage);
   const calculationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const galleryLoadingGuardRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const vwfsCloseWatcherRef = useRef<(() => void) | null>(null);
   const isMountedRef = useRef(true);
   const normalizedTag = normalizeTag(qualityTag);
   const showTag = Boolean(qualityTag.trim()) && !normalizedTag.includes("seminovo") && !isPreparationFallback;
@@ -335,6 +345,7 @@ export function VehicleOfferCard({
   const vwfsStoreId = Number(process.env.NEXT_PUBLIC_VWFS_STORE_ID ?? String(VWFS_DEFAULT_STORE_ID));
   const vwfsScriptSrc = process.env.NEXT_PUBLIC_VWFS_SCRIPT_SRC?.trim() || VWFS_UAT_SCRIPT;
   const [isFinanceModalOpen, setIsFinanceModalOpen] = useState(false);
+  const [isFinanceFollowUpOpen, setIsFinanceFollowUpOpen] = useState(false);
   const [isSimulatingFinance, setIsSimulatingFinance] = useState(false);
   const [didSimulateFinance, setDidSimulateFinance] = useState(false);
   const [showProposalForm, setShowProposalForm] = useState(false);
@@ -399,6 +410,10 @@ export function VehicleOfferCard({
       }
       if (galleryLoadingGuardRef.current) {
         clearTimeout(galleryLoadingGuardRef.current);
+      }
+      if (vwfsCloseWatcherRef.current) {
+        vwfsCloseWatcherRef.current();
+        vwfsCloseWatcherRef.current = null;
       }
     };
   }, []);
@@ -503,6 +518,24 @@ export function VehicleOfferCard({
     } satisfies Record<string, unknown>;
   };
 
+  const openFinanceFollowUp = () => {
+    if (!isMountedRef.current) return;
+    setIsFinanceModalOpen(false);
+    setShowProposalForm(false);
+    setProposalSent(false);
+    setIsFinanceFollowUpOpen(true);
+  };
+
+  const armVwfsCloseWatcher = () => {
+    if (vwfsCloseWatcherRef.current) {
+      vwfsCloseWatcherRef.current();
+    }
+    vwfsCloseWatcherRef.current = watchVwfsSimulatorClose(() => {
+      vwfsCloseWatcherRef.current = null;
+      openFinanceFollowUp();
+    });
+  };
+
   const openVwfsSimulator = () => {
     if (isSimulatingFinance) return;
     if (!hasVwfsConfig || !hasVehicleIdForVwfs) {
@@ -521,12 +554,21 @@ export function VehicleOfferCard({
     void loadVwfsScript(vwfsScriptSrc).then((ok) => {
       setIsSimulatingFinance(false);
       if (!ok || !window.bvfs?.simulator) {
+        if (vwfsCloseWatcherRef.current) {
+          vwfsCloseWatcherRef.current();
+          vwfsCloseWatcherRef.current = null;
+        }
         window.alert("Simulador oficial indisponível no momento. Tente novamente em instantes.");
         return;
       }
       try {
+        armVwfsCloseWatcher();
         window.bvfs.simulator(payload);
       } catch {
+        if (vwfsCloseWatcherRef.current) {
+          vwfsCloseWatcherRef.current();
+          vwfsCloseWatcherRef.current = null;
+        }
         window.alert("Falha ao abrir o simulador oficial. Tente novamente em instantes.");
       }
     });
@@ -588,13 +630,22 @@ export function VehicleOfferCard({
       void loadVwfsScript(vwfsScriptSrc).then((ok) => {
         setIsSimulatingFinance(false);
         if (!ok || !window.bvfs?.simulator) {
+          if (vwfsCloseWatcherRef.current) {
+            vwfsCloseWatcherRef.current();
+            vwfsCloseWatcherRef.current = null;
+          }
           setEntryError("Simulador oficial indisponível no momento. Usando simulador local.");
           runLocalSimulation();
           return;
         }
         try {
+          armVwfsCloseWatcher();
           window.bvfs.simulator(payload);
         } catch {
+          if (vwfsCloseWatcherRef.current) {
+            vwfsCloseWatcherRef.current();
+            vwfsCloseWatcherRef.current = null;
+          }
           setEntryError("Falha no simulador oficial. Usando simulador local.");
           runLocalSimulation();
         }
@@ -638,6 +689,26 @@ export function VehicleOfferCard({
   const detailUrlIsExternal = isExternalUrl(resolvedDetailUrl);
   const directionsStoreName = normalizeStoreName(store);
 
+  const navigateToDetails = () => {
+    if (detailUrlIsExternal) {
+      window.open(resolvedDetailUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+    router.push(resolvedDetailUrl);
+  };
+
+  const handleCardClick = (event: ReactMouseEvent<HTMLElement>) => {
+    if (shouldIgnoreCardNavigation(event.target)) return;
+    navigateToDetails();
+  };
+
+  const handleCardKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
+    if (event.defaultPrevented || shouldIgnoreCardNavigation(event.target)) return;
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    navigateToDetails();
+  };
+
   const goToNextGalleryImage = () => {
     setSelectedImageIndex((current) => (current + 1) % modalGallery.length);
   };
@@ -650,6 +721,11 @@ export function VehicleOfferCard({
     <>
       <motion.article
         className={`offer-card offer-card--${variant}`}
+        role="link"
+        tabIndex={0}
+        aria-label={`Ver detalhes de ${modalTitle || name}`}
+        onClick={handleCardClick}
+        onKeyDown={handleCardKeyDown}
         initial={{ opacity: 0, y: 22 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, amount: 0.2 }}
@@ -975,6 +1051,8 @@ export function VehicleOfferCard({
           </motion.div>
         )}
       </AnimatePresence>
+
+      <FinanceFollowUpModal open={isFinanceFollowUpOpen} onClose={() => setIsFinanceFollowUpOpen(false)} />
     </>
   );
 }

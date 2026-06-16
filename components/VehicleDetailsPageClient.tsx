@@ -4,8 +4,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { FinanceFollowUpModal } from "@/components/FinanceFollowUpModal";
 import { VehicleOfferCard } from "@/components/VehicleOfferCard";
 import { MapDirectionsModal } from "@/components/MapDirectionsModal";
+import { watchVwfsSimulatorClose } from "@/utils/vwfsModalWatcher";
 import {
   BadgeCheck,
   CalendarDays,
@@ -254,8 +256,10 @@ export function VehicleDetailsPageClient({ slug }: Props) {
   const [leadSuccess, setLeadSuccess] = useState(false);
   const [isDirectionsOpen, setIsDirectionsOpen] = useState(false);
   const [isOpeningFinanceSimulator, setIsOpeningFinanceSimulator] = useState(false);
+  const [isFinanceFollowUpOpen, setIsFinanceFollowUpOpen] = useState(false);
 
   const thumbsRef = useRef<HTMLDivElement | null>(null);
+  const vwfsCloseWatcherRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -403,6 +407,15 @@ export function VehicleDetailsPageClient({ slug }: Props) {
   }, [gallery, selectedIndex]);
 
   useEffect(() => {
+    return () => {
+      if (vwfsCloseWatcherRef.current) {
+        vwfsCloseWatcherRef.current();
+        vwfsCloseWatcherRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (!isLightboxOpen) return;
     const previousOverflow = document.body.style.overflow;
     const onKeyDown = (event: KeyboardEvent) => {
@@ -456,6 +469,16 @@ export function VehicleDetailsPageClient({ slug }: Props) {
     [vehicle, storeTitle]
   );
 
+  const armVwfsCloseWatcher = () => {
+    if (vwfsCloseWatcherRef.current) {
+      vwfsCloseWatcherRef.current();
+    }
+    vwfsCloseWatcherRef.current = watchVwfsSimulatorClose(() => {
+      vwfsCloseWatcherRef.current = null;
+      setIsFinanceFollowUpOpen(true);
+    });
+  };
+
   const openFinanceSimulator = () => {
     if (!vehicle || isOpeningFinanceSimulator) return;
 
@@ -498,13 +521,22 @@ export function VehicleDetailsPageClient({ slug }: Props) {
     void loadVwfsScript(vwfsScriptSrc).then((ok) => {
       setIsOpeningFinanceSimulator(false);
       if (!ok || !window.bvfs?.simulator) {
+        if (vwfsCloseWatcherRef.current) {
+          vwfsCloseWatcherRef.current();
+          vwfsCloseWatcherRef.current = null;
+        }
         window.alert("Simulador oficial indisponível no momento. Tente novamente em instantes.");
         return;
       }
 
       try {
+        armVwfsCloseWatcher();
         window.bvfs.simulator(payload);
       } catch {
+        if (vwfsCloseWatcherRef.current) {
+          vwfsCloseWatcherRef.current();
+          vwfsCloseWatcherRef.current = null;
+        }
         window.alert("Falha ao abrir o simulador oficial. Tente novamente em instantes.");
       }
     });
@@ -965,7 +997,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
 
         <article className="vehicle-related">
           <header>
-            <h3>Outros veículos que podem te interessar</h3>
+            <h3>Veículos similares que podem te interessar</h3>
           </header>
           <div className="vehicle-related-grid">
             {loadingRelated &&
@@ -1034,6 +1066,8 @@ export function VehicleDetailsPageClient({ slug }: Props) {
         address={storeAddress}
         onClose={() => setIsDirectionsOpen(false)}
       />
+
+      <FinanceFollowUpModal open={isFinanceFollowUpOpen} onClose={() => setIsFinanceFollowUpOpen(false)} />
     </section>
   );
 }
