@@ -339,13 +339,6 @@ export function VehicleOfferCard({
   const galleryLoadingGuardRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const vwfsCloseWatcherRef = useRef<(() => void) | null>(null);
   const isMountedRef = useRef(true);
-  const normalizedTag = normalizeTag(qualityTag);
-  const showTag = Boolean(qualityTag.trim()) && !normalizedTag.includes("seminovo") && !isPreparationFallback;
-  const tagTone = resolveTagTone(qualityTag);
-  const resolvedSecondaryHighlights = useMemo(
-    () => secondaryHighlights.slice(0, 4),
-    [secondaryHighlights]
-  );
   const resolvedOldPrice = resolveOldPrice(oldPrice, price);
   const priceValue = parseMoney(price) ?? 0;
   const minEntryValue = useMemo(() => Math.round(priceValue * 0.4), [priceValue]);
@@ -767,8 +760,12 @@ export function VehicleOfferCard({
         transition={{ duration: 0.45, delay, ease: "easeOut" }}
       >
         <div className={`offer-media${isPreparationFallback ? " offer-media--preparation" : ""}`}>
-          {showTag && <span className={`offer-tag offer-tag--${tagTone}`}>{qualityTag}</span>}
-          <div className="offer-card-actions-floating">
+          <div className={`offer-card-actions-floating${wasVisited ? "" : " is-favorite-only"}`}>
+            {wasVisited ? (
+              <span className="offer-visited-icon" title="Você já visitou este veículo" aria-label="Veículo já visitado">
+                <Eye size={17} />
+              </span>
+            ) : null}
             <button
               type="button"
               className={`offer-favorite-btn${isSavedAsFavorite ? " is-active" : ""}`}
@@ -778,11 +775,6 @@ export function VehicleOfferCard({
             >
               <Heart size={18} fill={isSavedAsFavorite ? "currentColor" : "none"} />
             </button>
-            {wasVisited ? (
-              <span className="offer-visited-pill" title="Você já visitou este veículo">
-                <Eye size={15} /> Visitado
-              </span>
-            ) : null}
           </div>
           <Image src={safeImage} alt={name} width={630} height={360} />
         </div>
@@ -818,19 +810,6 @@ export function VehicleOfferCard({
               </p>
             </div>
 
-            {Boolean(resolvedSecondaryHighlights.length) && (
-              <div className="offer-highlights">
-                {resolvedSecondaryHighlights.map((highlight, index) => {
-                  const tone = resolveHighlightTone(highlight);
-                  const HighlightIcon = resolveHighlightIcon(highlight);
-                  return (
-                    <span key={`${highlight}-${index}`} className={`offer-highlight offer-highlight--${tone}`}>
-                      <HighlightIcon size={18} /> {highlight}
-                    </span>
-                  );
-                })}
-              </div>
-            )}
           </div>
 
           <div className="offer-footer">

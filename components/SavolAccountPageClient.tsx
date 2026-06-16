@@ -1,9 +1,43 @@
 "use client";
 
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { Eye, Heart, LogOut, UserRound } from "lucide-react";
 import { useSavolAccount, type SavedVehicle } from "@/components/SavolAccountProvider";
 import { VehicleOfferCard } from "@/components/VehicleOfferCard";
+import type { ApiVehicle } from "@/types/home";
+
+type VehiclesResponse = {
+  items?: ApiVehicle[];
+};
+
+function toSavedVehicle(vehicle: ApiVehicle): SavedVehicle {
+  return {
+    id: vehicle.id,
+    slug: vehicle.slug,
+    url: vehicle.url,
+    name: vehicle.name,
+    subtitle: vehicle.subtitle,
+    image: vehicle.image,
+    gallery: vehicle.gallery,
+    year: vehicle.year,
+    transmission: vehicle.transmission,
+    fuel: vehicle.fuel,
+    km: vehicle.km,
+    store: vehicle.store,
+    oldPrice: vehicle.oldPrice,
+    price: vehicle.price,
+    qualityTag: vehicle.qualityTag,
+    secondaryHighlights: vehicle.secondaryHighlights,
+    brand: vehicle.brand,
+    model: vehicle.model,
+    version: vehicle.version,
+    color: vehicle.color,
+    city: vehicle.city,
+    uf: vehicle.uf,
+    molicar: vehicle.molicar,
+    plate: vehicle.plate
+  };
+}
 
 function SavedVehicleCard({ vehicle, index }: { vehicle: SavedVehicle; index: number }) {
   return (
@@ -32,12 +66,39 @@ function SavedVehicleCard({ vehicle, index }: { vehicle: SavedVehicle; index: nu
 }
 
 export function SavolAccountPageClient() {
-  const { favorites, login, logout, user, visited } = useSavolAccount();
+  const { favoriteIds, favorites, isSyncing, login, logout, user, visited, visitedIds } = useSavolAccount();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [catalogVehicles, setCatalogVehicles] = useState<SavedVehicle[]>([]);
 
-  const handleLogin = (event: FormEvent<HTMLFormElement>) => {
+  useEffect(() => {
+    if (!user) return;
+    const controller = new AbortController();
+
+    fetch("/api/veiculos?per_page=200", { signal: controller.signal })
+      .then((response) => (response.ok ? response.json() : { items: [] }))
+      .then((payload: VehiclesResponse) => {
+        const items = Array.isArray(payload.items) ? payload.items : [];
+        setCatalogVehicles(items.map(toSavedVehicle));
+      })
+      .catch(() => setCatalogVehicles([]));
+
+    return () => controller.abort();
+  }, [user]);
+
+  const resolvedFavorites = useMemo(
+    () => favoriteIds.map((id) => favorites.find((vehicle) => vehicle.id === id) ?? catalogVehicles.find((vehicle) => vehicle.id === id)).filter(Boolean) as SavedVehicle[],
+    [catalogVehicles, favoriteIds, favorites]
+  );
+
+  const resolvedVisited = useMemo(
+    () => visitedIds.map((id) => visited.find((vehicle) => vehicle.id === id) ?? catalogVehicles.find((vehicle) => vehicle.id === id)).filter(Boolean) as SavedVehicle[],
+    [catalogVehicles, visited, visitedIds]
+  );
+
+  const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const cleanName = name.trim();
     const cleanEmail = email.trim().toLowerCase();
@@ -52,7 +113,15 @@ export function SavolAccountPageClient() {
       return;
     }
 
-    login({ name: cleanName, email: cleanEmail });
+    setSubmitting(true);
+    const result = await login({ name: cleanName, email: cleanEmail });
+    setSubmitting(false);
+
+    if (!result.ok) {
+      setError(result.message || "Não foi possível entrar agora.");
+      return;
+    }
+
     setError("");
   };
 
@@ -79,8 +148,8 @@ export function SavolAccountPageClient() {
 
             {error ? <p className="account-form-error">{error}</p> : null}
 
-            <button type="submit">
-              <UserRound size={18} /> Entrar
+            <button type="submit" disabled={submitting}>
+              <UserRound size={18} /> {submitting ? "Entrando..." : "Entrar / cadastrar"}
             </button>
           </form>
         </div>
@@ -94,7 +163,7 @@ export function SavolAccountPageClient() {
         <div>
           <p className="account-kicker">Minha conta</p>
           <h1>Olá, {user.name}</h1>
-          <p>{user.email}</p>
+          <p>{user.email}{isSyncing ? " · sincronizando..." : ""}</p>
         </div>
         <button type="button" className="account-logout-btn" onClick={logout}>
           <LogOut size={17} /> Sair
@@ -104,12 +173,12 @@ export function SavolAccountPageClient() {
       <div className="account-stats">
         <article>
           <Heart size={20} />
-          <strong>{favorites.length}</strong>
+          <strong>{favoriteIds.length}</strong>
           <span>Favoritos</span>
         </article>
         <article>
           <Eye size={20} />
-          <strong>{visited.length}</strong>
+          <strong>{visitedIds.length}</strong>
           <span>Visitados</span>
         </article>
       </div>
@@ -120,9 +189,9 @@ export function SavolAccountPageClient() {
           <p>Veículos que você marcou com coração.</p>
         </header>
 
-        {favorites.length ? (
+        {resolvedFavorites.length ? (
           <div className="account-vehicle-grid">
-            {favorites.map((vehicle, index) => (
+            {resolvedFavorites.map((vehicle, index) => (
               <SavedVehicleCard key={`favorite-${vehicle.id}`} vehicle={vehicle} index={index} />
             ))}
           </div>
@@ -141,9 +210,9 @@ export function SavolAccountPageClient() {
           <p>Últimos modelos que você abriu na single.</p>
         </header>
 
-        {visited.length ? (
+        {resolvedVisited.length ? (
           <div className="account-vehicle-grid">
-            {visited.map((vehicle, index) => (
+            {resolvedVisited.map((vehicle, index) => (
               <SavedVehicleCard key={`visited-${vehicle.id}`} vehicle={vehicle} index={index} />
             ))}
           </div>
