@@ -77,6 +77,14 @@ function resolveTagTone(value: string): "repasse" | "garantia" | "unico-dono" | 
   return "default";
 }
 
+function shouldShowCardHighlight(value: string): boolean {
+  const normalized = normalizeTag(value);
+  if (!normalized) return false;
+  if (normalized.includes("seminovo")) return false;
+  if (normalized.includes("abaixo") && normalized.includes("fipe")) return false;
+  return true;
+}
+
 function resolveHighlightTone(value: string): "repasse" | "garantia" | "unico-dono" | "baixa-km" | "fipe" | "impecavel" | "completo" | "default" {
   const normalized = normalizeTag(value);
   if (normalized.includes("repasse")) return "repasse";
@@ -339,6 +347,22 @@ export function VehicleOfferCard({
   const galleryLoadingGuardRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const vwfsCloseWatcherRef = useRef<(() => void) | null>(null);
   const isMountedRef = useRef(true);
+  const resolvedSecondaryHighlights = useMemo(
+    () => {
+      const seen = new Set<string>();
+      return [qualityTag, ...secondaryHighlights]
+        .map((highlight) => highlight.trim())
+        .filter(shouldShowCardHighlight)
+        .filter((highlight) => {
+          const key = normalizeTag(highlight);
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        })
+        .slice(0, 4);
+    },
+    [qualityTag, secondaryHighlights]
+  );
   const resolvedOldPrice = resolveOldPrice(oldPrice, price);
   const priceValue = parseMoney(price) ?? 0;
   const minEntryValue = useMemo(() => Math.round(priceValue * 0.4), [priceValue]);
@@ -810,6 +834,19 @@ export function VehicleOfferCard({
               </p>
             </div>
 
+            {Boolean(resolvedSecondaryHighlights.length) && (
+              <div className="offer-highlights">
+                {resolvedSecondaryHighlights.map((highlight, index) => {
+                  const tone = resolveHighlightTone(highlight);
+                  const HighlightIcon = resolveHighlightIcon(highlight);
+                  return (
+                    <span key={`${highlight}-${index}`} className={`offer-highlight offer-highlight--${tone}`}>
+                      <HighlightIcon size={18} /> {highlight}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <div className="offer-footer">

@@ -9703,7 +9703,24 @@ button.stores-filter-input svg {
   }
 
   .offer-card .offer-highlights {
-    display: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 4px;
+  }
+
+  .offer-card .offer-highlight {
+    min-height: 24px;
+    border-radius: 999px;
+    gap: 5px;
+    padding: 3px 7px;
+    font-size: 10px;
+    justify-content: flex-start;
+  }
+
+  .offer-card .offer-highlight svg {
+    width: 12px;
+    height: 12px;
   }
 
   .offer-card .offer-footer {
