@@ -2,9 +2,10 @@ import crypto from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 
 const REQUIRED_PHOTO_FIELDS = [
-  "photo_vehicle",
-  "photo_documentFront",
-  "photo_documentBack"
+  "photo_document",
+  "photo_odometer",
+  "photo_hoodOpen",
+  "photo_tire"
 ];
 
 const MAX_PHOTO_SIZE_BYTES = 8 * 1024 * 1024;
@@ -30,11 +31,7 @@ type SellYourCarPayload = {
     fullName?: string;
     email?: string;
     phone?: string;
-    whatsapp?: string;
-    city?: string;
-    state?: string;
-    contactPeriod?: string;
-    contactChannel?: string;
+    cpf?: string;
   };
   consents?: {
     acceptedTerms?: boolean;
@@ -69,12 +66,13 @@ function validatePayload(payload: SellYourCarPayload): string | null {
   if (!seller || !isNonEmpty(seller.fullName)) return "Nome do vendedor não enviado.";
   if (!isNonEmpty(seller.email) || !/^\S+@\S+\.\S+$/.test(seller.email)) return "E-mail do vendedor inválido.";
   if (!isNonEmpty(seller.phone) || seller.phone.replace(/[^\d]/g, "").length < 10) return "Telefone do vendedor inválido.";
+  if (!isNonEmpty(seller.cpf) || seller.cpf.replace(/[^\d]/g, "").length !== 11) return "CPF do vendedor invalido.";
 
   if (!payload.consents?.acceptedTerms || !payload.consents?.acceptedLgpd) {
     return "Consentimentos obrigatórios não aceitos.";
   }
 
-  if (!Array.isArray(payload.photos) || payload.photos.length !== REQUIRED_PHOTO_FIELDS.length) {
+  if (!Array.isArray(payload.photos) || !REQUIRED_PHOTO_FIELDS.every((fieldName) => payload.photos?.some((photo) => photo.fieldName === fieldName))) {
     return "Metadados de fotos incompletos.";
   }
 

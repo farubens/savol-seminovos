@@ -22,8 +22,7 @@ import {
   UserRound,
   X
 } from "lucide-react";
-import { type ChangeEvent, type DragEvent, useEffect, useMemo, useRef, useState } from "react";
-import { useHomeSessionData } from "@/components/HomeSessionDataProvider";
+import { type ChangeEvent, type DragEvent, useEffect, useRef, useState } from "react";
 
 type Step = 1 | 2 | 3 | 4 | 5;
 
@@ -34,35 +33,33 @@ type UploadedPhoto = {
 };
 
 type PhotoSlotId =
-  | "vehicle"
-  | "documentFront"
-  | "documentBack";
+  | "document"
+  | "odometer"
+  | "hoodOpen"
+  | "tire"
+  | "sideLeft"
+  | "sideRight"
+  | "front"
+  | "rear"
+  | "seats"
+  | "upholstery"
+  | "trunk";
 
 type SellFormData = {
   plate: string;
   brand: string;
   model: string;
   version: string;
-  year: string;
-  fuel: string;
-  transmission: string;
+  modelYear: string;
+  manufactureYear: string;
   km: string;
   color: string;
-  bodyType: string;
-  ownerCount: string;
-  hasManual: string;
-  hasSpareKey: string;
   desiredPrice: string;
-  notes: string;
   photos: Partial<Record<PhotoSlotId, UploadedPhoto>>;
   fullName: string;
   email: string;
   phone: string;
-  whatsapp: string;
-  city: string;
-  state: string;
-  contactPeriod: string;
-  contactChannel: string;
+  cpf: string;
   acceptedTerms: boolean;
   acceptedLgpd: boolean;
 };
@@ -81,74 +78,25 @@ const STEPS: Array<{ id: Step; label: string }> = [
   { id: 5, label: "Confirmação" }
 ];
 
-const FUEL_OPTIONS = ["Flex", "Gasolina", "Etanol", "Diesel", "Híbrido", "Elétrico"];
-const TRANSMISSION_OPTIONS = ["Manual", "Automática", "CVT", "Automatizada"];
 const COLOR_OPTIONS = ["Branco", "Prata", "Preto", "Cinza", "Azul", "Vermelho", "Verde", "Marrom"];
-const BODY_OPTIONS = ["Hatch", "Sedan", "SUV", "Picape", "Crossover", "Van", "Utilitário"];
-const OWNER_OPTIONS = ["Único dono", "2 donos", "3 donos", "4 ou mais"];
-const YES_NO_OPTIONS = ["Sim", "Não"];
-const CONTACT_PERIOD_OPTIONS = ["Manhã", "Tarde", "Noite", "Qualquer horário"];
-const CONTACT_CHANNEL_OPTIONS = ["WhatsApp", "Ligação", "Email"];
 const DEFAULT_BRANDS = ["Chevrolet", "Fiat", "Ford", "Honda", "Hyundai", "Jeep", "Kia", "Nissan", "Peugeot", "Toyota", "Volkswagen"];
 const DEFAULT_MODELS = ["Onix", "Toro", "HB20", "Corolla", "Compass", "Kicks"];
 const DEFAULT_VERSIONS = ["1.0", "1.3 Turbo", "2.0", "EX", "Limited"];
 const DEFAULT_YEARS = ["2026", "2025", "2024", "2023", "2022", "2021", "2020", "2019", "2018", "2017", "2016", "2015", "2014", "2013", "2012", "2011", "2010"];
-const PHOTO_SLOTS: Array<{ id: PhotoSlotId; label: string }> = [
-  { id: "vehicle", label: "Foto do carro" },
-  { id: "documentFront", label: "Documento frente" },
-  { id: "documentBack", label: "Documento verso" }
+const PHOTO_SLOTS: Array<{ id: PhotoSlotId; label: string; required: boolean }> = [
+  { id: "document", label: "Foto do documento", required: true },
+  { id: "odometer", label: "Painel ligado no hodômetro", required: true },
+  { id: "hoodOpen", label: "Capô aberto", required: true },
+  { id: "tire", label: "Pneu", required: true },
+  { id: "sideLeft", label: "Lateral esquerda", required: false },
+  { id: "sideRight", label: "Lateral direita", required: false },
+  { id: "front", label: "Frente", required: false },
+  { id: "rear", label: "Traseira", required: false },
+  { id: "seats", label: "Bancos", required: false },
+  { id: "upholstery", label: "Tapeçaria", required: false },
+  { id: "trunk", label: "Porta-malas", required: false }
 ];
 
-const MOCK_VEHICLES: Array<Partial<SellFormData>> = [
-  {
-    brand: "Honda",
-    model: "Fit",
-    version: "EXL 1.5 CVT",
-    year: "2021",
-    fuel: "Flex",
-    transmission: "CVT",
-    km: "48200",
-    color: "Vermelho",
-    bodyType: "Hatch",
-    ownerCount: "Único dono",
-    hasManual: "Sim",
-    hasSpareKey: "Sim",
-    desiredPrice: "79000",
-    notes: "Dados preenchidos automaticamente a partir da placa para simulação."
-  },
-  {
-    brand: "Hyundai",
-    model: "HB20",
-    version: "Comfort 1.0",
-    year: "2023",
-    fuel: "Flex",
-    transmission: "Manual",
-    km: "26700",
-    color: "Prata",
-    bodyType: "Hatch",
-    ownerCount: "2 donos",
-    hasManual: "Sim",
-    hasSpareKey: "Não",
-    desiredPrice: "68500",
-    notes: "Dados preenchidos automaticamente a partir da placa para simulação."
-  },
-  {
-    brand: "Toyota",
-    model: "Corolla",
-    version: "XEi 2.0",
-    year: "2022",
-    fuel: "Flex",
-    transmission: "Automática",
-    km: "39100",
-    color: "Branco",
-    bodyType: "Sedan",
-    ownerCount: "Único dono",
-    hasManual: "Sim",
-    hasSpareKey: "Sim",
-    desiredPrice: "128000",
-    notes: "Dados preenchidos automaticamente a partir da placa para simulação."
-  }
-];
 
 function createInitialFormState(): SellFormData {
   return {
@@ -156,34 +104,21 @@ function createInitialFormState(): SellFormData {
     brand: "",
     model: "",
     version: "",
-    year: "",
-    fuel: "",
-    transmission: "",
+    modelYear: "",
+    manufactureYear: "",
     km: "",
     color: "",
-    bodyType: "",
-    ownerCount: "",
-    hasManual: "",
-    hasSpareKey: "",
     desiredPrice: "",
-    notes: "",
     photos: {},
     fullName: "",
     email: "",
     phone: "",
-    whatsapp: "",
-    city: "",
-    state: "",
-    contactPeriod: "",
-    contactChannel: "",
+    cpf: "",
     acceptedTerms: false,
     acceptedLgpd: false
   };
 }
 
-function uniqueSorted(values: string[]): string[] {
-  return Array.from(new Set(values.map((item) => item.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, "pt-BR", { sensitivity: "base" }));
-}
 
 function cleanDigits(value: string, max: number): string {
   return value.replace(/[^\d]/g, "").slice(0, max);
@@ -204,17 +139,6 @@ function formatPlateDisplay(plate: string): string {
   return plate;
 }
 
-function getPlateSeed(plate: string): number {
-  return plate.split("").reduce((sum, char) => sum + char.charCodeAt(0), 0);
-}
-
-function getMockVehicleFromPlate(plate: string): Partial<SellFormData> {
-  const vehicle = MOCK_VEHICLES[getPlateSeed(plate) % MOCK_VEHICLES.length];
-  return {
-    ...vehicle,
-    notes: `Dados simulados a partir da placa ${formatPlateDisplay(plate)}.`
-  };
-}
 
 function FieldError({ error }: { error?: string }) {
   if (!error) return null;
@@ -249,28 +173,19 @@ function buildSellYourCarPayload(form: SellFormData) {
       brand: form.brand,
       model: form.model,
       version: form.version,
-      year: form.year,
-      fuel: form.fuel,
-      transmission: form.transmission,
+      year: form.modelYear,
+      modelYear: form.modelYear,
+      manufactureYear: form.manufactureYear,
       km: toNumberValue(form.km),
       color: form.color,
       plateEnding: form.plate.slice(-4),
-      bodyType: form.bodyType,
-      ownerCount: form.ownerCount,
-      hasManual: form.hasManual,
-      hasSpareKey: form.hasSpareKey,
-      desiredPrice: toNumberValue(form.desiredPrice),
-      notes: form.notes.trim()
+      desiredPrice: toNumberValue(form.desiredPrice)
     },
     seller: {
       fullName: form.fullName.trim(),
       email: form.email.trim(),
       phone: form.phone,
-      whatsapp: form.whatsapp,
-      city: form.city.trim(),
-      state: form.state.trim().toUpperCase(),
-      contactPeriod: form.contactPeriod,
-      contactChannel: form.contactChannel
+      cpf: form.cpf
     },
     consents: {
       acceptedTerms: form.acceptedTerms,
@@ -282,7 +197,7 @@ function buildSellYourCarPayload(form: SellFormData) {
       return {
         slotId: slot.id,
         label: slot.label,
-        required: true,
+        required: slot.required,
         fieldName: `photo_${slot.id}`,
         fileName: photo?.file.name ?? "",
         mimeType: photo?.file.type ?? "",
@@ -294,7 +209,6 @@ function buildSellYourCarPayload(form: SellFormData) {
 }
 
 export function SellYourCarWizard() {
-  const { vehicles } = useHomeSessionData();
   const [step, setStep] = useState<Step>(1);
   const [form, setForm] = useState<SellFormData>(createInitialFormState);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -311,36 +225,12 @@ export function SellYourCarWizard() {
     getPhotosList(photosRef.current).forEach((photo) => URL.revokeObjectURL(photo.previewUrl));
   }, []);
 
-  const brands = useMemo(() => {
-    const fromApi = uniqueSorted(vehicles.map((vehicle) => vehicle.brand));
-    return fromApi.length ? fromApi : DEFAULT_BRANDS;
-  }, [vehicles]);
-
-  const models = useMemo(() => {
-    const fromApi = uniqueSorted(vehicles.filter((vehicle) => (form.brand ? vehicle.brand === form.brand : true)).map((vehicle) => vehicle.model));
-    return fromApi.length ? fromApi : DEFAULT_MODELS;
-  }, [vehicles, form.brand]);
-
-  const versions = useMemo(() => {
-    const fromApi = uniqueSorted(
-      vehicles
-        .filter((vehicle) => (form.brand ? vehicle.brand === form.brand : true))
-        .filter((vehicle) => (form.model ? vehicle.model === form.model : true))
-        .map((vehicle) => vehicle.version || vehicle.subtitle)
-    );
-    return fromApi.length ? fromApi : DEFAULT_VERSIONS;
-  }, [vehicles, form.brand, form.model]);
-
-  const years = useMemo(() => {
-    const fromApi = uniqueSorted(vehicles.map((vehicle) => vehicle.year));
-    return fromApi.length ? fromApi : DEFAULT_YEARS;
-  }, [vehicles]);
 
   const isStepDone = (checkStep: Step): boolean => {
     if (checkStep === 1) return form.plate.length === 7;
-    if (checkStep === 2) return Boolean(form.brand && form.model && form.year && form.fuel && form.transmission && form.km && form.color && form.bodyType && form.ownerCount && form.hasManual && form.hasSpareKey && form.desiredPrice);
-    if (checkStep === 3) return PHOTO_SLOTS.every((slot) => Boolean(form.photos[slot.id]));
-    if (checkStep === 4) return Boolean(form.fullName && form.email && form.phone && form.city && form.state && form.contactPeriod && form.contactChannel);
+    if (checkStep === 2) return Boolean(form.brand && form.model && form.version && form.modelYear && form.manufactureYear && form.km && form.color && form.desiredPrice);
+    if (checkStep === 3) return PHOTO_SLOTS.filter((slot) => slot.required).every((slot) => Boolean(form.photos[slot.id]));
+    if (checkStep === 4) return Boolean(form.fullName && form.email && form.phone && form.cpf);
     return Boolean(form.acceptedTerms && form.acceptedLgpd);
   };
 
@@ -361,30 +251,21 @@ export function SellYourCarWizard() {
       if (form.plate.length !== 7) nextErrors.plate = "Informe a placa completa";
     }
     if (targetStep === 2) {
-      if (!form.brand) nextErrors.brand = "Selecione a marca";
-      if (!form.model) nextErrors.model = "Selecione o modelo";
-      if (!form.year) nextErrors.year = "Selecione o ano";
-      if (!form.fuel) nextErrors.fuel = "Selecione o combustível";
-      if (!form.transmission) nextErrors.transmission = "Selecione o câmbio";
+      if (!form.brand) nextErrors.brand = "Informe a marca";
+      if (!form.model) nextErrors.model = "Informe o modelo";
+      if (!form.version) nextErrors.version = "Informe a versão";
+      if (!form.modelYear) nextErrors.modelYear = "Informe o ano modelo";
+      if (!form.manufactureYear) nextErrors.manufactureYear = "Informe o ano de fabricação";
       if (!form.km) nextErrors.km = "Informe a quilometragem";
-      if (!form.color) nextErrors.color = "Selecione a cor";
-    }
-    if (targetStep === 2) {
-      if (!form.bodyType) nextErrors.bodyType = "Selecione a carroceria";
-      if (!form.ownerCount) nextErrors.ownerCount = "Selecione a quantidade de donos";
-      if (!form.hasManual) nextErrors.hasManual = "Informe se tem manual";
-      if (!form.hasSpareKey) nextErrors.hasSpareKey = "Informe se tem chave reserva";
+      if (!form.color) nextErrors.color = "Informe a cor";
       if (!form.desiredPrice) nextErrors.desiredPrice = "Informe o valor pretendido";
     }
-    if (targetStep === 3 && !PHOTO_SLOTS.every((slot) => Boolean(form.photos[slot.id]))) nextErrors.photos = "Envie a foto do carro e as duas fotos do documento.";
+    if (targetStep === 3 && !PHOTO_SLOTS.filter((slot) => slot.required).every((slot) => Boolean(form.photos[slot.id]))) nextErrors.photos = "Envie as fotos obrigatórias: documento, hodômetro, capô aberto e pneu.";
     if (targetStep === 4) {
       if (!form.fullName) nextErrors.fullName = "Informe seu nome";
       if (!form.email || !/^\S+@\S+\.\S+$/.test(form.email)) nextErrors.email = "Informe um e-mail válido";
       if (!form.phone || form.phone.length < 10) nextErrors.phone = "Informe um telefone válido";
-      if (!form.city) nextErrors.city = "Informe a cidade";
-      if (!form.state) nextErrors.state = "Informe o estado";
-      if (!form.contactPeriod) nextErrors.contactPeriod = "Selecione o melhor horário";
-      if (!form.contactChannel) nextErrors.contactChannel = "Selecione o canal de contato";
+      if (!form.cpf || form.cpf.length !== 11) nextErrors.cpf = "Informe um CPF válido";
     }
     if (targetStep === 5) {
       if (!form.acceptedTerms) nextErrors.acceptedTerms = "Aceite os termos para continuar";
@@ -396,9 +277,6 @@ export function SellYourCarWizard() {
 
   const goNext = () => {
     if (!validateStep(step)) return;
-    if (step === 1) {
-      setForm((prev) => ({ ...prev, ...getMockVehicleFromPlate(prev.plate) }));
-    }
     setStep((prev) => (prev < 5 ? ((prev + 1) as Step) : prev));
   };
 
@@ -411,9 +289,6 @@ export function SellYourCarWizard() {
     }
 
     if (!validateStep(step)) return;
-    if (step === 1) {
-      setForm((prev) => ({ ...prev, ...getMockVehicleFromPlate(prev.plate) }));
-    }
     setStep((step + 1) as Step);
   };
 
@@ -570,38 +445,27 @@ export function SellYourCarWizard() {
                         />
                       </div>
                       <FieldError error={errors.plate} />
-                      <p className="sell-plate-caption">{form.plate.length === 7 ? `${plateKindLabel} identificada. Os dados serão preenchidos no próximo passo.` : "Digite a placa completa para começar a avaliação."}</p>
+                      <p className="sell-plate-caption">{form.plate.length === 7 ? `${plateKindLabel} identificada. Continue para preencher os dados do veículo.` : "Digite a placa completa para começar a avaliação."}</p>
                     </div>
                   )}
 
                   {step === 2 && (
                     <div className="sell-form-grid">
-                      <label className="sell-field"><span>Marca *</span><select value={form.brand} onChange={(event) => { handleChange("brand", event.target.value); handleChange("model", ""); handleChange("version", ""); }}><option value="">Selecione</option>{brands.map((item) => <option key={item} value={item}>{item}</option>)}</select><FieldError error={errors.brand} /></label>
-                      <label className="sell-field"><span>Modelo *</span><select value={form.model} onChange={(event) => { handleChange("model", event.target.value); handleChange("version", ""); }}><option value="">Selecione</option>{models.map((item) => <option key={item} value={item}>{item}</option>)}</select><FieldError error={errors.model} /></label>
-                      <label className="sell-field"><span>Versão</span><select value={form.version} onChange={(event) => handleChange("version", event.target.value)}><option value="">Selecione</option>{versions.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
-                      <label className="sell-field"><span>Ano *</span><select value={form.year} onChange={(event) => handleChange("year", event.target.value)}><option value="">Selecione</option>{years.map((item) => <option key={item} value={item}>{item}</option>)}</select><FieldError error={errors.year} /></label>
-                      <label className="sell-field"><span>Combustível *</span><select value={form.fuel} onChange={(event) => handleChange("fuel", event.target.value)}><option value="">Selecione</option>{FUEL_OPTIONS.map((item) => <option key={item} value={item}>{item}</option>)}</select><FieldError error={errors.fuel} /></label>
-                      <label className="sell-field"><span>Câmbio *</span><select value={form.transmission} onChange={(event) => handleChange("transmission", event.target.value)}><option value="">Selecione</option>{TRANSMISSION_OPTIONS.map((item) => <option key={item} value={item}>{item}</option>)}</select><FieldError error={errors.transmission} /></label>
+                      <label className="sell-field"><span>Marca *</span><input type="text" list="sell-brand-options" placeholder="Ex.: Toyota" value={form.brand} onChange={(event) => handleChange("brand", event.target.value)} /><FieldError error={errors.brand} /></label>
+                      <label className="sell-field"><span>Modelo *</span><input type="text" list="sell-model-options" placeholder="Ex.: Corolla" value={form.model} onChange={(event) => handleChange("model", event.target.value)} /><FieldError error={errors.model} /></label>
+                      <label className="sell-field"><span>Versao *</span><input type="text" list="sell-version-options" placeholder="Ex.: XEi 2.0" value={form.version} onChange={(event) => handleChange("version", event.target.value)} /><FieldError error={errors.version} /></label>
+                      <label className="sell-field"><span>Ano modelo *</span><input type="text" inputMode="numeric" list="sell-year-options" placeholder="Ex.: 2022" value={form.modelYear} onChange={(event) => handleChange("modelYear", cleanDigits(event.target.value, 4))} /><FieldError error={errors.modelYear} /></label>
+                      <label className="sell-field"><span>Ano fabricacao *</span><input type="text" inputMode="numeric" list="sell-year-options" placeholder="Ex.: 2021" value={form.manufactureYear} onChange={(event) => handleChange("manufactureYear", cleanDigits(event.target.value, 4))} /><FieldError error={errors.manufactureYear} /></label>
                       <label className="sell-field"><span>Quilometragem *</span><input type="text" inputMode="numeric" placeholder="Ex.: 45000" value={form.km} onChange={(event) => handleChange("km", cleanDigits(event.target.value, 7))} /><FieldError error={errors.km} /></label>
-                      <label className="sell-field"><span>Cor *</span><select value={form.color} onChange={(event) => handleChange("color", event.target.value)}><option value="">Selecione</option>{COLOR_OPTIONS.map((item) => <option key={item} value={item}>{item}</option>)}</select><FieldError error={errors.color} /></label>
-                      <label className="sell-field"><span>Placa</span><input type="text" value={formatPlateDisplay(form.plate)} readOnly /></label>
-                    </div>
-                  )}
-
-                  {step === 2 && (
-                    <div className="sell-form-grid">
-                      <label className="sell-field"><span>Carroceria *</span><select value={form.bodyType} onChange={(event) => handleChange("bodyType", event.target.value)}><option value="">Selecione</option>{BODY_OPTIONS.map((item) => <option key={item} value={item}>{item}</option>)}</select><FieldError error={errors.bodyType} /></label>
-                      <label className="sell-field"><span>Quantidade de donos *</span><select value={form.ownerCount} onChange={(event) => handleChange("ownerCount", event.target.value)}><option value="">Selecione</option>{OWNER_OPTIONS.map((item) => <option key={item} value={item}>{item}</option>)}</select><FieldError error={errors.ownerCount} /></label>
-                      <label className="sell-field"><span>Possui manual? *</span><select value={form.hasManual} onChange={(event) => handleChange("hasManual", event.target.value)}><option value="">Selecione</option>{YES_NO_OPTIONS.map((item) => <option key={item} value={item}>{item}</option>)}</select><FieldError error={errors.hasManual} /></label>
-                      <label className="sell-field"><span>Possui chave reserva? *</span><select value={form.hasSpareKey} onChange={(event) => handleChange("hasSpareKey", event.target.value)}><option value="">Selecione</option>{YES_NO_OPTIONS.map((item) => <option key={item} value={item}>{item}</option>)}</select><FieldError error={errors.hasSpareKey} /></label>
+                      <label className="sell-field"><span>Cor *</span><input type="text" list="sell-color-options" placeholder="Ex.: Prata" value={form.color} onChange={(event) => handleChange("color", event.target.value)} /><FieldError error={errors.color} /></label>
                       <label className="sell-field"><span>Valor pretendido (R$) *</span><input type="text" inputMode="numeric" placeholder="Ex.: 95000" value={form.desiredPrice} onChange={(event) => handleChange("desiredPrice", cleanDigits(event.target.value, 9))} /><FieldError error={errors.desiredPrice} /></label>
-                      <label className="sell-field sell-field--full"><span>Observações</span><textarea rows={4} placeholder="Conte o estado geral do veículo, histórico de revisões e diferenciais." value={form.notes} onChange={(event) => handleChange("notes", event.target.value.slice(0, 700))} /></label>
+                      <label className="sell-field"><span>Placa</span><input type="text" value={formatPlateDisplay(form.plate)} readOnly /></label>
                     </div>
                   )}
 
                   {step === 3 && (
                     <div className="sell-photos-step">
-                      <p className="sell-photos-help">Envie apenas as 3 imagens necessárias: carro, frente do documento e verso do documento.</p>
+                      <p className="sell-photos-help">Envie as fotos obrigatorias e, se possivel, complemente com as fotos opcionais do veiculo.</p>
                       <FieldError error={errors.photos} />
                       <div className="sell-photo-slot-grid">
                         {PHOTO_SLOTS.map((slot) => {
@@ -631,12 +495,12 @@ export function SellYourCarWizard() {
                                   <small>Clique ou arraste</small>
                                 </span>
                               )}
-                              <strong>{slot.label}</strong>
+                              <strong>{slot.label}{slot.required ? " *" : ""}</strong>
                             </label>
                           );
                         })}
                       </div>
-                      <p className="sell-photos-counter">{getPhotosList(form.photos).length} de {PHOTO_SLOTS.length} fotos enviadas</p>
+                      <p className="sell-photos-counter">{getPhotosList(form.photos).length} fotos enviadas</p>
                     </div>
                   )}
 
@@ -645,19 +509,15 @@ export function SellYourCarWizard() {
                       <label className="sell-field"><span>Nome completo *</span><input type="text" value={form.fullName} onChange={(event) => handleChange("fullName", event.target.value)} /><FieldError error={errors.fullName} /></label>
                       <label className="sell-field"><span>E-mail *</span><input type="email" value={form.email} onChange={(event) => handleChange("email", event.target.value)} /><FieldError error={errors.email} /></label>
                       <label className="sell-field"><span>Telefone *</span><input type="tel" inputMode="numeric" value={form.phone} onChange={(event) => handleChange("phone", cleanDigits(event.target.value, 11))} /><FieldError error={errors.phone} /></label>
-                      <label className="sell-field"><span>WhatsApp</span><input type="tel" inputMode="numeric" value={form.whatsapp} onChange={(event) => handleChange("whatsapp", cleanDigits(event.target.value, 11))} /></label>
-                      <label className="sell-field"><span>Cidade *</span><input type="text" value={form.city} onChange={(event) => handleChange("city", event.target.value)} /><FieldError error={errors.city} /></label>
-                      <label className="sell-field"><span>Estado *</span><input type="text" value={form.state} onChange={(event) => handleChange("state", event.target.value.toUpperCase().slice(0, 2))} /><FieldError error={errors.state} /></label>
-                      <label className="sell-field"><span>Melhor horário *</span><select value={form.contactPeriod} onChange={(event) => handleChange("contactPeriod", event.target.value)}><option value="">Selecione</option>{CONTACT_PERIOD_OPTIONS.map((item) => <option key={item} value={item}>{item}</option>)}</select><FieldError error={errors.contactPeriod} /></label>
-                      <label className="sell-field"><span>Canal preferencial *</span><select value={form.contactChannel} onChange={(event) => handleChange("contactChannel", event.target.value)}><option value="">Selecione</option>{CONTACT_CHANNEL_OPTIONS.map((item) => <option key={item} value={item}>{item}</option>)}</select><FieldError error={errors.contactChannel} /></label>
+                      <label className="sell-field"><span>CPF *</span><input type="text" inputMode="numeric" value={form.cpf} onChange={(event) => handleChange("cpf", cleanDigits(event.target.value, 11))} /><FieldError error={errors.cpf} /></label>
                     </div>
                   )}
 
                   {step === 5 && (
                     <div className="sell-form-grid">
                       <div className="sell-review-grid">
-                        <article><h4>Veículo</h4><ul><li><strong>Placa:</strong> {formatPlateDisplay(form.plate) || "-"}</li><li><strong>Marca:</strong> {form.brand || "-"}</li><li><strong>Modelo:</strong> {form.model || "-"}</li><li><strong>Ano:</strong> {form.year || "-"}</li><li><strong>KM:</strong> {form.km || "-"}</li><li><strong>Combustível:</strong> {form.fuel || "-"}</li><li><strong>Câmbio:</strong> {form.transmission || "-"}</li><li><strong>Cor:</strong> {form.color || "-"}</li></ul></article>
-                        <article><h4>Contato</h4><ul><li><strong>Nome:</strong> {form.fullName || "-"}</li><li><strong>E-mail:</strong> {form.email || "-"}</li><li><strong>Telefone:</strong> {form.phone || "-"}</li><li><strong>Cidade/UF:</strong> {form.city ? `${form.city}/${form.state}` : "-"}</li><li><strong>Canal:</strong> {form.contactChannel || "-"}</li><li><strong>Fotos:</strong> {getPhotosList(form.photos).length}</li><li><strong>Valor:</strong> {form.desiredPrice ? `R$ ${form.desiredPrice}` : "-"}</li></ul></article>
+                        <article><h4>Veiculo</h4><ul><li><strong>Placa:</strong> {formatPlateDisplay(form.plate) || "-"}</li><li><strong>Marca:</strong> {form.brand || "-"}</li><li><strong>Modelo:</strong> {form.model || "-"}</li><li><strong>Versao:</strong> {form.version || "-"}</li><li><strong>Ano modelo:</strong> {form.modelYear || "-"}</li><li><strong>Ano fabricacao:</strong> {form.manufactureYear || "-"}</li><li><strong>KM:</strong> {form.km || "-"}</li><li><strong>Cor:</strong> {form.color || "-"}</li><li><strong>Valor:</strong> {form.desiredPrice ? `R$ ${form.desiredPrice}` : "-"}</li></ul></article>
+                        <article><h4>Contato</h4><ul><li><strong>Nome:</strong> {form.fullName || "-"}</li><li><strong>E-mail:</strong> {form.email || "-"}</li><li><strong>Telefone:</strong> {form.phone || "-"}</li><li><strong>CPF:</strong> {form.cpf || "-"}</li><li><strong>Fotos:</strong> {getPhotosList(form.photos).length}</li></ul></article>
                       </div>
                       <label className="sell-check"><input type="checkbox" checked={form.acceptedTerms} onChange={(event) => handleChange("acceptedTerms", event.target.checked)} /><span>Li e concordo com os termos de atendimento.</span></label>
                       <FieldError error={errors.acceptedTerms} />
@@ -665,6 +525,12 @@ export function SellYourCarWizard() {
                       <FieldError error={errors.acceptedLgpd} />
                     </div>
                   )}
+
+                  <datalist id="sell-brand-options">{DEFAULT_BRANDS.map((item) => <option key={item} value={item} />)}</datalist>
+                  <datalist id="sell-model-options">{DEFAULT_MODELS.map((item) => <option key={item} value={item} />)}</datalist>
+                  <datalist id="sell-version-options">{DEFAULT_VERSIONS.map((item) => <option key={item} value={item} />)}</datalist>
+                  <datalist id="sell-year-options">{DEFAULT_YEARS.map((item) => <option key={item} value={item} />)}</datalist>
+                  <datalist id="sell-color-options">{COLOR_OPTIONS.map((item) => <option key={item} value={item} />)}</datalist>
                 </div>
 
                 <aside className="sell-security-card">
