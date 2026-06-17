@@ -78,11 +78,6 @@ const STEPS: Array<{ id: Step; label: string }> = [
   { id: 5, label: "Confirmação" }
 ];
 
-const COLOR_OPTIONS = ["Branco", "Prata", "Preto", "Cinza", "Azul", "Vermelho", "Verde", "Marrom"];
-const DEFAULT_BRANDS = ["Chevrolet", "Fiat", "Ford", "Honda", "Hyundai", "Jeep", "Kia", "Nissan", "Peugeot", "Toyota", "Volkswagen"];
-const DEFAULT_MODELS = ["Onix", "Toro", "HB20", "Corolla", "Compass", "Kicks"];
-const DEFAULT_VERSIONS = ["1.0", "1.3 Turbo", "2.0", "EX", "Limited"];
-const DEFAULT_YEARS = ["2026", "2025", "2024", "2023", "2022", "2021", "2020", "2019", "2018", "2017", "2016", "2015", "2014", "2013", "2012", "2011", "2010"];
 const PHOTO_SLOTS: Array<{ id: PhotoSlotId; label: string; required: boolean }> = [
   { id: "document", label: "Foto do documento", required: true },
   { id: "odometer", label: "Painel ligado no hodômetro", required: true },
@@ -264,8 +259,8 @@ export function SellYourCarWizard() {
     if (targetStep === 4) {
       if (!form.fullName) nextErrors.fullName = "Informe seu nome";
       if (!form.email || !/^\S+@\S+\.\S+$/.test(form.email)) nextErrors.email = "Informe um e-mail válido";
-      if (!form.phone || form.phone.length < 10) nextErrors.phone = "Informe um telefone válido";
-      if (!form.cpf || form.cpf.length !== 11) nextErrors.cpf = "Informe um CPF válido";
+      if (!form.phone || form.phone.replace(/[^\d]/g, "").length < 10) nextErrors.phone = "Informe um telefone válido";
+      if (!form.cpf || form.cpf.replace(/[^\d]/g, "").length !== 11) nextErrors.cpf = "Informe um CPF válido";
     }
     if (targetStep === 5) {
       if (!form.acceptedTerms) nextErrors.acceptedTerms = "Aceite os termos para continuar";
@@ -451,14 +446,14 @@ export function SellYourCarWizard() {
 
                   {step === 2 && (
                     <div className="sell-form-grid">
-                      <label className="sell-field"><span>Marca *</span><input type="text" list="sell-brand-options" placeholder="Ex.: Toyota" value={form.brand} onChange={(event) => handleChange("brand", event.target.value)} /><FieldError error={errors.brand} /></label>
-                      <label className="sell-field"><span>Modelo *</span><input type="text" list="sell-model-options" placeholder="Ex.: Corolla" value={form.model} onChange={(event) => handleChange("model", event.target.value)} /><FieldError error={errors.model} /></label>
-                      <label className="sell-field"><span>Versao *</span><input type="text" list="sell-version-options" placeholder="Ex.: XEi 2.0" value={form.version} onChange={(event) => handleChange("version", event.target.value)} /><FieldError error={errors.version} /></label>
-                      <label className="sell-field"><span>Ano modelo *</span><input type="text" inputMode="numeric" list="sell-year-options" placeholder="Ex.: 2022" value={form.modelYear} onChange={(event) => handleChange("modelYear", cleanDigits(event.target.value, 4))} /><FieldError error={errors.modelYear} /></label>
-                      <label className="sell-field"><span>Ano fabricacao *</span><input type="text" inputMode="numeric" list="sell-year-options" placeholder="Ex.: 2021" value={form.manufactureYear} onChange={(event) => handleChange("manufactureYear", cleanDigits(event.target.value, 4))} /><FieldError error={errors.manufactureYear} /></label>
-                      <label className="sell-field"><span>Quilometragem *</span><input type="text" inputMode="numeric" placeholder="Ex.: 45000" value={form.km} onChange={(event) => handleChange("km", cleanDigits(event.target.value, 7))} /><FieldError error={errors.km} /></label>
-                      <label className="sell-field"><span>Cor *</span><input type="text" list="sell-color-options" placeholder="Ex.: Prata" value={form.color} onChange={(event) => handleChange("color", event.target.value)} /><FieldError error={errors.color} /></label>
-                      <label className="sell-field"><span>Valor pretendido (R$) *</span><input type="text" inputMode="numeric" placeholder="Ex.: 95000" value={form.desiredPrice} onChange={(event) => handleChange("desiredPrice", cleanDigits(event.target.value, 9))} /><FieldError error={errors.desiredPrice} /></label>
+                      <label className="sell-field"><span>Marca *</span><input type="text" placeholder="Ex.: Toyota" value={form.brand} onChange={(event) => handleChange("brand", event.target.value)} /><FieldError error={errors.brand} /></label>
+                      <label className="sell-field"><span>Modelo *</span><input type="text" placeholder="Ex.: Corolla" value={form.model} onChange={(event) => handleChange("model", event.target.value)} /><FieldError error={errors.model} /></label>
+                      <label className="sell-field"><span>Versao *</span><input type="text" placeholder="Ex.: XEi 2.0" value={form.version} onChange={(event) => handleChange("version", event.target.value)} /><FieldError error={errors.version} /></label>
+                      <label className="sell-field"><span>Ano modelo *</span><input type="text" placeholder="Ex.: 2022" value={form.modelYear} onChange={(event) => handleChange("modelYear", event.target.value)} /><FieldError error={errors.modelYear} /></label>
+                      <label className="sell-field"><span>Ano fabricacao *</span><input type="text" placeholder="Ex.: 2021" value={form.manufactureYear} onChange={(event) => handleChange("manufactureYear", event.target.value)} /><FieldError error={errors.manufactureYear} /></label>
+                      <label className="sell-field"><span>Quilometragem *</span><input type="text" placeholder="Ex.: 45000" value={form.km} onChange={(event) => handleChange("km", event.target.value)} /><FieldError error={errors.km} /></label>
+                      <label className="sell-field"><span>Cor *</span><input type="text" placeholder="Ex.: Prata" value={form.color} onChange={(event) => handleChange("color", event.target.value)} /><FieldError error={errors.color} /></label>
+                      <label className="sell-field"><span>Valor pretendido (R$) *</span><input type="text" placeholder="Ex.: 95000" value={form.desiredPrice} onChange={(event) => handleChange("desiredPrice", event.target.value)} /><FieldError error={errors.desiredPrice} /></label>
                       <label className="sell-field"><span>Placa</span><input type="text" value={formatPlateDisplay(form.plate)} readOnly /></label>
                     </div>
                   )}
@@ -507,9 +502,9 @@ export function SellYourCarWizard() {
                   {step === 4 && (
                     <div className="sell-form-grid">
                       <label className="sell-field"><span>Nome completo *</span><input type="text" value={form.fullName} onChange={(event) => handleChange("fullName", event.target.value)} /><FieldError error={errors.fullName} /></label>
-                      <label className="sell-field"><span>E-mail *</span><input type="email" value={form.email} onChange={(event) => handleChange("email", event.target.value)} /><FieldError error={errors.email} /></label>
-                      <label className="sell-field"><span>Telefone *</span><input type="tel" inputMode="numeric" value={form.phone} onChange={(event) => handleChange("phone", cleanDigits(event.target.value, 11))} /><FieldError error={errors.phone} /></label>
-                      <label className="sell-field"><span>CPF *</span><input type="text" inputMode="numeric" value={form.cpf} onChange={(event) => handleChange("cpf", cleanDigits(event.target.value, 11))} /><FieldError error={errors.cpf} /></label>
+                      <label className="sell-field"><span>E-mail *</span><input type="text" value={form.email} onChange={(event) => handleChange("email", event.target.value)} /><FieldError error={errors.email} /></label>
+                      <label className="sell-field"><span>Telefone *</span><input type="text" value={form.phone} onChange={(event) => handleChange("phone", event.target.value)} /><FieldError error={errors.phone} /></label>
+                      <label className="sell-field"><span>CPF *</span><input type="text" value={form.cpf} onChange={(event) => handleChange("cpf", event.target.value)} /><FieldError error={errors.cpf} /></label>
                     </div>
                   )}
 
@@ -525,12 +520,6 @@ export function SellYourCarWizard() {
                       <FieldError error={errors.acceptedLgpd} />
                     </div>
                   )}
-
-                  <datalist id="sell-brand-options">{DEFAULT_BRANDS.map((item) => <option key={item} value={item} />)}</datalist>
-                  <datalist id="sell-model-options">{DEFAULT_MODELS.map((item) => <option key={item} value={item} />)}</datalist>
-                  <datalist id="sell-version-options">{DEFAULT_VERSIONS.map((item) => <option key={item} value={item} />)}</datalist>
-                  <datalist id="sell-year-options">{DEFAULT_YEARS.map((item) => <option key={item} value={item} />)}</datalist>
-                  <datalist id="sell-color-options">{COLOR_OPTIONS.map((item) => <option key={item} value={item} />)}</datalist>
                 </div>
 
                 <aside className="sell-security-card">
