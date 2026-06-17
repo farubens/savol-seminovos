@@ -558,7 +558,7 @@ export function SellYourCarWizard() {
 
           <section className="sell-proof">
             <article className="sell-proof-main"><div className="sell-proof-icon"><CheckCircle2 size={24} /></div><div><h3>Por que vender com a Savol?</h3><p>Somos referência em seminovos e oferecemos negociação transparente com suporte completo.</p></div></article>
-            <article><strong>+15</strong><span>anos de experiência</span></article>
+            <article><strong>63</strong><span>anos de experiência</span></article>
             <article><strong>Milhares</strong><span>de negociações realizadas</span></article>
             <article><strong>Processo</strong><span>claro e transparente</span></article>
           </section>
