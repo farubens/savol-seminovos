@@ -4,6 +4,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Send, X } from "lucide-react";
+import { logLeadmobResponse, logLeadPayload } from "@/lib/leadDebug";
 import { getLeadTrackingPayload } from "@/lib/leadTracking";
 import type { LeadmobVehicle } from "@/lib/leadmob";
 import type { ApiStore } from "@/types/home";
@@ -267,25 +268,28 @@ export function FloatingWhatsAppButton() {
         unitName: unitText,
         vehicle: vehicleContext?.vehicleName || ""
       });
-      await fetch("/api/leadmob", {
+      const leadPayload = {
+        form: formName,
+        subject: "WhatsApp",
+        name: chatForm.name,
+        email: chatForm.email,
+        phone: chatForm.phone,
+        unitName: unitText,
+        vehicle: vehicleContext?.vehicle,
+        message,
+        utm: tracking.utm,
+        meta: {
+          ...tracking.meta,
+          page_url: vehicleContext?.pageUrl || tracking.meta.page_url
+        }
+      };
+      logLeadPayload(formName, leadPayload);
+      const response = await fetch("/api/leadmob", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          form: formName,
-          subject: "WhatsApp",
-          name: chatForm.name,
-          email: chatForm.email,
-          phone: chatForm.phone,
-          unitName: unitText,
-          vehicle: vehicleContext?.vehicle,
-          message,
-          utm: tracking.utm,
-          meta: {
-            ...tracking.meta,
-            page_url: vehicleContext?.pageUrl || tracking.meta.page_url
-          }
-        })
+        body: JSON.stringify(leadPayload)
       });
+      await logLeadmobResponse(formName, response);
     } catch {
       // O WhatsApp deve continuar abrindo mesmo se o CRM estiver temporariamente indisponível.
     }

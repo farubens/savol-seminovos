@@ -23,6 +23,7 @@ import {
   X
 } from "lucide-react";
 import { type ChangeEvent, type DragEvent, useEffect, useRef, useState } from "react";
+import { logLeadPayload } from "@/lib/leadDebug";
 import { getLeadTrackingPayload } from "@/lib/leadTracking";
 
 type Step = 1 | 2 | 3 | 4 | 5;
@@ -355,7 +356,9 @@ export function SellYourCarWizard() {
 
     try {
       const formData = new FormData();
-      formData.append("payload", JSON.stringify(buildSellYourCarPayload(form)));
+      const leadPayload = buildSellYourCarPayload(form);
+      logLeadPayload("venda-seu-carro", leadPayload);
+      formData.append("payload", JSON.stringify(leadPayload));
 
       for (const slot of PHOTO_SLOTS) {
         const photo = form.photos[slot.id];
@@ -367,6 +370,7 @@ export function SellYourCarWizard() {
         body: formData
       });
       const payload = (await response.json()) as SellYourCarSubmitResponse;
+      logLeadPayload("venda-seu-carro resposta", payload);
 
       if (!response.ok || !payload.ok || !payload.protocol) {
         throw new Error(payload.error || "Não foi possível enviar a avaliação.");

@@ -28,6 +28,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { FinanceFollowUpModal } from "@/components/FinanceFollowUpModal";
 import { MapDirectionsModal } from "@/components/MapDirectionsModal";
 import { type SavedVehicle, useSavolAccount } from "@/components/SavolAccountProvider";
+import { logLeadmobResponse, logLeadPayload } from "@/lib/leadDebug";
 import { getLeadTrackingPayload } from "@/lib/leadTracking";
 import { buildOldPriceLabelFromOfficialPrice } from "@/utils/pricing";
 import { watchVwfsSimulatorClose } from "@/utils/vwfsModalWatcher";
@@ -748,28 +749,31 @@ export function VehicleOfferCard({
         vehicle: name,
         price
       });
+      const leadPayload = {
+        form: "proposta-financiamento-card",
+        subject: "Proposta de financiamento",
+        name: proposalForm.name,
+        phone: proposalForm.phone,
+        email: proposalForm.email,
+        unitName: store,
+        vehicle: leadVehicleContext,
+        message: [
+          `Veículo: ${name}`,
+          `Preço: ${price}`,
+          `Entrada: ${entryInput}`,
+          `Parcelas: ${installments}x`,
+          proposalForm.message
+        ].filter(Boolean).join("\n"),
+        utm: tracking.utm,
+        meta: tracking.meta
+      };
+      logLeadPayload("proposta-financiamento-card", leadPayload);
       const response = await fetch("/api/leadmob", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          form: "proposta-financiamento-card",
-          subject: "Proposta de financiamento",
-          name: proposalForm.name,
-          phone: proposalForm.phone,
-          email: proposalForm.email,
-          unitName: store,
-          vehicle: leadVehicleContext,
-          message: [
-            `Veículo: ${name}`,
-            `Preço: ${price}`,
-            `Entrada: ${entryInput}`,
-            `Parcelas: ${installments}x`,
-            proposalForm.message
-          ].filter(Boolean).join("\n"),
-          utm: tracking.utm,
-          meta: tracking.meta
-        })
+        body: JSON.stringify(leadPayload)
       });
+      await logLeadmobResponse("proposta-financiamento-card", response);
       if (!response.ok) throw new Error("leadmob");
       setProposalSent(true);
     } catch {

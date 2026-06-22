@@ -2,6 +2,7 @@
 
 import { type FormEvent, useEffect, useId, useState } from "react";
 import { CheckCircle2, Send, X } from "lucide-react";
+import { logLeadmobResponse, logLeadPayload } from "@/lib/leadDebug";
 import { getLeadTrackingPayload } from "@/lib/leadTracking";
 import type { LeadmobVehicle } from "@/lib/leadmob";
 
@@ -116,22 +117,25 @@ export function FinanceFollowUpModal({ open, onClose, context }: FinanceFollowUp
         unitName: context?.unitName,
         vehicle: context?.vehicle?.model || context?.vehicle?.subtitle || ""
       });
+      const leadPayload = {
+        form: formName,
+        subject,
+        name: form.name,
+        phone: form.phone,
+        email: form.email,
+        unitName: context?.unitName,
+        vehicle: context?.vehicle,
+        message: [context?.message, `CPF: ${cleanDigits(form.cpf, 11)}`].filter(Boolean).join("\n"),
+        utm: tracking.utm,
+        meta: tracking.meta
+      };
+      logLeadPayload(formName, leadPayload);
       const response = await fetch("/api/leadmob", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          form: formName,
-          subject,
-          name: form.name,
-          phone: form.phone,
-          email: form.email,
-          unitName: context?.unitName,
-          vehicle: context?.vehicle,
-          message: [context?.message, `CPF: ${cleanDigits(form.cpf, 11)}`].filter(Boolean).join("\n"),
-          utm: tracking.utm,
-          meta: tracking.meta
-        })
+        body: JSON.stringify(leadPayload)
       });
+      await logLeadmobResponse(formName, response);
 
       if (!response.ok) throw new Error("leadmob");
       setSent(true);

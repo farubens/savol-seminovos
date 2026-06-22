@@ -7,6 +7,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { FinanceFollowUpModal } from "@/components/FinanceFollowUpModal";
 import { VehicleOfferCard } from "@/components/VehicleOfferCard";
 import { MapDirectionsModal } from "@/components/MapDirectionsModal";
+import { logLeadmobResponse, logLeadPayload } from "@/lib/leadDebug";
 import { getLeadTrackingPayload } from "@/lib/leadTracking";
 import { watchVwfsSimulatorClose } from "@/utils/vwfsModalWatcher";
 import {
@@ -718,27 +719,30 @@ export function VehicleDetailsPageClient({ slug }: Props) {
         vehicle: vehicle?.name || "",
         price: vehicle?.price || ""
       });
+      const leadPayload = {
+        form: "proposta-veiculo",
+        subject: "Proposta de veículo",
+        name: leadForm.name,
+        phone: leadForm.phone,
+        email: leadForm.email,
+        unitName: storeTitle,
+        vehicle: leadVehicleContext,
+        message: [
+          `Interesse: ${leadForm.interest || vehicle?.name || ""}`,
+          `Preço: ${vehicle?.price || ""}`,
+          `Página: ${typeof window !== "undefined" ? window.location.href : ""}`,
+          leadForm.message
+        ].filter(Boolean).join("\n"),
+        utm: tracking.utm,
+        meta: tracking.meta
+      };
+      logLeadPayload("proposta-veiculo", leadPayload);
       const response = await fetch("/api/leadmob", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          form: "proposta-veiculo",
-          subject: "Proposta de veículo",
-          name: leadForm.name,
-          phone: leadForm.phone,
-          email: leadForm.email,
-          unitName: storeTitle,
-          vehicle: leadVehicleContext,
-          message: [
-            `Interesse: ${leadForm.interest || vehicle?.name || ""}`,
-            `Preço: ${vehicle?.price || ""}`,
-            `Página: ${typeof window !== "undefined" ? window.location.href : ""}`,
-            leadForm.message
-          ].filter(Boolean).join("\n"),
-          utm: tracking.utm,
-          meta: tracking.meta
-        })
+        body: JSON.stringify(leadPayload)
       });
+      await logLeadmobResponse("proposta-veiculo", response);
 
       if (!response.ok) throw new Error("leadmob");
       setLeadSuccess(true);

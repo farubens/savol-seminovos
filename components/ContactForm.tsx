@@ -1,6 +1,7 @@
 "use client";
 
 import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { logLeadmobResponse, logLeadPayload } from "@/lib/leadDebug";
 import { getLeadTrackingPayload } from "@/lib/leadTracking";
 import type { ApiStore } from "@/types/home";
 
@@ -70,21 +71,24 @@ export function ContactForm() {
 
     try {
       const tracking = getLeadTrackingPayload({ form: "contato", subject, unitName });
+      const leadPayload = {
+        form: "contato",
+        subject,
+        name,
+        email,
+        phone,
+        unitName,
+        message,
+        utm: tracking.utm,
+        meta: tracking.meta
+      };
+      logLeadPayload("contato", leadPayload);
       const response = await fetch("/api/leadmob", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          form: "contato",
-          subject,
-          name,
-          email,
-          phone,
-          unitName,
-          message,
-          utm: tracking.utm,
-          meta: tracking.meta
-        })
+        body: JSON.stringify(leadPayload)
       });
+      await logLeadmobResponse("contato", response);
 
       if (!response.ok) throw new Error("leadmob");
       setFeedback({ type: "success", message: "Mensagem enviada. Nossa equipe entrará em contato." });
