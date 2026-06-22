@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { insertLeadmobLead, type LeadmobLeadInput, validateLeadmobInput } from "@/lib/leadmob";
+import { createLeadmobRequestPayload, insertLeadmobLead, type LeadmobLeadInput, validateLeadmobInput } from "@/lib/leadmob";
 
 export const dynamic = "force-dynamic";
 
@@ -49,8 +49,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: false, error: validationError }, { status: 400 });
     }
 
-    const result = await insertLeadmobLead(enrichedPayload);
-    return NextResponse.json(result, { status: result.ok ? 200 : result.status || 502 });
+    const requestPayload = createLeadmobRequestPayload(enrichedPayload);
+
+    try {
+      const result = await insertLeadmobLead(enrichedPayload);
+      return NextResponse.json(result, { status: result.ok ? 200 : result.status || 502 });
+    } catch {
+      return NextResponse.json(
+        {
+          ok: false,
+          status: 502,
+          request: requestPayload,
+          response: null,
+          error: "Leadmob indisponível ou bloqueou a conexão."
+        },
+        { status: 502 }
+      );
+    }
   } catch {
     return NextResponse.json({ ok: false, error: "Não foi possível enviar o lead." }, { status: 500 });
   }

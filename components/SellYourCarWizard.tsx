@@ -370,6 +370,8 @@ export function SellYourCarWizard() {
         body: formData
       });
       const payload = (await response.json()) as SellYourCarSubmitResponse;
+      const finalLeadmobPayload = (payload as { leadmob?: { request?: unknown } }).leadmob?.request;
+      if (finalLeadmobPayload) logLeadPayload("venda-seu-carro final payload", finalLeadmobPayload);
       logLeadPayload("venda-seu-carro resposta", payload);
 
       if (!response.ok || !payload.ok || !payload.protocol) {

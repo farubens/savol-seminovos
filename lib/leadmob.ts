@@ -1,10 +1,21 @@
 const LEADMOB_BASE_URL = "https://leadmob.com.br/app/tools/leads/endpoint.php";
-const DEFAULT_EMPRESA = "10244";
+const DEFAULT_EMPRESA = "10041";
 const DEFAULT_ORIGEM = "1";
+const DEPARTAMENTO_NOVOS = "1";
 const DEPARTAMENTO_SEMINOVOS = "2";
+const DEPARTAMENTO_CONSORCIO = "3";
+const DEPARTAMENTO_VENDAS_ESPECIAIS = "4";
+const DEPARTAMENTO_PECAS_ACESSORIOS = "5";
+const DEPARTAMENTO_POS_VENDAS = "6";
+const DEPARTAMENTO_FUNILARIA = "7";
+const DEPARTAMENTO_BLINDADOS = "8";
 const DEPARTAMENTO_ADMINISTRATIVO = "9";
+const DEPARTAMENTO_SEGUROS = "11";
+const DEPARTAMENTO_FI = "12";
+const DEPARTAMENTO_RH = "15";
 
 const LEADMOB_COMPANIES_BY_UNIT = [
+  { id: 10041, terms: ["savol grupo", "atendimento savol", "sem preferencia", "unidade nao informada"] },
   { id: 10244, terms: ["savol mg sao caetano", "mg motor sao caetano", "mg sao caetano"] },
   { id: 10038, terms: ["toyota santo andre"] },
   { id: 10039, terms: ["toyota praia grande", "toyota pr grande"] },
@@ -134,11 +145,19 @@ function resolveLeadmobDepartmentId(input: LeadmobLeadInput): number {
     if (Number.isFinite(explicitDepartmentId) && explicitDepartmentId > 0) return explicitDepartmentId;
   }
 
-  const form = normalizeForMatch(input.form);
-  const subject = normalizeForMatch(input.subject);
-  if (form.includes("venda seu carro") || subject.includes("venda seu carro")) {
-    return Number(DEPARTAMENTO_ADMINISTRATIVO);
-  }
+  const source = normalizeForMatch(`${input.form || ""} ${input.subject || ""} ${input.message || ""}`);
+
+  if (source.includes("venda seu carro")) return Number(DEPARTAMENTO_ADMINISTRATIVO);
+  if (source.includes("consorcio")) return Number(DEPARTAMENTO_CONSORCIO);
+  if (source.includes("venda por atacado") || source.includes("vendas especiais")) return Number(DEPARTAMENTO_VENDAS_ESPECIAIS);
+  if (source.includes("pecas") || source.includes("acessorios")) return Number(DEPARTAMENTO_PECAS_ACESSORIOS);
+  if (source.includes("pos venda") || source.includes("pos vendas")) return Number(DEPARTAMENTO_POS_VENDAS);
+  if (source.includes("funilaria") || source.includes("pintura")) return Number(DEPARTAMENTO_FUNILARIA);
+  if (source.includes("blindados") || source.includes("blindado")) return Number(DEPARTAMENTO_BLINDADOS);
+  if (source.includes("seguros") || source.includes("seguro")) return Number(DEPARTAMENTO_SEGUROS);
+  if (source.includes("financiamento") || source.includes("f i") || source.includes("f&i")) return Number(DEPARTAMENTO_FI);
+  if (source.includes("rh")) return Number(DEPARTAMENTO_RH);
+  if (source.includes("veiculos novos") || source.includes("veiculo novo")) return Number(DEPARTAMENTO_NOVOS);
 
   return Number(DEPARTAMENTO_SEMINOVOS);
 }
@@ -260,6 +279,10 @@ function cleanPayload(payload: Record<string, unknown>): Record<string, unknown>
   return Object.fromEntries(Object.entries(payload).filter(([, value]) => value !== undefined && value !== "" && !Number.isNaN(value)));
 }
 
+export function createLeadmobRequestPayload(input: LeadmobLeadInput): Record<string, unknown> {
+  return cleanPayload(buildLeadmobPayload(input));
+}
+
 function buildFormBody(payload: Record<string, unknown>): URLSearchParams {
   const body = new URLSearchParams();
   for (const [key, value] of Object.entries(payload)) {
@@ -278,7 +301,7 @@ export function validateLeadmobInput(input: LeadmobLeadInput): string | null {
 export async function insertLeadmobLead(input: LeadmobLeadInput): Promise<LeadmobResult> {
   const username = process.env.LEADMOB_USERNAME?.trim();
   const password = process.env.LEADMOB_PASSWORD?.trim();
-  const payload = cleanPayload(buildLeadmobPayload(input));
+  const payload = createLeadmobRequestPayload(input);
 
   if (!username || !password) {
     return {

@@ -191,6 +191,7 @@ export async function POST(request: NextRequest) {
       error: "WordPress não cadastrou o lead.",
       wordpressStatus: wpResponse.status,
       wordpressResponse: wpPayload,
+      leadmob: leadmobResult,
       localValidation: {
         ok: true,
         message: "Payload e fotos passaram na validação do Next."
