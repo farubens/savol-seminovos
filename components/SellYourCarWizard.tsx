@@ -23,6 +23,7 @@ import {
   X
 } from "lucide-react";
 import { type ChangeEvent, type DragEvent, useEffect, useRef, useState } from "react";
+import { getLeadTrackingPayload } from "@/lib/leadTracking";
 
 type Step = 1 | 2 | 3 | 4 | 5;
 
@@ -153,6 +154,13 @@ function toNumberValue(value: string): number | null {
 
 function buildSellYourCarPayload(form: SellFormData) {
   const submittedAt = new Date().toISOString();
+  const tracking = getLeadTrackingPayload({
+    form: "venda-seu-carro",
+    plate: form.plate,
+    brand: form.brand,
+    model: form.model,
+    version: form.version
+  });
 
   return {
     schemaVersion: "1.0",
@@ -163,6 +171,8 @@ function buildSellYourCarPayload(form: SellFormData) {
       userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "",
       submittedAt
     },
+    utm: tracking.utm,
+    meta: tracking.meta,
     vehicle: {
       plate: form.plate,
       brand: form.brand,

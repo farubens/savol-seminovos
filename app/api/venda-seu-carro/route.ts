@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
+import { insertLeadmobLead } from "@/lib/leadmob";
 
 const REQUIRED_PHOTO_FIELDS = [
   "photo_document",
@@ -26,6 +27,8 @@ type SellYourCarPayload = {
     userAgent?: string;
     submittedAt?: string;
   };
+  utm?: Record<string, string | undefined>;
+  meta?: Record<string, string | number | boolean | null | undefined>;
   vehicle?: Record<string, unknown>;
   seller?: {
     fullName?: string;
@@ -106,6 +109,45 @@ export async function POST(request: NextRequest) {
     const photoError = validatePhotos(formData);
     if (photoError) return NextResponse.json({ ok: false, error: photoError }, { status: 400 });
 
+    const protocol = createProtocol();
+    const seller = payload.seller;
+    const vehicle = (payload.vehicle || {}) as Record<string, unknown>;
+    const leadmobResult = await insertLeadmobLead({
+      form: "venda-seu-carro",
+      subject: "Venda seu carro",
+      protocol,
+      name: seller?.fullName || "",
+      email: seller?.email || "",
+      phone: seller?.phone || "",
+      vehicle: {
+        plate: String(vehicle.plate || ""),
+        brand: String(vehicle.brand || ""),
+        model: String(vehicle.model || ""),
+        version: String(vehicle.version || ""),
+        year: String(vehicle.modelYear || vehicle.year || ""),
+        manufactureYear: String(vehicle.manufactureYear || ""),
+        km: typeof vehicle.km === "number" ? vehicle.km : String(vehicle.km || ""),
+        color: String(vehicle.color || ""),
+        price: typeof vehicle.desiredPrice === "number" ? vehicle.desiredPrice : String(vehicle.desiredPrice || ""),
+        url: payload.source?.pageUrl || ""
+      },
+      utm: payload.utm,
+      meta: {
+        ...(payload.meta || {}),
+        page_url: payload.source?.pageUrl || payload.meta?.page_url,
+        user_agent: payload.source?.userAgent || payload.meta?.user_agent,
+        submitted_at: payload.source?.submittedAt || payload.meta?.submitted_at
+      },
+      message: [
+        `CPF: ${seller?.cpf || ""}`,
+        `Versão: ${vehicle.version || ""}`,
+        `Ano fabricação: ${vehicle.manufactureYear || ""}`,
+        `KM: ${vehicle.km || ""}`,
+        `Cor: ${vehicle.color || ""}`,
+        `Valor pretendido: ${vehicle.desiredPrice || ""}`
+      ].join("\n")
+    });
+
     const wpResponse = await fetch(WP_SELL_YOUR_CAR_ENDPOINT, {
       method: "POST",
       body: formData,
@@ -117,11 +159,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         ...wpPayload,
         proxiedToWordPress: true,
-        wordpressEndpoint: WP_SELL_YOUR_CAR_ENDPOINT
+        wordpressEndpoint: WP_SELL_YOUR_CAR_ENDPOINT,
+        leadmob: leadmobResult
       }, { status: wpResponse.status });
     }
 
-    const protocol = createProtocol();
+    if (leadmobResult.ok) {
+      return NextResponse.json({
+        ok: true,
+        protocol,
+        proxiedToLeadmob: true,
+        wordpressStatus: wpResponse.status,
+        wordpressResponse: wpPayload,
+        leadmob: leadmobResult
+      });
+    }
+
     const receivedAt = new Date().toISOString();
     const signedPayload = {
       ...payload,

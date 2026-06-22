@@ -2,10 +2,19 @@
 
 import { type FormEvent, useEffect, useId, useState } from "react";
 import { CheckCircle2, Send, X } from "lucide-react";
+import { getLeadTrackingPayload } from "@/lib/leadTracking";
+import type { LeadmobVehicle } from "@/lib/leadmob";
 
 type FinanceFollowUpModalProps = {
   open: boolean;
   onClose: () => void;
+  context?: {
+    form?: string;
+    subject?: string;
+    unitName?: string;
+    message?: string;
+    vehicle?: LeadmobVehicle;
+  };
 };
 
 type FollowUpForm = {
@@ -42,11 +51,12 @@ function formatCpf(value: string): string {
   return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
 }
 
-export function FinanceFollowUpModal({ open, onClose }: FinanceFollowUpModalProps) {
+export function FinanceFollowUpModal({ open, onClose, context }: FinanceFollowUpModalProps) {
   const modalId = useId();
   const [form, setForm] = useState<FollowUpForm>(initialForm);
   const [errors, setErrors] = useState<Partial<Record<keyof FollowUpForm, string>>>({});
   const [sent, setSent] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -70,6 +80,7 @@ export function FinanceFollowUpModal({ open, onClose }: FinanceFollowUpModalProp
       setForm(initialForm);
       setSent(false);
       setErrors({});
+      setIsSubmitting(false);
     }
   }, [open]);
 
@@ -91,10 +102,44 @@ export function FinanceFollowUpModal({ open, onClose }: FinanceFollowUpModalProp
     return Object.keys(nextErrors).length === 0;
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!validate()) return;
-    setSent(true);
+    setIsSubmitting(true);
+
+    try {
+      const formName = context?.form || "financiamento-follow-up";
+      const subject = context?.subject || "Financiamento";
+      const tracking = getLeadTrackingPayload({
+        form: formName,
+        subject,
+        unitName: context?.unitName,
+        vehicle: context?.vehicle?.model || context?.vehicle?.subtitle || ""
+      });
+      const response = await fetch("/api/leadmob", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          form: formName,
+          subject,
+          name: form.name,
+          phone: form.phone,
+          email: form.email,
+          unitName: context?.unitName,
+          vehicle: context?.vehicle,
+          message: [context?.message, `CPF: ${cleanDigits(form.cpf, 11)}`].filter(Boolean).join("\n"),
+          utm: tracking.utm,
+          meta: tracking.meta
+        })
+      });
+
+      if (!response.ok) throw new Error("leadmob");
+      setSent(true);
+    } catch {
+      setErrors((current) => ({ ...current, email: "Não foi possível enviar agora. Tente novamente." }));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -152,8 +197,8 @@ export function FinanceFollowUpModal({ open, onClose }: FinanceFollowUpModalProp
             {errors.cpf ? <small>{errors.cpf}</small> : null}
           </label>
 
-          <button type="submit" className="finance-followup-submit">
-            <Send size={18} /> Enviar
+          <button type="submit" className="finance-followup-submit" disabled={isSubmitting}>
+            <Send size={18} /> {isSubmitting ? "Enviando..." : "Enviar"}
           </button>
 
           {sent ? (

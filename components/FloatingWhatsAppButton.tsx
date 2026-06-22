@@ -4,6 +4,8 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Send, X } from "lucide-react";
+import { getLeadTrackingPayload } from "@/lib/leadTracking";
+import type { LeadmobVehicle } from "@/lib/leadmob";
 import type { ApiStore } from "@/types/home";
 
 const WHATSAPP_PHONE = "551144351000";
@@ -18,6 +20,14 @@ type ChatForm = {
   name: string;
   email: string;
   phone: string;
+};
+
+type VehicleLeadContext = {
+  unitName?: string;
+  phone?: string;
+  vehicleName?: string;
+  pageUrl?: string;
+  vehicle?: LeadmobVehicle;
 };
 
 function normalizePhone(value: string): string {
@@ -79,7 +89,7 @@ export function FloatingWhatsAppButton() {
   );
 
   useEffect(() => {
-    if (!isOpen || hasLoadedStoresRef.current) return;
+    if (!isOpen || hasLoadedStoresRef.current || isVehicleDetail) return;
 
     const controller = new AbortController();
     hasLoadedStoresRef.current = true;
@@ -226,17 +236,59 @@ export function FloatingWhatsAppButton() {
     submitCurrentStep();
   };
 
-  const startWhatsApp = () => {
-    const phone = selectedStore?.phone ?? WHATSAPP_PHONE;
-    const unitText = selectedStore ? formatStoreName(selectedStore.name) : "Atendimento Savol";
-    const pageText = isVehicleDetail ? `\nPágina: ${window.location.href}` : "";
+  const getVehicleLeadContext = (): VehicleLeadContext | null => {
+    if (!isVehicleDetail || typeof window === "undefined") return null;
+    try {
+      const raw = window.sessionStorage.getItem("savol-current-vehicle-lead-context");
+      return raw ? (JSON.parse(raw) as VehicleLeadContext) : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const startWhatsApp = async () => {
+    const vehicleContext = getVehicleLeadContext();
+    const phone = vehicleContext?.phone ?? selectedStore?.phone ?? WHATSAPP_PHONE;
+    const unitText = vehicleContext?.unitName ?? (selectedStore ? formatStoreName(selectedStore.name) : "Atendimento Savol");
+    const pageText = isVehicleDetail ? `\nPágina: ${vehicleContext?.pageUrl || window.location.href}` : "";
+    const vehicleText = vehicleContext?.vehicleName ? `\nVeículo: ${vehicleContext.vehicleName}` : "";
     const message = [
       "Olá! Vim pelo chat do site e quero atendimento.",
       `Nome: ${chatForm.name}`,
       `E-mail: ${chatForm.email}`,
       `Telefone: ${chatForm.phone}`,
-      `Unidade de atendimento: ${unitText}${pageText}`
+      `Unidade de atendimento: ${unitText}${vehicleText}${pageText}`
     ].join("\n");
+
+    try {
+      const formName = isVehicleDetail ? "whatsapp-veiculo" : "whatsapp-site";
+      const tracking = getLeadTrackingPayload({
+        form: formName,
+        unitName: unitText,
+        vehicle: vehicleContext?.vehicleName || ""
+      });
+      await fetch("/api/leadmob", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          form: formName,
+          subject: "WhatsApp",
+          name: chatForm.name,
+          email: chatForm.email,
+          phone: chatForm.phone,
+          unitName: unitText,
+          vehicle: vehicleContext?.vehicle,
+          message,
+          utm: tracking.utm,
+          meta: {
+            ...tracking.meta,
+            page_url: vehicleContext?.pageUrl || tracking.meta.page_url
+          }
+        })
+      });
+    } catch {
+      // O WhatsApp deve continuar abrindo mesmo se o CRM estiver temporariamente indisponível.
+    }
 
     window.open(createWhatsAppHref(phone, message), "_blank", "noopener,noreferrer");
     setStep("done");
@@ -281,7 +333,11 @@ export function FloatingWhatsAppButton() {
             {chatForm.email ? <p className="whatsapp-chat-bubble whatsapp-chat-bubble--user">{chatForm.email}</p> : null}
             {isAgentStepVisible(visibleAgentStep, "phone") ? <p className="whatsapp-chat-bubble whatsapp-chat-bubble--agent">Agora me informe seu telefone.</p> : null}
             {chatForm.phone ? <p className="whatsapp-chat-bubble whatsapp-chat-bubble--user">{chatForm.phone}</p> : null}
-            {isAgentStepVisible(visibleAgentStep, "store") ? <p className="whatsapp-chat-bubble whatsapp-chat-bubble--agent">Por último, escolha a unidade de atendimento.</p> : null}
+            {isAgentStepVisible(visibleAgentStep, "store") ? (
+              <p className="whatsapp-chat-bubble whatsapp-chat-bubble--agent">
+                {isVehicleDetail ? "Pronto. Vou te encaminhar para a unidade deste veículo." : "Por último, escolha a unidade de atendimento."}
+              </p>
+            ) : null}
             {isTyping ? (
               <p className="whatsapp-chat-bubble whatsapp-chat-bubble--agent whatsapp-chat-typing" aria-label="Atendente digitando">
                 <span />
@@ -320,17 +376,19 @@ export function FloatingWhatsAppButton() {
 
             {step === "store" && isCurrentStepReady ? (
               <>
-                <label className="whatsapp-store-field">
-                  <span className="sr-only">Unidade de atendimento</span>
-                  <select value={selectedStoreId} onChange={(event) => setSelectedStoreId(event.target.value)} disabled={loading || sortedStores.length === 0}>
-                    {sortedStores.length === 0 ? <option value="">Atendimento Savol</option> : null}
-                    {sortedStores.map((store) => (
-                      <option key={store.id} value={store.id}>
-                        {formatStoreName(store.name)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                {!isVehicleDetail ? (
+                  <label className="whatsapp-store-field">
+                    <span className="sr-only">Unidade de atendimento</span>
+                    <select value={selectedStoreId} onChange={(event) => setSelectedStoreId(event.target.value)} disabled={loading || sortedStores.length === 0}>
+                      {sortedStores.length === 0 ? <option value="">Atendimento Savol</option> : null}
+                      {sortedStores.map((store) => (
+                        <option key={store.id} value={store.id}>
+                          {formatStoreName(store.name)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
 
                 <button type="button" className="whatsapp-start-btn" onClick={startWhatsApp}>
                   Ir para o WhatsApp

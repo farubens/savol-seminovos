@@ -6867,6 +6867,21 @@ h2 {
   grid-column: 1 / -1;
 }
 
+.contact-form-feedback {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.contact-form-feedback--success {
+  color: #1f7a45;
+}
+
+.contact-form-feedback--error {
+  color: #b42318;
+}
+
 .contact-form button {
   min-height: 50px;
   border: 0;

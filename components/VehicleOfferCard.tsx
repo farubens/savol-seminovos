@@ -28,6 +28,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { FinanceFollowUpModal } from "@/components/FinanceFollowUpModal";
 import { MapDirectionsModal } from "@/components/MapDirectionsModal";
 import { type SavedVehicle, useSavolAccount } from "@/components/SavolAccountProvider";
+import { getLeadTrackingPayload } from "@/lib/leadTracking";
 import { buildOldPriceLabelFromOfficialPrice } from "@/utils/pricing";
 import { watchVwfsSimulatorClose } from "@/utils/vwfsModalWatcher";
 
@@ -168,6 +169,13 @@ function normalizeSpaces(value: string): string {
 
 function isExternalUrl(url: string): boolean {
   return /^https?:\/\//i.test(url);
+}
+
+function toAbsoluteDetailUrl(url: string): string {
+  if (!url || url === "#") return typeof window !== "undefined" ? window.location.href : "";
+  if (isExternalUrl(url)) return url;
+  if (typeof window === "undefined") return url;
+  return new URL(url, window.location.origin).toString();
 }
 
 function shouldIgnoreCardNavigation(target: EventTarget | null): boolean {
@@ -377,6 +385,7 @@ export function VehicleOfferCard({
   const [didSimulateFinance, setDidSimulateFinance] = useState(false);
   const [showProposalForm, setShowProposalForm] = useState(false);
   const [proposalSent, setProposalSent] = useState(false);
+  const [proposalSubmitting, setProposalSubmitting] = useState(false);
   const [isLoadingRemoteGallery, setIsLoadingRemoteGallery] = useState(false);
   const [remoteGallery, setRemoteGallery] = useState<string[]>([]);
   const [entryInput, setEntryInput] = useState(formatEntryInput(minEntryValue));
@@ -699,12 +708,75 @@ export function VehicleOfferCard({
     setDidSimulateFinance(false);
   };
 
-  const handleProposalSubmit = () => {
+  const leadVehicleContext = useMemo(
+    () => {
+      const years = parseVehicleYears(year);
+      const [brandToken = ""] = normalizeSpaces(name).split(" ");
+      return {
+        id: vehicleId,
+        plate,
+        brand: brandToken,
+        model: name,
+        version: subtitle,
+        subtitle,
+        year: years.modelYear,
+        manufactureYear: years.manufactureAt,
+        km,
+        fuel,
+        transmission,
+        price,
+        oldPrice: resolvedOldPrice,
+        store,
+        url: toAbsoluteDetailUrl(detailUrl),
+        molicar
+      };
+    },
+    [detailUrl, fuel, km, molicar, name, plate, price, resolvedOldPrice, store, subtitle, transmission, vehicleId, year]
+  );
+
+  const handleProposalSubmit = async () => {
     if (!proposalForm.name.trim()) return;
     if (normalizePhone(proposalForm.phone).length < 10) return;
     if (!proposalForm.email.trim()) return;
     if (!proposalForm.consent) return;
-    setProposalSent(true);
+    setProposalSubmitting(true);
+    try {
+      const tracking = getLeadTrackingPayload({
+        form: "proposta-financiamento-card",
+        unitName: store,
+        vehicleId,
+        vehicle: name,
+        price
+      });
+      const response = await fetch("/api/leadmob", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          form: "proposta-financiamento-card",
+          subject: "Proposta de financiamento",
+          name: proposalForm.name,
+          phone: proposalForm.phone,
+          email: proposalForm.email,
+          unitName: store,
+          vehicle: leadVehicleContext,
+          message: [
+            `Veículo: ${name}`,
+            `Preço: ${price}`,
+            `Entrada: ${entryInput}`,
+            `Parcelas: ${installments}x`,
+            proposalForm.message
+          ].filter(Boolean).join("\n"),
+          utm: tracking.utm,
+          meta: tracking.meta
+        })
+      });
+      if (!response.ok) throw new Error("leadmob");
+      setProposalSent(true);
+    } catch {
+      setProposalSent(false);
+    } finally {
+      setProposalSubmitting(false);
+    }
   };
 
   const resultLabel = showProposalForm
@@ -1058,8 +1130,8 @@ export function VehicleOfferCard({
                           <span>Autorizo o contato da Savol por e-mail, telefone ou WhatsApp.</span>
                         </label>
 
-                        <button type="button" className="finance-modal-proposal-btn" onClick={handleProposalSubmit}>
-                          Enviar proposta
+                        <button type="button" className="finance-modal-proposal-btn" onClick={handleProposalSubmit} disabled={proposalSubmitting}>
+                          {proposalSubmitting ? "Enviando..." : "Enviar proposta"}
                         </button>
                         {proposalSent ? <p className="finance-modal-proposal-success">Proposta enviada! Nossa equipe retornará em breve.</p> : null}
                       </div>
@@ -1119,7 +1191,17 @@ export function VehicleOfferCard({
         )}
       </AnimatePresence>
 
-      <FinanceFollowUpModal open={isFinanceFollowUpOpen} onClose={() => setIsFinanceFollowUpOpen(false)} />
+      <FinanceFollowUpModal
+        open={isFinanceFollowUpOpen}
+        onClose={() => setIsFinanceFollowUpOpen(false)}
+        context={{
+          form: "financiamento-card",
+          subject: "Financiamento",
+          unitName: store,
+          vehicle: leadVehicleContext,
+          message: `Veículo: ${name}\nPreço: ${price}`
+        }}
+      />
     </>
   );
 }

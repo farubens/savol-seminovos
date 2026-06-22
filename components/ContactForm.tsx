@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { getLeadTrackingPayload } from "@/lib/leadTracking";
 import type { ApiStore } from "@/types/home";
 
 const CONTACT_SUBJECTS = ["Seminovos", "Venda seu carro", "Venda por atacado", "Outros"];
@@ -17,6 +18,8 @@ export function ContactForm() {
   const [stores, setStores] = useState<ApiStore[]>([]);
   const [selectedSubject, setSelectedSubject] = useState("");
   const [storesLoading, setStoresLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   const sortedStores = useMemo(
     () => [...stores].sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
@@ -47,8 +50,55 @@ export function ContactForm() {
     };
   }, []);
 
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const name = String(formData.get("name") || "").trim();
+    const email = String(formData.get("email") || "").trim();
+    const phone = String(formData.get("phone") || "").trim();
+    const unitName = String(formData.get("unit") || "").trim();
+    const subject = selectedSubject === "Outros" ? String(formData.get("otherSubject") || "").trim() : selectedSubject;
+    const message = String(formData.get("message") || "").trim();
+
+    if (!name || !email || !phone || !subject) {
+      setFeedback({ type: "error", message: "Preencha nome, e-mail, telefone e assunto." });
+      return;
+    }
+
+    setIsSubmitting(true);
+    setFeedback(null);
+
+    try {
+      const tracking = getLeadTrackingPayload({ form: "contato", subject, unitName });
+      const response = await fetch("/api/leadmob", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          form: "contato",
+          subject,
+          name,
+          email,
+          phone,
+          unitName,
+          message,
+          utm: tracking.utm,
+          meta: tracking.meta
+        })
+      });
+
+      if (!response.ok) throw new Error("leadmob");
+      setFeedback({ type: "success", message: "Mensagem enviada. Nossa equipe entrará em contato." });
+      event.currentTarget.reset();
+      setSelectedSubject("");
+    } catch {
+      setFeedback({ type: "error", message: "Não foi possível enviar agora. Tente novamente em instantes." });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
-    <form className="contact-form" onSubmit={(event) => event.preventDefault()}>
+    <form className="contact-form" onSubmit={handleSubmit}>
       <label>
         <span>Nome</span>
         <input type="text" name="name" placeholder="Seu nome completo" />
@@ -105,7 +155,9 @@ export function ContactForm() {
         <textarea name="message" rows={6} placeholder="Escreva sua mensagem..." />
       </label>
 
-      <button type="submit">Enviar mensagem</button>
+      {feedback ? <p className={`contact-form-feedback contact-form-feedback--${feedback.type}`}>{feedback.message}</p> : null}
+
+      <button type="submit" disabled={isSubmitting}>{isSubmitting ? "Enviando..." : "Enviar mensagem"}</button>
     </form>
   );
 }

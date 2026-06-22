@@ -7,6 +7,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { FinanceFollowUpModal } from "@/components/FinanceFollowUpModal";
 import { VehicleOfferCard } from "@/components/VehicleOfferCard";
 import { MapDirectionsModal } from "@/components/MapDirectionsModal";
+import { getLeadTrackingPayload } from "@/lib/leadTracking";
 import { watchVwfsSimulatorClose } from "@/utils/vwfsModalWatcher";
 import {
   BadgeCheck,
@@ -286,6 +287,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
   });
   const [leadErrors, setLeadErrors] = useState<Record<string, string>>({});
   const [leadSuccess, setLeadSuccess] = useState(false);
+  const [isLeadSubmitting, setIsLeadSubmitting] = useState(false);
   const [isDirectionsOpen, setIsDirectionsOpen] = useState(false);
   const [isOpeningFinanceSimulator, setIsOpeningFinanceSimulator] = useState(false);
   const [isFinanceFollowUpOpen, setIsFinanceFollowUpOpen] = useState(false);
@@ -484,6 +486,43 @@ export function VehicleDetailsPageClient({ slug }: Props) {
   const storeTitle = removeStorePrefix(vehicle?.store ?? "Unidade Savol");
   const storeAddress = storeItem?.address || (!isUnknownValue(vehicle?.city ?? "") ? `${vehicle?.city} - ${vehicle?.uf}` : "Endereço sob consulta");
   const storePhone = storeItem?.phone || "(11) 4435-1000";
+  const leadVehicleContext = useMemo(
+    () => ({
+      id: vehicle?.id,
+      plate: vehicle?.plate,
+      brand: vehicle?.brand,
+      model: vehicle?.model || vehicle?.name,
+      version: vehicle?.version || vehicle?.subtitle,
+      subtitle: vehicle?.subtitle,
+      year: vehicle?.year?.slice(0, 4),
+      km: vehicle?.km,
+      color: vehicle?.color,
+      fuel: vehicle?.fuel,
+      transmission: vehicle?.transmission,
+      price: vehicle?.price,
+      oldPrice: vehicle?.oldPrice,
+      store: storeTitle,
+      city: vehicle?.city,
+      uf: vehicle?.uf,
+      url: typeof window !== "undefined" ? window.location.href : vehicle?.url,
+      molicar: vehicle?.molicar
+    }),
+    [storeTitle, vehicle]
+  );
+
+  useEffect(() => {
+    if (!vehicle || typeof window === "undefined") return;
+    window.sessionStorage.setItem(
+      "savol-current-vehicle-lead-context",
+      JSON.stringify({
+        unitName: storeTitle,
+        phone: storePhone,
+        vehicle: leadVehicleContext,
+        vehicleName: vehicle.name,
+        pageUrl: window.location.href
+      })
+    );
+  }, [leadVehicleContext, storePhone, storeTitle, vehicle]);
   const secondaryHighlights = vehicle?.secondaryHighlights ?? [];
   const vwfsClientKey = process.env.NEXT_PUBLIC_VWFS_CLIENT_KEY?.trim() || VWFS_UAT_CLIENT_KEY;
   const vwfsClientToken = process.env.NEXT_PUBLIC_VWFS_CLIENT_TOKEN?.trim() || VWFS_UAT_CLIENT_TOKEN;
@@ -665,12 +704,49 @@ export function VehicleDetailsPageClient({ slug }: Props) {
     return Object.keys(nextErrors).length === 0;
   };
 
-  const handleLeadSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleLeadSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!validateLeadForm()) return;
 
-    setLeadSuccess(true);
+    setIsLeadSubmitting(true);
     setLeadErrors({});
+    try {
+      const tracking = getLeadTrackingPayload({
+        form: "proposta-veiculo",
+        unitName: storeTitle,
+        vehicleId: vehicle?.id,
+        vehicle: vehicle?.name || "",
+        price: vehicle?.price || ""
+      });
+      const response = await fetch("/api/leadmob", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          form: "proposta-veiculo",
+          subject: "Proposta de veículo",
+          name: leadForm.name,
+          phone: leadForm.phone,
+          email: leadForm.email,
+          unitName: storeTitle,
+          vehicle: leadVehicleContext,
+          message: [
+            `Interesse: ${leadForm.interest || vehicle?.name || ""}`,
+            `Preço: ${vehicle?.price || ""}`,
+            `Página: ${typeof window !== "undefined" ? window.location.href : ""}`,
+            leadForm.message
+          ].filter(Boolean).join("\n"),
+          utm: tracking.utm,
+          meta: tracking.meta
+        })
+      });
+
+      if (!response.ok) throw new Error("leadmob");
+      setLeadSuccess(true);
+    } catch {
+      setLeadErrors((current) => ({ ...current, submit: "Não foi possível enviar agora. Tente novamente." }));
+    } finally {
+      setIsLeadSubmitting(false);
+    }
   };
 
   if (loadingVehicle) {
@@ -901,8 +977,10 @@ export function VehicleDetailsPageClient({ slug }: Props) {
               </label>
               {leadErrors.consent ? <p className="vehicle-consent-error">{leadErrors.consent}</p> : null}
 
-              <button type="submit" className="vehicle-lead-submit">
-                Enviar proposta
+              {leadErrors.submit ? <p className="vehicle-consent-error">{leadErrors.submit}</p> : null}
+
+              <button type="submit" className="vehicle-lead-submit" disabled={isLeadSubmitting}>
+                {isLeadSubmitting ? "Enviando..." : "Enviar proposta"}
               </button>
 
               {leadSuccess ? <p className="vehicle-lead-success">Proposta enviada! Retornaremos em breve.</p> : null}
@@ -1108,7 +1186,17 @@ export function VehicleDetailsPageClient({ slug }: Props) {
         onClose={() => setIsDirectionsOpen(false)}
       />
 
-      <FinanceFollowUpModal open={isFinanceFollowUpOpen} onClose={() => setIsFinanceFollowUpOpen(false)} />
+      <FinanceFollowUpModal
+        open={isFinanceFollowUpOpen}
+        onClose={() => setIsFinanceFollowUpOpen(false)}
+        context={{
+          form: "financiamento-single",
+          subject: "Financiamento",
+          unitName: storeTitle,
+          vehicle: leadVehicleContext,
+          message: vehicle ? `Veículo: ${vehicle.name}\nPreço: ${vehicle.price}\nPágina: ${typeof window !== "undefined" ? window.location.href : ""}` : ""
+        }}
+      />
     </section>
   );
 }
