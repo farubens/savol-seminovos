@@ -260,6 +260,14 @@ function cleanPayload(payload: Record<string, unknown>): Record<string, unknown>
   return Object.fromEntries(Object.entries(payload).filter(([, value]) => value !== undefined && value !== "" && !Number.isNaN(value)));
 }
 
+function buildFormBody(payload: Record<string, unknown>): URLSearchParams {
+  const body = new URLSearchParams();
+  for (const [key, value] of Object.entries(payload)) {
+    body.set(key, String(value));
+  }
+  return body;
+}
+
 export function validateLeadmobInput(input: LeadmobLeadInput): string | null {
   if (!input.name?.trim()) return "Informe o nome.";
   if (normalizePhone(input.phone).length < 10) return "Informe um telefone válido.";
@@ -268,8 +276,8 @@ export function validateLeadmobInput(input: LeadmobLeadInput): string | null {
 }
 
 export async function insertLeadmobLead(input: LeadmobLeadInput): Promise<LeadmobResult> {
-  const username = process.env.LEADMOB_USERNAME;
-  const password = process.env.LEADMOB_PASSWORD;
+  const username = process.env.LEADMOB_USERNAME?.trim();
+  const password = process.env.LEADMOB_PASSWORD?.trim();
   const payload = cleanPayload(buildLeadmobPayload(input));
 
   if (!username || !password) {
@@ -287,10 +295,10 @@ export async function insertLeadmobLead(input: LeadmobLeadInput): Promise<Leadmo
     method: "POST",
     headers: {
       Authorization: `Basic ${authorization}`,
-      "Content-Type": "application/json",
-      Accept: "application/json"
+      "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+      Accept: "application/json, text/plain, */*"
     },
-    body: JSON.stringify(payload),
+    body: buildFormBody(payload),
     cache: "no-store"
   });
 

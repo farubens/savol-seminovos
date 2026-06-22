@@ -20,9 +20,7 @@ function isLeadDebugEnabled(): boolean {
 }
 
 export function logLeadPayload(label: string, payload: unknown): void {
-  if (!isLeadDebugEnabled()) return;
-
-  console.groupCollapsed(`[Leadmob payload] ${label}`);
+  console.group(`[Leadmob payload] ${label}`);
   console.log(payload);
   console.groupEnd();
 }
