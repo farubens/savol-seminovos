@@ -35,17 +35,9 @@ type UploadedPhoto = {
 };
 
 type PhotoSlotId =
-  | "document"
-  | "odometer"
-  | "hoodOpen"
-  | "tire"
-  | "sideLeft"
-  | "sideRight"
-  | "front"
-  | "rear"
-  | "seats"
-  | "upholstery"
-  | "trunk";
+  | "vehicle"
+  | "documentFront"
+  | "documentBack";
 
 type SellFormData = {
   plate: string;
@@ -81,18 +73,14 @@ const STEPS: Array<{ id: Step; label: string }> = [
 ];
 
 const PHOTO_SLOTS: Array<{ id: PhotoSlotId; label: string; required: boolean }> = [
-  { id: "document", label: "Foto do documento", required: true },
-  { id: "odometer", label: "Painel ligado no hodômetro", required: true },
-  { id: "hoodOpen", label: "Capô aberto", required: true },
-  { id: "tire", label: "Pneu", required: true },
-  { id: "sideLeft", label: "Lateral esquerda", required: false },
-  { id: "sideRight", label: "Lateral direita", required: false },
-  { id: "front", label: "Frente", required: false },
-  { id: "rear", label: "Traseira", required: false },
-  { id: "seats", label: "Bancos", required: false },
-  { id: "upholstery", label: "Tapeçaria", required: false },
-  { id: "trunk", label: "Porta-malas", required: false }
+  { id: "vehicle", label: "Foto do carro", required: true },
+  { id: "documentFront", label: "Frente do documento", required: true },
+  { id: "documentBack", label: "Verso do documento", required: true }
 ];
+
+const MAX_IMAGE_DIMENSION = 1600;
+const IMAGE_QUALITY = 0.72;
+const TARGET_IMAGE_MAX_BYTES = 900 * 1024;
 
 
 function createInitialFormState(): SellFormData {
@@ -151,6 +139,59 @@ function toNumberValue(value: string): number | null {
   if (!digits) return null;
   const parsed = Number(digits);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function blobToFile(blob: Blob, originalFile: File): File {
+  const baseName = originalFile.name.replace(/\.[^.]+$/, "") || "foto";
+  return new File([blob], `${baseName}.jpg`, {
+    type: "image/jpeg",
+    lastModified: Date.now()
+  });
+}
+
+async function compressImageFile(file: File): Promise<File> {
+  if (!file.type.startsWith("image/")) return file;
+
+  const imageUrl = URL.createObjectURL(file);
+  try {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const element = new window.Image();
+      element.onload = () => resolve(element);
+      element.onerror = () => reject(new Error("image-load"));
+      element.src = imageUrl;
+    });
+
+    let maxDimension = MAX_IMAGE_DIMENSION;
+    let quality = IMAGE_QUALITY;
+    let blob: Blob | null = null;
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
+    if (!context) return file;
+
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const scale = Math.min(1, maxDimension / Math.max(image.width, image.height));
+      const width = Math.max(1, Math.round(image.width * scale));
+      const height = Math.max(1, Math.round(image.height * scale));
+      canvas.width = width;
+      canvas.height = height;
+      context.clearRect(0, 0, width, height);
+      context.drawImage(image, 0, 0, width, height);
+
+      blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
+      if (!blob || blob.size <= TARGET_IMAGE_MAX_BYTES) break;
+      maxDimension = Math.round(maxDimension * 0.82);
+      quality = Math.max(0.52, quality - 0.08);
+    }
+
+    if (!blob) return file;
+    if (blob.size >= file.size && file.size <= TARGET_IMAGE_MAX_BYTES) return file;
+
+    return blobToFile(blob, file);
+  } catch {
+    return file;
+  } finally {
+    URL.revokeObjectURL(imageUrl);
+  }
 }
 
 function buildSellYourCarPayload(form: SellFormData) {
@@ -266,7 +307,7 @@ export function SellYourCarWizard() {
       if (!form.color) nextErrors.color = "Informe a cor";
       if (!form.desiredPrice) nextErrors.desiredPrice = "Informe o valor pretendido";
     }
-    if (targetStep === 3 && !PHOTO_SLOTS.filter((slot) => slot.required).every((slot) => Boolean(form.photos[slot.id]))) nextErrors.photos = "Envie as fotos obrigatórias: documento, hodômetro, capô aberto e pneu.";
+    if (targetStep === 3 && !PHOTO_SLOTS.filter((slot) => slot.required).every((slot) => Boolean(form.photos[slot.id]))) nextErrors.photos = "Envie as fotos obrigatórias: carro, frente do documento e verso do documento.";
     if (targetStep === 4) {
       if (!form.fullName) nextErrors.fullName = "Informe seu nome";
       if (!form.email || !/^\S+@\S+\.\S+$/.test(form.email)) nextErrors.email = "Informe um e-mail válido";
@@ -307,8 +348,9 @@ export function SellYourCarWizard() {
     setProtocol(null);
   };
 
-  const setSlotPhoto = (slotId: PhotoSlotId, file: File) => {
+  const setSlotPhoto = async (slotId: PhotoSlotId, file: File) => {
     if (!file.type.startsWith("image/")) return;
+    const preparedFile = await compressImageFile(file);
     setForm((prev) => {
       const previousPhoto = prev.photos[slotId];
       if (previousPhoto) URL.revokeObjectURL(previousPhoto.previewUrl);
@@ -317,9 +359,9 @@ export function SellYourCarWizard() {
         photos: {
           ...prev.photos,
           [slotId]: {
-            id: `${slotId}-${file.name}-${file.size}-${file.lastModified}-${Math.random().toString(36).slice(2, 7)}`,
-            file,
-            previewUrl: URL.createObjectURL(file)
+            id: `${slotId}-${preparedFile.name}-${preparedFile.size}-${preparedFile.lastModified}-${Math.random().toString(36).slice(2, 7)}`,
+            file: preparedFile,
+            previewUrl: URL.createObjectURL(preparedFile)
           }
         }
       };
@@ -339,7 +381,7 @@ export function SellYourCarWizard() {
 
   const onInputPhoto = (slotId: PhotoSlotId, event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) setSlotPhoto(slotId, file);
+    if (file) void setSlotPhoto(slotId, file);
     event.target.value = "";
   };
 
@@ -347,7 +389,7 @@ export function SellYourCarWizard() {
     event.preventDefault();
     setDragActive(false);
     const file = event.dataTransfer.files?.[0];
-    if (file) setSlotPhoto(slotId, file);
+    if (file) void setSlotPhoto(slotId, file);
   };
 
   const submit = async () => {
@@ -476,7 +518,7 @@ export function SellYourCarWizard() {
 
                   {step === 3 && (
                     <div className="sell-photos-step">
-                      <p className="sell-photos-help">Envie as fotos obrigatorias e, se possivel, complemente com as fotos opcionais do veiculo.</p>
+                      <p className="sell-photos-help">Envie uma foto do carro, uma foto da frente do documento e uma foto do verso do documento.</p>
                       <FieldError error={errors.photos} />
                       <div className="sell-photo-slot-grid">
                         {PHOTO_SLOTS.map((slot) => {

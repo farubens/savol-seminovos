@@ -3,13 +3,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { insertLeadmobLead } from "@/lib/leadmob";
 
 const REQUIRED_PHOTO_FIELDS = [
-  "photo_document",
-  "photo_odometer",
-  "photo_hoodOpen",
-  "photo_tire"
+  "photo_vehicle",
+  "photo_documentFront",
+  "photo_documentBack"
 ];
 
-const MAX_PHOTO_SIZE_BYTES = 8 * 1024 * 1024;
+const MAX_PHOTO_SIZE_BYTES = 1200 * 1024;
 const SIGNING_SECRET = process.env.SELL_YOUR_CAR_TOKEN_SECRET || process.env.NEXTAUTH_SECRET || "dev-only-sell-your-car-secret";
 const DEFAULT_WP_BASE_URL =
   process.env.NODE_ENV === "production" ? "https://palevioletred-lark-270684.hostingersite.com" : "http://localhost/savol-seminovos-local";
@@ -119,17 +118,9 @@ export async function POST(request: NextRequest) {
       name: seller?.fullName || "",
       email: seller?.email || "",
       phone: seller?.phone || "",
+      cpf: seller?.cpf || "",
       vehicle: {
-        plate: String(vehicle.plate || ""),
-        brand: String(vehicle.brand || ""),
-        model: String(vehicle.model || ""),
-        version: String(vehicle.version || ""),
-        year: String(vehicle.modelYear || vehicle.year || ""),
-        manufactureYear: String(vehicle.manufactureYear || ""),
-        km: typeof vehicle.km === "number" ? vehicle.km : String(vehicle.km || ""),
-        color: String(vehicle.color || ""),
-        price: typeof vehicle.desiredPrice === "number" ? vehicle.desiredPrice : String(vehicle.desiredPrice || ""),
-        url: payload.source?.pageUrl || ""
+        plate: String(vehicle.plate || "")
       },
       utm: payload.utm,
       meta: {
@@ -138,14 +129,15 @@ export async function POST(request: NextRequest) {
         user_agent: payload.source?.userAgent || payload.meta?.user_agent,
         submitted_at: payload.source?.submittedAt || payload.meta?.submitted_at
       },
-      message: [
+      ...{ vendaSeuCarroInternalMessage: [
         `CPF: ${seller?.cpf || ""}`,
         `Versão: ${vehicle.version || ""}`,
         `Ano fabricação: ${vehicle.manufactureYear || ""}`,
         `KM: ${vehicle.km || ""}`,
         `Cor: ${vehicle.color || ""}`,
         `Valor pretendido: ${vehicle.desiredPrice || ""}`
-      ].join("\n")
+      ].join("\n") },
+      message: `Placa: ${String(vehicle.plate || "")}`
     });
 
     const wpResponse = await fetch(WP_SELL_YOUR_CAR_ENDPOINT, {
