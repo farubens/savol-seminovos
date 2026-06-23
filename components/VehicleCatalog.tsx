@@ -227,6 +227,7 @@ export function VehicleCatalog() {
 
   const [isHydrated, setIsHydrated] = useState(false);
   const [showFilters, setShowFilters] = useState(true);
+  const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isCatalogRefreshing, setIsCatalogRefreshing] = useState(Boolean(searchKey));
@@ -357,6 +358,23 @@ export function VehicleCatalog() {
   useEffect(() => {
     setIsHydrated(true);
   }, []);
+
+  useEffect(() => {
+    if (!isMobileFiltersOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsMobileFiltersOpen(false);
+    };
+
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isMobileFiltersOpen]);
 
   const stores = useMemo(() => buildOptionEntries(vehicles.map((vehicle) => vehicle.store)), [vehicles]);
   const brands = useMemo(() => buildOptionEntries(vehicles.map((vehicle) => vehicle.brand)), [vehicles]);
@@ -644,6 +662,16 @@ export function VehicleCatalog() {
 
   const applyFilters = () => {
     pushQuery();
+    setIsMobileFiltersOpen(false);
+  };
+
+  const handleFilterButtonClick = () => {
+    if (typeof window !== "undefined" && window.matchMedia("(max-width: 760px)").matches) {
+      setIsMobileFiltersOpen(true);
+      return;
+    }
+
+    setShowFilters((current) => !current);
   };
 
   const clearFilters = () => {
@@ -805,8 +833,8 @@ export function VehicleCatalog() {
       <section className="catalog-shell catalog-shell--full">
         <div className="catalog-full-toolbar">
           <div className="catalog-toolbar-left">
-            <button type="button" className="catalog-toggle-filters-btn" onClick={() => setShowFilters((current) => !current)}>
-              <SlidersHorizontal size={14} /> {showFilters ? "Ocultar filtros" : "Mostrar filtros"} ({activeFilterCount})
+            <button type="button" className="catalog-toggle-filters-btn" onClick={handleFilterButtonClick}>
+              <SlidersHorizontal size={14} /> Filtros ({activeFilterCount})
             </button>
 
             {chips.map((chip) => (
@@ -842,13 +870,17 @@ export function VehicleCatalog() {
         </div>
 
         <div className={`catalog-layout-grid catalog-layout-grid--full${showFilters ? "" : " is-filters-collapsed"}`}>
-          {showFilters && (
-            <aside className="catalog-sidebar catalog-sidebar--full" aria-label="Filtros de veículos">
+          {isMobileFiltersOpen ? <button type="button" className="catalog-mobile-filter-backdrop" aria-label="Fechar filtros" onClick={() => setIsMobileFiltersOpen(false)} /> : null}
+          {(showFilters || isMobileFiltersOpen) && (
+            <aside className={`catalog-sidebar catalog-sidebar--full${isMobileFiltersOpen ? " is-mobile-open" : ""}`} aria-label="Filtros de veículos">
               <article className="catalog-filter-card catalog-filter-card--full">
                 <header className="catalog-filter-head">
                   <h2>
                     <SlidersHorizontal size={18} /> Filtros
                   </h2>
+                  <button type="button" className="catalog-filter-close-btn" onClick={() => setIsMobileFiltersOpen(false)} aria-label="Fechar filtros">
+                    <X size={18} />
+                  </button>
                   <button type="button" onClick={clearFilters}>
                     Limpar filtros
                   </button>

@@ -21,6 +21,11 @@ export function StoresCarousel() {
   });
   const visibleStores = useMemo(() => stores, [stores]);
 
+  const getStoreMapEmbedUrl = (store: ApiStore) => {
+    const query = [store.name, store.address, "Brasil"].filter(Boolean).join(", ");
+    return `https://www.google.com/maps?q=${encodeURIComponent(query)}&output=embed`;
+  };
+
   const scrollByStep = (direction: "left" | "right") => {
     const slider = sliderRef.current;
     if (!slider) return;
@@ -151,7 +156,7 @@ export function StoresCarousel() {
                   <iframe
                     className="store-map-embed"
                     title={`Mapa da loja ${store.name}`}
-                    src={`https://www.google.com/maps?q=${encodeURIComponent(store.address || store.name)}&output=embed`}
+                    src={getStoreMapEmbedUrl(store)}
                     loading="lazy"
                     referrerPolicy="no-referrer-when-downgrade"
                   />
