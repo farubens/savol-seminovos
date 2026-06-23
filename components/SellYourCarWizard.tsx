@@ -37,7 +37,19 @@ type UploadedPhoto = {
 type PhotoSlotId =
   | "vehicle"
   | "documentFront"
-  | "documentBack";
+  | "documentBack"
+  | "front"
+  | "leftSide"
+  | "rightSide"
+  | "rear"
+  | "dashboard"
+  | "odometer"
+  | "spare"
+  | "trunk"
+  | "roof"
+  | "tire"
+  | "engine"
+  | "chassis";
 
 type SellFormData = {
   plate: string;
@@ -75,7 +87,19 @@ const STEPS: Array<{ id: Step; label: string }> = [
 const PHOTO_SLOTS: Array<{ id: PhotoSlotId; label: string; required: boolean }> = [
   { id: "vehicle", label: "Foto do carro", required: true },
   { id: "documentFront", label: "Frente do documento", required: true },
-  { id: "documentBack", label: "Verso do documento", required: true }
+  { id: "documentBack", label: "Verso do documento", required: true },
+  { id: "front", label: "Frente do veículo", required: false },
+  { id: "leftSide", label: "Lateral esquerda", required: false },
+  { id: "rightSide", label: "Lateral direita", required: false },
+  { id: "rear", label: "Traseira", required: false },
+  { id: "dashboard", label: "Painel", required: false },
+  { id: "odometer", label: "Odômetro", required: false },
+  { id: "spare", label: "Estepe", required: false },
+  { id: "trunk", label: "Porta-malas", required: false },
+  { id: "roof", label: "Teto", required: false },
+  { id: "tire", label: "Pneu", required: false },
+  { id: "engine", label: "Motor", required: false },
+  { id: "chassis", label: "Chassi", required: false }
 ];
 
 const MAX_IMAGE_DIMENSION = 1600;
@@ -518,7 +542,7 @@ export function SellYourCarWizard() {
 
                   {step === 3 && (
                     <div className="sell-photos-step">
-                      <p className="sell-photos-help">Envie uma foto do carro, uma foto da frente do documento e uma foto do verso do documento.</p>
+                      <p className="sell-photos-help">Envie as 3 fotos obrigatórias. Se quiser, adicione fotos opcionais para ajudar na avaliação.</p>
                       <FieldError error={errors.photos} />
                       <div className="sell-photo-slot-grid">
                         {PHOTO_SLOTS.map((slot) => {
