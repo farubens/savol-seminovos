@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { LayoutGrid, List, Sparkles } from "lucide-react";
 import { useHomeSessionData } from "@/components/HomeSessionDataProvider";
 import { VehicleOfferCard } from "@/components/VehicleOfferCard";
@@ -8,7 +8,19 @@ import { VehicleOfferCard } from "@/components/VehicleOfferCard";
 export function VehicleGrid() {
   const { vehicles, loading } = useHomeSessionData();
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [isMobileView, setIsMobileView] = useState(false);
   const featuredVehicles = useMemo(() => vehicles.slice(0, 8), [vehicles]);
+  const effectiveViewMode = isMobileView ? "grid" : viewMode;
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 760px)");
+    const updateViewMode = () => setIsMobileView(mediaQuery.matches);
+
+    updateViewMode();
+    mediaQuery.addEventListener("change", updateViewMode);
+
+    return () => mediaQuery.removeEventListener("change", updateViewMode);
+  }, []);
 
   return (
     <div className="offer-section">
@@ -35,9 +47,9 @@ export function VehicleGrid() {
       </div>
 
       {loading && (
-        <div className={viewMode === "grid" ? "offer-grid" : "offer-list"}>
-          {Array.from({ length: viewMode === "grid" ? 8 : 3 }).map((_, index) => (
-            <article className={`offer-card skeleton ${viewMode === "list" ? "offer-card--list" : ""}`} key={index}>
+        <div className={effectiveViewMode === "grid" ? "offer-grid" : "offer-list"}>
+          {Array.from({ length: effectiveViewMode === "grid" ? 8 : 3 }).map((_, index) => (
+            <article className={`offer-card skeleton ${effectiveViewMode === "list" ? "offer-card--list" : ""}`} key={index}>
               <div className="skeleton-box image" />
               <div className="skeleton-body">
                 <div className="skeleton-box title" />
@@ -51,7 +63,7 @@ export function VehicleGrid() {
       )}
 
       {!loading && !featuredVehicles.length && (
-        <div className={viewMode === "grid" ? "offer-grid" : "offer-list"}>
+        <div className={effectiveViewMode === "grid" ? "offer-grid" : "offer-list"}>
           <article className="offer-card empty-state">
             <Sparkles size={20} />
             <h3>Sem estoque no momento</h3>
@@ -61,7 +73,7 @@ export function VehicleGrid() {
       )}
 
       {!loading && Boolean(featuredVehicles.length) && (
-        <div className={viewMode === "grid" ? "offer-grid" : "offer-list"}>
+        <div className={effectiveViewMode === "grid" ? "offer-grid" : "offer-list"}>
           {featuredVehicles.map((vehicle, index) => (
             <VehicleOfferCard
               key={vehicle.id}
@@ -81,7 +93,7 @@ export function VehicleGrid() {
               qualityTag={vehicle.qualityTag}
               secondaryHighlights={vehicle.secondaryHighlights}
               delay={index * 0.06}
-              variant={viewMode}
+              variant={effectiveViewMode}
               molicar={vehicle.molicar}
               plate={vehicle.plate}
             />

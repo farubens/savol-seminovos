@@ -78,6 +78,7 @@ export function FloatingWhatsAppButton() {
   const [step, setStep] = useState<ChatStep>("intro");
   const [visibleAgentStep, setVisibleAgentStep] = useState<ChatStep | null>(null);
   const [isTyping, setIsTyping] = useState(false);
+  const [isSendingLead, setIsSendingLead] = useState(false);
   const [chatForm, setChatForm] = useState<ChatForm>({ name: "", email: "", phone: "" });
   const [currentValue, setCurrentValue] = useState("");
   const [fieldError, setFieldError] = useState("");
@@ -172,6 +173,7 @@ export function FloatingWhatsAppButton() {
     setStep("intro");
     setVisibleAgentStep(null);
     setIsTyping(false);
+    setIsSendingLead(false);
     setChatForm({ name: "", email: "", phone: "" });
     setCurrentValue("");
     setFieldError("");
@@ -248,6 +250,8 @@ export function FloatingWhatsAppButton() {
   };
 
   const startWhatsApp = async () => {
+    if (isSendingLead) return;
+
     const vehicleContext = getVehicleLeadContext();
     const phone = vehicleContext?.phone ?? selectedStore?.phone ?? WHATSAPP_PHONE;
     const unitText = vehicleContext?.unitName ?? (selectedStore ? formatStoreName(selectedStore.name) : "Atendimento Savol");
@@ -260,6 +264,8 @@ export function FloatingWhatsAppButton() {
       `Telefone: ${chatForm.phone}`,
       `Unidade de atendimento: ${unitText}${vehicleText}${pageText}`
     ].join("\n");
+
+    setIsSendingLead(true);
 
     try {
       const formName = isVehicleDetail ? "whatsapp-veiculo" : "whatsapp-site";
@@ -292,6 +298,8 @@ export function FloatingWhatsAppButton() {
       await logLeadmobResponse(formName, response);
     } catch {
       // O WhatsApp deve continuar abrindo mesmo se o CRM estiver temporariamente indisponível.
+    } finally {
+      setIsSendingLead(false);
     }
 
     window.open(createWhatsAppHref(phone, message), "_blank", "noopener,noreferrer");
@@ -383,7 +391,7 @@ export function FloatingWhatsAppButton() {
                 {!isVehicleDetail ? (
                   <label className="whatsapp-store-field">
                     <span className="sr-only">Unidade de atendimento</span>
-                    <select value={selectedStoreId} onChange={(event) => setSelectedStoreId(event.target.value)} disabled={loading || sortedStores.length === 0}>
+                    <select value={selectedStoreId} onChange={(event) => setSelectedStoreId(event.target.value)} disabled={loading || isSendingLead || sortedStores.length === 0}>
                       {sortedStores.length === 0 ? <option value="">Atendimento Savol</option> : null}
                       {sortedStores.map((store) => (
                         <option key={store.id} value={store.id}>
@@ -394,8 +402,8 @@ export function FloatingWhatsAppButton() {
                   </label>
                 ) : null}
 
-                <button type="button" className="whatsapp-start-btn" onClick={startWhatsApp}>
-                  Ir para o WhatsApp
+                <button type="button" className="whatsapp-start-btn" onClick={startWhatsApp} disabled={isSendingLead}>
+                  {isSendingLead ? "Enviando..." : "Ir para o WhatsApp"}
                 </button>
               </>
             ) : null}

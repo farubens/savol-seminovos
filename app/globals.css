@@ -33,6 +33,15 @@ a {
   text-decoration: none;
 }
 
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+a[href],
+summary,
+label,
+select {
+  cursor: pointer;
+}
+
 .sr-only {
   position: absolute;
   width: 1px;
@@ -5900,6 +5909,7 @@ h2 {
   font-size: 14px;
   font-weight: 800;
   box-shadow: 0 16px 26px rgba(15, 71, 35, 0.34);
+  cursor: pointer;
   transition: transform 0.24s ease, box-shadow 0.24s ease, filter 0.24s ease;
 }
 
@@ -6076,6 +6086,13 @@ h2 {
   font-size: 15px;
   outline: none;
   appearance: auto;
+}
+
+.whatsapp-store-field select:disabled,
+.whatsapp-start-btn:disabled,
+.whatsapp-chat-send:disabled {
+  cursor: wait;
+  opacity: 0.72;
 }
 
 .whatsapp-subjects {
@@ -10671,6 +10688,10 @@ button.stores-filter-input svg {
 }
 
 @media (max-width: 760px) {
+  .offer-toolbar {
+    display: none !important;
+  }
+
   .institutional-page {
     width: min(100%, calc(100% - 20px)) !important;
     padding: 14px 0 30px !important;
