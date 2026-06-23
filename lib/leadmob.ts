@@ -1,44 +1,11 @@
-const LEADMOB_BASE_URL = "https://leadmob.com.br/app/tools/leads/endpoint.php";
-const DEFAULT_EMPRESA = "10041";
-const DEFAULT_ORIGEM = "1";
-const DEPARTAMENTO_NOVOS = "1";
-const DEPARTAMENTO_SEMINOVOS = "2";
-const DEPARTAMENTO_CONSORCIO = "3";
-const DEPARTAMENTO_VENDAS_ESPECIAIS = "4";
-const DEPARTAMENTO_PECAS_ACESSORIOS = "5";
-const DEPARTAMENTO_POS_VENDAS = "6";
-const DEPARTAMENTO_FUNILARIA = "7";
-const DEPARTAMENTO_BLINDADOS = "8";
-const DEPARTAMENTO_ADMINISTRATIVO = "9";
-const DEPARTAMENTO_SEGUROS = "11";
-const DEPARTAMENTO_FI = "12";
-const DEPARTAMENTO_RH = "15";
+import {
+  LEADMOB_DEFAULT_ORIGEM,
+  resolveLeadmobCompanyId,
+  resolveLeadmobDepartmentId,
+  resolveLeadmobOriginId
+} from "@/lib/leadmobRules";
 
-const LEADMOB_COMPANIES_BY_UNIT = [
-  { id: 10041, terms: ["savol grupo", "atendimento savol", "sem preferencia", "unidade nao informada"] },
-  { id: 10244, terms: ["savol mg sao caetano", "mg motor sao caetano", "mg sao caetano"] },
-  { id: 10038, terms: ["toyota santo andre"] },
-  { id: 10039, terms: ["toyota praia grande", "toyota pr grande"] },
-  { id: 10051, terms: ["toyota maua"] },
-  { id: 10223, terms: ["toyota dom pedro", "toyota dom pedro ii", "toyota em breve"] },
-  { id: 10040, terms: ["toyota sao bernardo", "toyota s bernardo"] },
-  { id: 10057, terms: ["volkswagen santo andre", "volks santo andre", "vw santo andre"] },
-  { id: 10058, terms: ["volkswagen pereira barreto", "volks pereira barreto", "vw pereira barreto"] },
-  { id: 10125, terms: ["citroen sao caetano"] },
-  { id: 10124, terms: ["citroen sao bernardo"] },
-  { id: 10123, terms: ["citroen santo andre"] },
-  { id: 10129, terms: ["peugeot sao caetano"] },
-  { id: 10128, terms: ["peugeot sao bernardo"] },
-  { id: 10127, terms: ["peugeot santo andre"] },
-  { id: 10188, terms: ["fiat sao caetano"] },
-  { id: 10189, terms: ["fiat sao bernardo"] },
-  { id: 10166, terms: ["fiat santo andre"] },
-  { id: 10191, terms: ["kia sao paulo", "kia ipiranga"] },
-  { id: 10190, terms: ["kia santo andre"] },
-  { id: 10218, terms: ["consorcio"] },
-  { id: 10224, terms: ["pos vendas", "pos venda"] },
-  { id: 10216, terms: ["assinaturas", "assinatura"] }
-] as const;
+const LEADMOB_BASE_URL = "https://leadmob.com.br/app/tools/leads/endpoint.php";
 
 export type LeadmobVehicle = {
   id?: string | number;
@@ -102,64 +69,6 @@ function normalizePhone(value: string): string {
 
 function trimText(value: unknown, maxLength: number): string {
   return String(value ?? "").trim().slice(0, maxLength);
-}
-
-function normalizeForMatch(value: unknown): string {
-  return String(value ?? "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-}
-
-function resolveLeadmobCompanyId(input: LeadmobLeadInput): number {
-  if (input.companyId) {
-    const explicitCompanyId = Number(input.companyId);
-    if (Number.isFinite(explicitCompanyId) && explicitCompanyId > 0) return explicitCompanyId;
-  }
-
-  const candidates = [
-    input.unitName,
-    input.vehicle?.store,
-    input.vehicle?.brand && input.vehicle?.city ? `${input.vehicle.brand} ${input.vehicle.city}` : "",
-    input.vehicle?.brand && input.vehicle?.uf ? `${input.vehicle.brand} ${input.vehicle.uf}` : ""
-  ].map(normalizeForMatch).filter(Boolean);
-
-  for (const candidate of candidates) {
-    const match = LEADMOB_COMPANIES_BY_UNIT.find((company) =>
-      company.terms.some((term) => {
-        const normalizedTerm = normalizeForMatch(term);
-        return candidate.includes(normalizedTerm) || normalizedTerm.includes(candidate);
-      })
-    );
-    if (match) return match.id;
-  }
-
-  return Number(DEFAULT_EMPRESA);
-}
-
-function resolveLeadmobDepartmentId(input: LeadmobLeadInput): number {
-  if (input.departmentId) {
-    const explicitDepartmentId = Number(input.departmentId);
-    if (Number.isFinite(explicitDepartmentId) && explicitDepartmentId > 0) return explicitDepartmentId;
-  }
-
-  const source = normalizeForMatch(`${input.form || ""} ${input.subject || ""} ${input.message || ""}`);
-
-  if (source.includes("venda seu carro")) return Number(DEPARTAMENTO_ADMINISTRATIVO);
-  if (source.includes("consorcio")) return Number(DEPARTAMENTO_CONSORCIO);
-  if (source.includes("venda por atacado") || source.includes("vendas especiais")) return Number(DEPARTAMENTO_VENDAS_ESPECIAIS);
-  if (source.includes("pecas") || source.includes("acessorios")) return Number(DEPARTAMENTO_PECAS_ACESSORIOS);
-  if (source.includes("pos venda") || source.includes("pos vendas")) return Number(DEPARTAMENTO_POS_VENDAS);
-  if (source.includes("funilaria") || source.includes("pintura")) return Number(DEPARTAMENTO_FUNILARIA);
-  if (source.includes("blindados") || source.includes("blindado")) return Number(DEPARTAMENTO_BLINDADOS);
-  if (source.includes("seguros") || source.includes("seguro")) return Number(DEPARTAMENTO_SEGUROS);
-  if (source.includes("financiamento") || source.includes("f i") || source.includes("f&i")) return Number(DEPARTAMENTO_FI);
-  if (source.includes("rh")) return Number(DEPARTAMENTO_RH);
-  if (source.includes("veiculos novos") || source.includes("veiculo novo")) return Number(DEPARTAMENTO_NOVOS);
-
-  return Number(DEPARTAMENTO_SEMINOVOS);
 }
 
 function buildObservation(input: LeadmobLeadInput): string {
@@ -244,14 +153,14 @@ function buildLeadmobPayload(input: LeadmobLeadInput): Record<string, unknown> {
   const vehicle = input.vehicle || {};
 
   return {
-    Empresa: resolveLeadmobCompanyId(input),
+    empresa: resolveLeadmobCompanyId(input),
     nome: trimText(input.name, 50),
     telefone: normalizePhone(input.phone),
     email: trimText(input.email, 50),
     mensagem: buildMessage(input),
     departamento: resolveLeadmobDepartmentId(input),
     protocolo: trimText(input.protocol, 20),
-    origem: Number(input.originId || DEFAULT_ORIGEM),
+    origem: resolveLeadmobOriginId(input) || Number(LEADMOB_DEFAULT_ORIGEM),
     suborigem: input.suboriginId ? Number(input.suboriginId) : undefined,
     observacao: buildObservation(input),
     cpf_vendedor: onlyDigits(input.sellerCpf).slice(0, 11),
