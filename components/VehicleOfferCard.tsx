@@ -768,7 +768,7 @@ export function VehicleOfferCard({
         meta: tracking.meta
       };
       logLeadPayload("proposta-financiamento-card", leadPayload);
-      const response = await fetch("/api/leadmob", {
+      const response = await fetch("/api/financiamento-leads", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(leadPayload)

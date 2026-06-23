@@ -1,4 +1,4 @@
-export const LEADMOB_DEFAULT_EMPRESA = "10041";
+export const LEADMOB_DEFAULT_EMPRESA = "10104";
 export const LEADMOB_DEFAULT_ORIGEM = "1";
 
 const DEPARTAMENTO_NOVOS = "1";
@@ -13,9 +13,11 @@ const DEPARTAMENTO_ADMINISTRATIVO = "9";
 const DEPARTAMENTO_SEGUROS = "11";
 const DEPARTAMENTO_FI = "12";
 const DEPARTAMENTO_RH = "15";
+const DEPARTAMENTO_SIMPLES_COMPRA = "18";
 
 const LEADMOB_COMPANIES_BY_UNIT = [
-  { id: 10041, terms: ["savol grupo", "atendimento savol", "sem preferencia", "unidade nao informada"] },
+  { id: 10104, terms: ["savol grupo", "atendimento savol", "sem preferencia", "unidade nao informada"] },
+  { id: 10041, terms: ["savol toyota grupo", "toyota grupo"] },
   { id: 10244, terms: ["savol mg sao caetano", "mg motor sao caetano", "mg sao caetano"] },
   { id: 10038, terms: ["toyota santo andre"] },
   { id: 10039, terms: ["toyota praia grande", "toyota pr grande"] },
@@ -35,6 +37,7 @@ const LEADMOB_COMPANIES_BY_UNIT = [
   { id: 10166, terms: ["fiat santo andre"] },
   { id: 10191, terms: ["kia sao paulo", "kia ipiranga"] },
   { id: 10190, terms: ["kia santo andre"] },
+  { id: 10280, terms: ["jetour santo andre", "savol jetour santo andre"] },
   { id: 10218, terms: ["consorcio"] },
   { id: 10224, terms: ["pos vendas", "pos venda"] },
   { id: 10216, terms: ["assinaturas", "assinatura"] }
@@ -54,6 +57,11 @@ export type LeadmobRuleInput = {
     city?: string;
     uf?: string;
   };
+};
+
+export type LeadmobDepartmentIntent = {
+  fallbackId: number;
+  aliases: string[];
 };
 
 export function normalizeForLeadmobMatch(value: unknown): string {
@@ -92,26 +100,36 @@ export function resolveLeadmobCompanyId(input: LeadmobRuleInput): number {
 }
 
 export function resolveLeadmobDepartmentId(input: LeadmobRuleInput): number {
+  return resolveLeadmobDepartmentIntent(input).fallbackId;
+}
+
+export function resolveLeadmobDepartmentIntent(input: LeadmobRuleInput): LeadmobDepartmentIntent {
   if (input.departmentId) {
     const explicitDepartmentId = Number(input.departmentId);
-    if (Number.isFinite(explicitDepartmentId) && explicitDepartmentId > 0) return explicitDepartmentId;
+    if (Number.isFinite(explicitDepartmentId) && explicitDepartmentId > 0) {
+      return { fallbackId: explicitDepartmentId, aliases: [] };
+    }
   }
 
   const source = normalizeForLeadmobMatch(`${input.form || ""} ${input.subject || ""} ${input.message || ""}`);
 
-  if (source.includes("venda seu carro")) return Number(DEPARTAMENTO_ADMINISTRATIVO);
-  if (source.includes("consorcio")) return Number(DEPARTAMENTO_CONSORCIO);
-  if (source.includes("venda por atacado") || source.includes("vendas especiais")) return Number(DEPARTAMENTO_VENDAS_ESPECIAIS);
-  if (source.includes("pecas") || source.includes("acessorios")) return Number(DEPARTAMENTO_PECAS_ACESSORIOS);
-  if (source.includes("pos venda") || source.includes("pos vendas")) return Number(DEPARTAMENTO_POS_VENDAS);
-  if (source.includes("funilaria") || source.includes("pintura")) return Number(DEPARTAMENTO_FUNILARIA);
-  if (source.includes("blindados") || source.includes("blindado")) return Number(DEPARTAMENTO_BLINDADOS);
-  if (source.includes("seguros") || source.includes("seguro")) return Number(DEPARTAMENTO_SEGUROS);
-  if (source.includes("financiamento") || source.includes("f i") || source.includes("f&i")) return Number(DEPARTAMENTO_FI);
-  if (source.includes("rh")) return Number(DEPARTAMENTO_RH);
-  if (source.includes("veiculos novos") || source.includes("veiculo novo")) return Number(DEPARTAMENTO_NOVOS);
+  if (source.includes("venda seu carro")) return { fallbackId: Number(DEPARTAMENTO_SIMPLES_COMPRA), aliases: ["Simples Compra"] };
+  if (source.includes("consorcio")) return { fallbackId: Number(DEPARTAMENTO_CONSORCIO), aliases: ["Consórcio", "Consorcio"] };
+  if (source.includes("venda por atacado") || source.includes("vendas especiais")) {
+    return { fallbackId: Number(DEPARTAMENTO_VENDAS_ESPECIAIS), aliases: ["Vendas Especiais"] };
+  }
+  if (source.includes("pecas") || source.includes("acessorios")) {
+    return { fallbackId: Number(DEPARTAMENTO_PECAS_ACESSORIOS), aliases: ["Peças e Acessórios", "Pecas e Acessorios"] };
+  }
+  if (source.includes("pos venda") || source.includes("pos vendas")) return { fallbackId: Number(DEPARTAMENTO_POS_VENDAS), aliases: ["Pós Vendas", "Pos Vendas"] };
+  if (source.includes("funilaria") || source.includes("pintura")) return { fallbackId: Number(DEPARTAMENTO_FUNILARIA), aliases: ["Funilaria e Pintura"] };
+  if (source.includes("blindados") || source.includes("blindado")) return { fallbackId: Number(DEPARTAMENTO_BLINDADOS), aliases: ["Blindados"] };
+  if (source.includes("seguros") || source.includes("seguro")) return { fallbackId: Number(DEPARTAMENTO_SEGUROS), aliases: ["Seguros"] };
+  if (source.includes("financiamento") || source.includes("f i") || source.includes("f&i")) return { fallbackId: Number(DEPARTAMENTO_FI), aliases: ["F&I", "F I"] };
+  if (source.includes("rh")) return { fallbackId: Number(DEPARTAMENTO_RH), aliases: ["RH", "Recursos Humanos"] };
+  if (source.includes("veiculos novos") || source.includes("veiculo novo")) return { fallbackId: Number(DEPARTAMENTO_NOVOS), aliases: ["Veículos Novos", "Veiculos Novos"] };
 
-  return Number(DEPARTAMENTO_SEMINOVOS);
+  return { fallbackId: Number(DEPARTAMENTO_SEMINOVOS), aliases: ["Veículos Seminovos", "Veiculos Seminovos", "Seminovos"] };
 }
 
 export function resolveLeadmobOriginId(input: LeadmobRuleInput): number {

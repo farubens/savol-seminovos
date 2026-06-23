@@ -54,14 +54,14 @@ export async function POST(request: NextRequest) {
     try {
       const result = await insertLeadmobLead(enrichedPayload);
       return NextResponse.json(result, { status: result.ok ? 200 : result.status || 502 });
-    } catch {
+    } catch (error) {
       return NextResponse.json(
         {
           ok: false,
           status: 502,
           request: requestPayload,
           response: null,
-          error: "Leadmob indisponível ou bloqueou a conexão."
+          error: error instanceof Error ? error.message : "Leadmob indisponível ou bloqueou a conexão."
         },
         { status: 502 }
       );

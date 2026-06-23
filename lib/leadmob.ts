@@ -1,11 +1,21 @@
 import {
   LEADMOB_DEFAULT_ORIGEM,
+  normalizeForLeadmobMatch,
   resolveLeadmobCompanyId,
   resolveLeadmobDepartmentId,
+  resolveLeadmobDepartmentIntent,
   resolveLeadmobOriginId
 } from "@/lib/leadmobRules";
 
-const LEADMOB_BASE_URL = "https://leadmob.com.br/app/tools/leads/endpoint.php";
+const LEADMOB_BASE_URL = "https://app.leadmob.com.br/tools/api";
+const LEADMOB_CONFIG_CACHE_TTL_MS = 10 * 60 * 1000;
+
+type LeadmobDepartment = {
+  id: string | number;
+  departamento: string;
+};
+
+let leadmobDepartmentsCache: { token: string; fetchedAt: number; items: LeadmobDepartment[] } | null = null;
 
 export type LeadmobVehicle = {
   id?: string | number;
@@ -43,6 +53,7 @@ export type LeadmobLeadInput = {
   suboriginId?: string | number;
   protocol?: string;
   sellerCpf?: string;
+  cpf?: string;
   vehicle?: LeadmobVehicle;
   utm?: Record<string, string | undefined>;
   meta?: Record<string, string | number | boolean | null | undefined>;
@@ -147,7 +158,7 @@ function buildMessage(input: LeadmobLeadInput): string {
   return trimText(lines.join("\n"), 2000);
 }
 
-function buildLeadmobPayload(input: LeadmobLeadInput): Record<string, unknown> {
+function buildLeadmobPayload(input: LeadmobLeadInput, options: { departmentId?: number } = {}): Record<string, unknown> {
   const utm = input.utm || {};
   const meta = input.meta || {};
   const vehicle = input.vehicle || {};
@@ -158,12 +169,14 @@ function buildLeadmobPayload(input: LeadmobLeadInput): Record<string, unknown> {
     telefone: normalizePhone(input.phone),
     email: trimText(input.email, 50),
     mensagem: buildMessage(input),
-    departamento: resolveLeadmobDepartmentId(input),
+    departamento: options.departmentId || resolveLeadmobDepartmentId(input),
     protocolo: trimText(input.protocol, 20),
     origem: resolveLeadmobOriginId(input) || Number(LEADMOB_DEFAULT_ORIGEM),
     suborigem: input.suboriginId ? Number(input.suboriginId) : undefined,
     observacao: buildObservation(input),
-    cpf_vendedor: onlyDigits(input.sellerCpf).slice(0, 11),
+    unidade: trimText(input.unitName, 100),
+    cpf: onlyDigits(input.cpf).slice(0, 11),
+    id_vendedor: onlyDigits(input.sellerCpf).slice(0, 11),
     placa: trimText(vehicle.plate, 7).replace(/[^A-Z0-9]/gi, "").toUpperCase(),
     marca: trimText(vehicle.brand, 20),
     modelo: trimText(vehicle.model, 50),
@@ -180,7 +193,12 @@ function buildLeadmobPayload(input: LeadmobLeadInput): Record<string, unknown> {
     meta_campanha: trimText(meta.meta_campanha || utm.utm_campaign, 255),
     meta_conjunto_anuncio: trimText(meta.meta_conjunto_anuncio || utm.utm_medium, 255),
     meta_anuncio: trimText(meta.meta_anuncio || utm.utm_content, 255),
-    meta_plataforma: trimText(meta.meta_plataforma || utm.utm_source || "site", 255)
+    meta_plataforma: trimText(meta.meta_plataforma || utm.utm_source || "site", 255),
+    source_url: trimText(meta.page_url || meta.source_url || vehicle.url, 255),
+    source_type: trimText(meta.source_type || "site", 100),
+    meta_body: trimText(input.message, 255),
+    meta_headline: trimText(input.subject || input.form, 255),
+    ctwa_clid: trimText(utm.ctwa_clid || utm.wp_ctwa_clid, 255)
   };
 }
 
@@ -192,12 +210,85 @@ export function createLeadmobRequestPayload(input: LeadmobLeadInput): Record<str
   return cleanPayload(buildLeadmobPayload(input));
 }
 
+async function getLeadmobDepartments(token: string): Promise<LeadmobDepartment[]> {
+  const now = Date.now();
+  if (leadmobDepartmentsCache && leadmobDepartmentsCache.token === token && now - leadmobDepartmentsCache.fetchedAt < LEADMOB_CONFIG_CACHE_TTL_MS) {
+    return leadmobDepartmentsCache.items;
+  }
+
+  const response = await fetch(`${LEADMOB_BASE_URL}/departamentos`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/json"
+    },
+    cache: "no-store"
+  });
+
+  const payload = await response.json().catch(async () => ({ return: await response.text().catch(() => "") })) as { return?: unknown };
+  if (!response.ok || !Array.isArray(payload.return)) {
+    throw new Error(`Leadmob departamentos inválidos: ${JSON.stringify(payload)}`);
+  }
+
+  const items = payload.return.filter((item): item is LeadmobDepartment => {
+    if (!item || typeof item !== "object") return false;
+    const candidate = item as Partial<LeadmobDepartment>;
+    return candidate.id !== undefined && typeof candidate.departamento === "string";
+  });
+
+  leadmobDepartmentsCache = { token, fetchedAt: now, items };
+  return items;
+}
+
+function resolveLeadmobDepartmentFromList(input: LeadmobLeadInput, departments: LeadmobDepartment[]): number {
+  const intent = resolveLeadmobDepartmentIntent(input);
+  const aliases = intent.aliases.map(normalizeForLeadmobMatch).filter(Boolean);
+  if (!aliases.length) return intent.fallbackId;
+
+  const match = departments.find((department) => {
+    const label = normalizeForLeadmobMatch(department.departamento);
+    return aliases.some((alias) => label.includes(alias) || alias.includes(label));
+  });
+
+  const id = Number(match?.id);
+  return Number.isFinite(id) && id > 0 ? id : intent.fallbackId;
+}
+
+async function createLeadmobRequestPayloadWithConfig(input: LeadmobLeadInput, token: string): Promise<Record<string, unknown>> {
+  try {
+    const departments = await getLeadmobDepartments(token);
+    const departmentId = resolveLeadmobDepartmentFromList(input, departments);
+    return cleanPayload(buildLeadmobPayload(input, { departmentId }));
+  } catch {
+    return createLeadmobRequestPayload(input);
+  }
+}
+
 function buildFormBody(payload: Record<string, unknown>): URLSearchParams {
   const body = new URLSearchParams();
   for (const [key, value] of Object.entries(payload)) {
     body.set(key, String(value));
   }
   return body;
+}
+
+async function getLeadmobToken(username: string, password: string): Promise<string> {
+  const response = await fetch(`${LEADMOB_BASE_URL}/token`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+      Accept: "application/json"
+    },
+    body: buildFormBody({ usuario: username, senha: password }),
+    cache: "no-store"
+  });
+
+  const responsePayload = await response.json().catch(async () => ({ return: await response.text().catch(() => "") })) as { token?: string; return?: unknown };
+  if (!response.ok || !responsePayload.token) {
+    throw new Error(`Leadmob token inválido: ${JSON.stringify(responsePayload)}`);
+  }
+
+  return responsePayload.token;
 }
 
 export function validateLeadmobInput(input: LeadmobLeadInput): string | null {
@@ -222,15 +313,16 @@ export async function insertLeadmobLead(input: LeadmobLeadInput): Promise<Leadmo
     };
   }
 
-  const authorization = Buffer.from(`${username}:${password}`).toString("base64");
-  const response = await fetch(`${LEADMOB_BASE_URL}/insert`, {
+  const token = await getLeadmobToken(username, password);
+  const resolvedPayload = await createLeadmobRequestPayloadWithConfig(input, token);
+  const response = await fetch(`${LEADMOB_BASE_URL}/lead`, {
     method: "POST",
     headers: {
-      Authorization: `Basic ${authorization}`,
-      "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-      Accept: "application/json, text/plain, */*"
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      Accept: "application/json"
     },
-    body: buildFormBody(payload),
+    body: JSON.stringify(resolvedPayload),
     cache: "no-store"
   });
 
@@ -242,13 +334,12 @@ export async function insertLeadmobLead(input: LeadmobLeadInput): Promise<Leadmo
     responsePayload = responseText;
   }
 
-  const serialized = typeof responsePayload === "string" ? responsePayload : JSON.stringify(responsePayload);
-  const ok = response.ok && (serialized.includes("0000") || /salvo com sucesso/i.test(serialized));
+  const ok = response.ok && Boolean((responsePayload as { return?: { idLead?: string | number } })?.return?.idLead ?? responsePayload);
 
   return {
     ok,
     status: response.status,
-    request: payload,
+    request: resolvedPayload,
     response: responsePayload,
     error: ok ? undefined : "Leadmob não confirmou o cadastro do lead."
   };

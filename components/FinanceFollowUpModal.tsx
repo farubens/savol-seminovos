@@ -123,6 +123,7 @@ export function FinanceFollowUpModal({ open, onClose, context }: FinanceFollowUp
         name: form.name,
         phone: form.phone,
         email: form.email,
+        cpf: cleanDigits(form.cpf, 11),
         unitName: context?.unitName,
         vehicle: context?.vehicle,
         message: [context?.message, `CPF: ${cleanDigits(form.cpf, 11)}`].filter(Boolean).join("\n"),
@@ -130,7 +131,7 @@ export function FinanceFollowUpModal({ open, onClose, context }: FinanceFollowUp
         meta: tracking.meta
       };
       logLeadPayload(formName, leadPayload);
-      const response = await fetch("/api/leadmob", {
+      const response = await fetch("/api/financiamento-leads", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(leadPayload)
