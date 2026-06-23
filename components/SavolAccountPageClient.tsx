@@ -291,7 +291,7 @@ export function SavolAccountPageClient() {
       <section className="account-section">
         <header>
           <h2>Veículos visitados</h2>
-          <p>Últimos modelos que você abriu na single.</p>
+          <p>Últimos modelos que você abriu na página do veículo.</p>
         </header>
 
         {resolvedVisited.length ? (
@@ -304,7 +304,7 @@ export function SavolAccountPageClient() {
           <article className="account-empty-state">
             <Eye size={22} />
             <h3>Nenhum veículo visitado</h3>
-            <p>Abra uma single de veículo para começar o histórico.</p>
+            <p>Abra a página de um veículo para começar o histórico.</p>
           </article>
         )}
       </section>
