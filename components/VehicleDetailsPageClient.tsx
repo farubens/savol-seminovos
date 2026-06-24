@@ -50,6 +50,7 @@ type StoreItem = {
   id: number;
   slug: string;
   name: string;
+  brand: string;
   address: string;
   phone: string;
   mapUrl: string;
@@ -193,19 +194,54 @@ function loadVwfsScript(src: string): Promise<boolean> {
 }
 
 function removeStorePrefix(value: string): string {
-  return value.replace(/^loja:\s*/i, "").trim();
+  return value.replace(/^loja:\s*/i, "").replace(/^unidade\s+savol\s+/i, "savol ").trim();
 }
 
-function getStoreMatch(storeName: string, stores: StoreItem[]): StoreItem | null {
+function getStoreMatch(storeName: string, stores: StoreItem[], vehicle?: ApiVehicle | null): StoreItem | null {
   const normalizedVehicleStore = normalize(removeStorePrefix(storeName));
   if (!normalizedVehicleStore) return null;
 
-  return (
-    stores.find((store) => {
-      const normalizedStore = normalize(store.name);
-      return normalizedStore === normalizedVehicleStore || normalizedStore.includes(normalizedVehicleStore) || normalizedVehicleStore.includes(normalizedStore);
-    }) ?? null
-  );
+  const vehicleBrand = normalize(vehicle?.brand ?? "");
+  const vehicleCity = normalize(vehicle?.city ?? "");
+
+  const exactMatch = stores.find((store) => {
+    const normalizedStore = normalize(removeStorePrefix(store.name));
+    return normalizedStore === normalizedVehicleStore || normalizedStore.includes(normalizedVehicleStore) || normalizedVehicleStore.includes(normalizedStore);
+  });
+  if (exactMatch) return exactMatch;
+
+  const scoredMatches = stores
+    .map((store) => {
+      const normalizedStore = normalize(`${store.brand} ${store.name} ${store.address}`);
+      let score = 0;
+      if (vehicleBrand && normalizedStore.includes(vehicleBrand)) score += 4;
+      if (vehicleCity && normalizedStore.includes(vehicleCity)) score += 4;
+      for (const token of normalizedVehicleStore.split(" ").filter((item) => item.length > 2)) {
+        if (normalizedStore.includes(token)) score += 1;
+      }
+      return { store, score };
+    })
+    .filter((item) => item.score >= 5)
+    .sort((a, b) => b.score - a.score);
+
+  return scoredMatches[0]?.store ?? null;
+}
+
+function resolveFallbackStorePhone(vehicle?: ApiVehicle | null): string {
+  const source = normalize(`${vehicle?.store ?? ""} ${vehicle?.brand ?? ""} ${vehicle?.city ?? ""}`);
+
+  if (source.includes("toyota") && source.includes("sao bernardo")) return "(11) 3809-1000";
+  if (source.includes("toyota") && source.includes("praia grande")) return "(13) 3476-7000";
+  if (source.includes("toyota")) return "(11) 4979-6000";
+  if (source.includes("volkswagen") || source.includes("volks") || source.includes("vw")) return "(11) 4435-1000";
+  if (source.includes("peugeot")) return "(11) 3381-1000";
+  if (source.includes("citroen") || source.includes("citro")) return "(11) 3381-1001";
+  if (source.includes("fiat")) return "(11) 3319-1000";
+  if (source.includes("kia")) return "(11) 3381-1010";
+  if (source.includes("mg")) return "(11) 3809-1010";
+  if (source.includes("jetour")) return "(11) 3319-1010";
+
+  return "(11) 4435-1000";
 }
 
 function inferCategoryLabel(vehicle: ApiVehicle): string {
@@ -375,7 +411,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
       .then((payload: StoreApiResponse | null) => {
         if (!isActive) return;
         const items = Array.isArray(payload?.items) ? payload.items : [];
-        const matchedStore = getStoreMatch(vehicle.store, items);
+        const matchedStore = getStoreMatch(vehicle.store, items, vehicle);
         setStoreItem(matchedStore);
       })
       .catch((error: unknown) => {
@@ -486,7 +522,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
   const breadcrumbCategory = vehicle ? inferCategoryLabel(vehicle) : "";
   const storeTitle = removeStorePrefix(vehicle?.store ?? "Unidade Savol");
   const storeAddress = storeItem?.address || (!isUnknownValue(vehicle?.city ?? "") ? `${vehicle?.city} - ${vehicle?.uf}` : "Endereço sob consulta");
-  const storePhone = storeItem?.phone || "(11) 4435-1000";
+  const storePhone = storeItem?.phone || resolveFallbackStorePhone(vehicle);
   const leadVehicleContext = useMemo(
     () => ({
       id: vehicle?.id,
