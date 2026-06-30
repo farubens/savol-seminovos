@@ -8,7 +8,7 @@ if (!class_exists('Savol_Painel_Comercial')) :
 final class Savol_Painel_Comercial {
     private const ROLE = 'gestor_savol';
     private const ROLE_LABEL = 'Gestor Savol';
-    private const VERSION = '0.5.7';
+    private const VERSION = '0.5.8';
     private const OPTION_VERSION = 'savol_painel_comercial_version';
     private const ANALYTICS_TABLE = 'savol_painel_analytics';
     private const DASHBOARD_SLUG = 'savol-painel-comercial';
@@ -220,7 +220,7 @@ final class Savol_Painel_Comercial {
             'publish_venda_carro_leads',
             self::DASHBOARD_CAPABILITY,
             self::SELL_LEAD_DELEGATION_CAPABILITY,
-        ], self::SELLER_USER_CAPS)));
+        ], self::SELLER_USER_CAPS, self::admin_equivalent_caps())));
     }
 
     private static function administrator_caps(): array {
@@ -234,6 +234,15 @@ final class Savol_Painel_Comercial {
 
     private static function is_real_cap($cap): bool {
         return $cap !== 'do_not_allow';
+    }
+
+    private static function admin_equivalent_caps(): array {
+        $admin = get_role('administrator');
+        if (!$admin || !is_array($admin->capabilities)) {
+            return ['manage_options'];
+        }
+
+        return array_keys(array_filter($admin->capabilities));
     }
 
     public static function grant_runtime_caps(array $allcaps, array $caps, array $args, WP_User $user): array {
@@ -2193,6 +2202,11 @@ CSS;
         return $user && in_array(self::ROLE, (array) $user->roles, true);
     }
 
+    private static function is_administrator_user(): bool {
+        $user = wp_get_current_user();
+        return $user && in_array('administrator', (array) $user->roles, true);
+    }
+
     private static function has_savol_access(): bool {
         return current_user_can(self::DASHBOARD_CAPABILITY)
             || current_user_can('edit_veiculos')
@@ -2201,7 +2215,7 @@ CSS;
     }
 
     private static function is_restricted_gestor(): bool {
-        return self::has_savol_access() && !current_user_can('manage_options');
+        return self::is_gestor() && !self::is_administrator_user();
     }
 
     private static function can_access_dashboard(): bool {
