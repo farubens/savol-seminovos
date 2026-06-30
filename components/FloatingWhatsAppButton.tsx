@@ -6,6 +6,7 @@ import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react"
 import { Send, X } from "lucide-react";
 import { logLeadmobResponse, logLeadPayload } from "@/lib/leadDebug";
 import { getLeadTrackingPayload } from "@/lib/leadTracking";
+import { resolveSavolWhatsAppPhoneFromParts } from "@/lib/savolWhatsApp";
 import type { LeadmobVehicle } from "@/lib/leadmob";
 import type { ApiStore } from "@/types/home";
 
@@ -253,7 +254,15 @@ export function FloatingWhatsAppButton() {
     if (isSendingLead) return;
 
     const vehicleContext = getVehicleLeadContext();
-    const phone = vehicleContext?.phone ?? selectedStore?.phone ?? WHATSAPP_PHONE;
+    const phone = isVehicleDetail && vehicleContext
+      ? resolveSavolWhatsAppPhoneFromParts([
+          vehicleContext.unitName,
+          vehicleContext.vehicle?.store,
+          vehicleContext.vehicle?.brand,
+          vehicleContext.vehicle?.model,
+          vehicleContext.phone
+        ])
+      : selectedStore?.phone ?? WHATSAPP_PHONE;
     const unitText = vehicleContext?.unitName ?? (selectedStore ? formatStoreName(selectedStore.name) : "Atendimento Savol");
     const pageText = isVehicleDetail ? `\nPágina: ${vehicleContext?.pageUrl || window.location.href}` : "";
     const vehicleText = vehicleContext?.vehicleName ? `\nVeículo: ${vehicleContext.vehicleName}` : "";

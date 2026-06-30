@@ -728,11 +728,13 @@ export function VehicleOfferCard({
         price,
         oldPrice: resolvedOldPrice,
         store,
+        image: safeImage,
+        gallery,
         url: toAbsoluteDetailUrl(detailUrl),
         molicar
       };
     },
-    [detailUrl, fuel, km, molicar, name, plate, price, resolvedOldPrice, store, subtitle, transmission, vehicleId, year]
+    [detailUrl, fuel, gallery, km, molicar, name, plate, price, resolvedOldPrice, safeImage, store, subtitle, transmission, vehicleId, year]
   );
 
   const handleProposalSubmit = async () => {

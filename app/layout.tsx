@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { FloatingWhatsAppButton } from "@/components/FloatingWhatsAppButton";
 import { PageTransition } from "@/components/PageTransition";
 import { SavolAccountProvider } from "@/components/SavolAccountProvider";
+import { SavolAnalyticsTracker } from "@/components/SavolAnalyticsTracker";
 import "leaflet/dist/leaflet.css";
 import "./globals.css";
 
@@ -24,6 +26,9 @@ export default function RootLayout({
       <body>
         <SavolAccountProvider>
           <PageTransition>{children}</PageTransition>
+          <Suspense fallback={null}>
+            <SavolAnalyticsTracker />
+          </Suspense>
           <FloatingWhatsAppButton />
         </SavolAccountProvider>
       </body>

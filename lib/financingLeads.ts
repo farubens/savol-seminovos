@@ -83,6 +83,36 @@ function cleanCpf(value: unknown): string {
   return onlyDigits(value).slice(0, 11);
 }
 
+function isTechnicalUnitId(value: unknown): boolean {
+  const text = String(value ?? "").trim();
+  return /^\d{4,}$/.test(text);
+}
+
+function cleanUnitName(value: unknown): string {
+  return String(value ?? "").replace(/^loja:\s*/i, "").trim();
+}
+
+function resolveFinancingUnitName(payload: FinancingLeadPayload): string {
+  const candidates = [
+    payload.unitName,
+    payload.vehicle?.store,
+    payload.meta?.unitName,
+    payload.meta?.unidade,
+    payload.meta?.store,
+    payload.meta?.store_name
+  ];
+
+  const namedCandidate = candidates
+    .map(cleanUnitName)
+    .find((value) => value.length > 0 && !isTechnicalUnitId(value));
+  if (namedCandidate) return namedCandidate;
+
+  const technicalId = candidates.find(isTechnicalUnitId);
+  if (technicalId) return "Savol Seminovos - Simulador Banco Volkswagen";
+
+  return "";
+}
+
 function normalizeFinancingPayload(payload: FinancingLeadPayload, context: FinancingLeadContext, protocol: string): LeadmobLeadInput {
   const fallbackTracking = trackingFromUrl(context.referer);
   const form = payload.form || "financiamento";
@@ -90,6 +120,7 @@ function normalizeFinancingPayload(payload: FinancingLeadPayload, context: Finan
   const cpf = cleanCpf(payload.cpf);
   const message = [payload.message, cpf ? `CPF: ${cpf}` : ""].filter(Boolean).join("\n");
   const submittedAt = new Date().toISOString();
+  const unitName = resolveFinancingUnitName(payload);
 
   return {
     ...payload,
@@ -98,6 +129,7 @@ function normalizeFinancingPayload(payload: FinancingLeadPayload, context: Finan
     subject,
     cpf,
     message,
+    unitName,
     utm: {
       ...(fallbackTracking.utm || {}),
       ...(payload.utm || {})
@@ -110,6 +142,8 @@ function normalizeFinancingPayload(payload: FinancingLeadPayload, context: Finan
       source_integration: context.sourceName || payload.meta?.source_integration,
       page_url: payload.meta?.page_url || fallbackTracking.meta?.page_url,
       user_agent: context.userAgent || payload.meta?.user_agent,
+      unit_name: unitName,
+      unit_technical_id: isTechnicalUnitId(payload.unitName) ? String(payload.unitName).trim() : payload.meta?.unit_technical_id,
       submitted_at: submittedAt
     }
   };

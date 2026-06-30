@@ -14,6 +14,8 @@ const DEFAULT_WP_BASE_URL =
   process.env.NODE_ENV === "production" ? "https://palevioletred-lark-270684.hostingersite.com" : "http://localhost/savol-seminovos-local";
 const WP_BASE_URL = (process.env.WP_BASE_URL?.trim() || DEFAULT_WP_BASE_URL).replace(/\/+$/, "");
 const WP_SELL_YOUR_CAR_ENDPOINT = `${WP_BASE_URL}/wp-json/savol/v1/venda-seu-carro`;
+const PUBLIC_SITE_ORIGIN = (process.env.NEXT_PUBLIC_SITE_URL?.trim() || "https://savolseminovos.com.br").replace(/\/+$/, "");
+const SELL_YOUR_CAR_PATH = "/venda-seu-carro";
 
 export const dynamic = "force-dynamic";
 
@@ -92,6 +94,26 @@ function validatePhotos(formData: FormData): string | null {
   return null;
 }
 
+function isLocalUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return ["localhost", "127.0.0.1", "::1"].includes(parsed.hostname);
+  } catch {
+    return value.includes("localhost") || value.includes("127.0.0.1");
+  }
+}
+
+function publicSellYourCarUrl(): string {
+  return `${PUBLIC_SITE_ORIGIN}${SELL_YOUR_CAR_PATH}`;
+}
+
+function normalizePageUrl(value: unknown): string {
+  const pageUrl = typeof value === "string" ? value.trim() : "";
+  if (!pageUrl || isLocalUrl(pageUrl)) return publicSellYourCarUrl();
+
+  return pageUrl;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
@@ -111,6 +133,17 @@ export async function POST(request: NextRequest) {
     const protocol = createProtocol();
     const seller = payload.seller;
     const vehicle = (payload.vehicle || {}) as Record<string, unknown>;
+    const normalizedPageUrl = normalizePageUrl(payload.source?.pageUrl || payload.meta?.page_url);
+    payload.source = {
+      ...(payload.source || {}),
+      pageUrl: normalizedPageUrl
+    };
+    payload.meta = {
+      ...(payload.meta || {}),
+      page_url: normalizedPageUrl
+    };
+    formData.set("payload", JSON.stringify(payload));
+
     const leadmobResult = await insertLeadmobLead({
       form: "venda-seu-carro",
       subject: "Venda seu carro",
@@ -125,7 +158,7 @@ export async function POST(request: NextRequest) {
       utm: payload.utm,
       meta: {
         ...(payload.meta || {}),
-        page_url: payload.source?.pageUrl || payload.meta?.page_url,
+        page_url: normalizedPageUrl,
         user_agent: payload.source?.userAgent || payload.meta?.user_agent,
         submitted_at: payload.source?.submittedAt || payload.meta?.submitted_at
       },

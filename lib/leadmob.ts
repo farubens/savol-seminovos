@@ -35,6 +35,8 @@ export type LeadmobVehicle = {
   city?: string;
   uf?: string;
   url?: string;
+  image?: string;
+  gallery?: string[];
   molicar?: string;
   subtitle?: string;
 };

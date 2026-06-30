@@ -6,12 +6,28 @@ if (!defined('ABSPATH')) {
 final class Savol_Veiculos_CPT {
     private const POST_TYPE = 'veiculo';
     private const SELL_YOUR_CAR_POST_TYPE = 'venda_carro_lead';
+    private const SELLER_ROLE = 'vendedor_savol';
+    private const SELLER_ROLE_LABEL = 'Vendedor Savol';
+    private const SELLER_CAPABILITY = 'savol_venda_seu_carro_vendedor';
+    private const SELLER_MENU_SLUG = 'savol-venda-seu-carro-vendedores';
+    private const SELLER_LEADS_MENU_SLUG = 'savol-vendedor-venda-seu-carro';
+    private const ASSIGNED_SELLER_META = '_savol_vsc_assigned_seller_id';
+    private const GESTOR_ROLE = 'gestor_savol';
+    private const MANAGE_DELEGATION_CAPABILITY = 'savol_manage_venda_seu_carro_delegation';
+    private const PUBLIC_SITE_URL = 'https://savolseminovos.com.br';
+    private const SELL_YOUR_CAR_PUBLIC_PATH = '/venda-seu-carro';
     private const NONCE_ACTION = 'savol_veiculos_save_meta';
     private const NONCE_NAME = 'savol_veiculos_nonce';
     private const AUTOSYNC_OPTION = 'savol_veiculos_autosync_token';
     private const AUTOSYNC_LAST_ERROR_OPTION = 'savol_veiculos_autosync_last_error';
     private const AUTOSYNC_PROGRESS_OPTION = 'savol_veiculos_autosync_progress';
     private const AUTOSYNC_ENDPOINT_OPTION = 'savol_veiculos_autosync_endpoint';
+    private const AUTOSYNC_ENTITY_IDS_OPTION = 'savol_veiculos_autosync_entity_ids';
+    private const AUTOSYNC_CNPJS_OPTION = 'savol_veiculos_autosync_cnpjs';
+    private const AUTOSYNC_LAST_API_CALL_OPTION = 'savol_veiculos_autosync_last_api_call';
+    private const AUTOSYNC_API_LOCK_OPTION = 'savol_veiculos_autosync_api_lock';
+    private const AUTOSYNC_API_MIN_INTERVAL = 180;
+    private const AUTOSYNC_API_LOCK_TTL = 180;
     private const AUTOSYNC_ENDPOINT_DEFAULT = 'https://sync-backend.autoavaliar.com.br/vehicle/stock';
     private const AUTOSYNC_BATCH_OPTION = 'savol_veiculos_autosync_batch';
     private const AUTOSYNC_BATCH_SIZE = 1;
@@ -195,6 +211,7 @@ final class Savol_Veiculos_CPT {
     }
 
     public static function init(): void {
+        add_action('init', [__CLASS__, 'sync_seller_role'], 30);
         add_action('init', [__CLASS__, 'register_post_type']);
         add_action('init', [__CLASS__, 'register_taxonomies']);
         add_action('init', [__CLASS__, 'register_meta']);
@@ -207,6 +224,11 @@ final class Savol_Veiculos_CPT {
         add_action('save_post_' . self::POST_TYPE, [__CLASS__, 'save_meta']);
         add_action('admin_enqueue_scripts', [__CLASS__, 'enqueue_admin_assets']);
         add_action('admin_menu', [__CLASS__, 'register_admin_menu']);
+        add_action('admin_init', [__CLASS__, 'restrict_seller_admin']);
+        add_action('admin_post_savol_vsc_create_seller', [__CLASS__, 'handle_create_seller']);
+        add_action('admin_post_savol_vsc_assign_lead', [__CLASS__, 'handle_assign_lead']);
+        add_action('admin_post_savol_vsc_email_lead', [__CLASS__, 'handle_email_lead']);
+        add_action('admin_post_savol_vsc_export_pdf', [__CLASS__, 'handle_export_pdf']);
         add_action('admin_post_savol_veiculos_save_autosync', [__CLASS__, 'handle_save_autosync']);
         add_action('admin_post_savol_veiculos_run_autosync', [__CLASS__, 'handle_run_autosync']);
         add_action('admin_post_savol_veiculos_refresh_unidades', [__CLASS__, 'handle_refresh_unidades']);
@@ -234,11 +256,39 @@ final class Savol_Veiculos_CPT {
         self::register_post_type();
         self::register_taxonomies();
         self::register_sell_your_car_api_alias();
+        self::sync_seller_role();
         flush_rewrite_rules();
     }
 
     public static function deactivate(): void {
         flush_rewrite_rules();
+    }
+
+    public static function sync_seller_role(): void {
+        $caps = [
+            'read' => true,
+            self::SELLER_CAPABILITY => true,
+        ];
+
+        $seller = get_role(self::SELLER_ROLE);
+        if (!$seller) {
+            add_role(self::SELLER_ROLE, self::SELLER_ROLE_LABEL, $caps);
+        } else {
+            foreach ($caps as $cap => $grant) {
+                $seller->add_cap($cap, $grant);
+            }
+        }
+
+        $admin = get_role('administrator');
+        if ($admin) {
+            $admin->add_cap(self::SELLER_CAPABILITY);
+            $admin->add_cap(self::MANAGE_DELEGATION_CAPABILITY);
+        }
+
+        $gestor = get_role(self::GESTOR_ROLE);
+        if ($gestor) {
+            $gestor->add_cap(self::MANAGE_DELEGATION_CAPABILITY);
+        }
     }
 
     public static function register_post_type(): void {
@@ -367,6 +417,15 @@ final class Savol_Veiculos_CPT {
             'normal',
             'high'
         );
+
+        add_meta_box(
+            'savol_venda_carro_delegacao',
+            'Delegacao comercial',
+            [__CLASS__, 'render_sell_your_car_assignment_meta_box'],
+            self::SELL_YOUR_CAR_POST_TYPE,
+            'side',
+            'high'
+        );
     }
 
     public static function render_meta_box(\WP_Post $post): void {
@@ -477,6 +536,42 @@ final class Savol_Veiculos_CPT {
         }
     }
 
+    public static function render_sell_your_car_assignment_meta_box(\WP_Post $post): void {
+        if (!self::can_manage_sell_your_car_delegation()) {
+            echo '<p>Sem permissao para delegar este lead.</p>';
+            return;
+        }
+
+        $assigned_id = absint(get_post_meta($post->ID, self::ASSIGNED_SELLER_META, true));
+        $sellers = self::get_sellers();
+        ?>
+        <p><strong>Vendedor responsavel</strong></p>
+        <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+            <input type="hidden" name="action" value="savol_vsc_assign_lead">
+            <input type="hidden" name="lead_id" value="<?php echo esc_attr((string) $post->ID); ?>">
+            <?php wp_nonce_field('savol_vsc_assign_lead_' . (int) $post->ID); ?>
+            <p>
+                <select name="seller_id" style="width:100%;" required>
+                    <option value="">Selecione</option>
+                    <?php foreach ($sellers as $seller) : ?>
+                        <option value="<?php echo esc_attr((string) $seller->ID); ?>" <?php selected($assigned_id, (int) $seller->ID); ?>>
+                            <?php echo esc_html($seller->display_name . ' - ' . $seller->user_email); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </p>
+            <p><label><input type="checkbox" name="send_email" value="1" checked> Enviar e-mail com PDF</label></p>
+            <p><button type="submit" class="button button-primary" style="width:100%;">Salvar delegacao</button></p>
+        </form>
+        <hr>
+        <?php if ($assigned_id > 0) : ?>
+            <p><a class="button" style="width:100%;text-align:center;" href="<?php echo esc_url(self::lead_email_url((int) $post->ID)); ?>">Enviar e-mail novamente</a></p>
+        <?php endif; ?>
+        <p><a class="button" style="width:100%;text-align:center;" target="_blank" href="<?php echo esc_url(self::lead_pdf_url((int) $post->ID)); ?>">Exportar PDF</a></p>
+        <p><a href="<?php echo esc_url(self::sellers_admin_url()); ?>">Gerenciar vendedores</a></p>
+        <?php
+    }
+
     public static function register_sell_your_car_columns(array $columns): array {
         return [
             'cb' => $columns['cb'] ?? '',
@@ -484,6 +579,7 @@ final class Savol_Veiculos_CPT {
             'savol_vsc_protocol' => 'Protocolo',
             'savol_vsc_seller' => 'Vendedor',
             'savol_vsc_vehicle' => 'Veículo',
+            'savol_vsc_assigned_seller' => 'Responsavel',
             'savol_vsc_received_at' => 'Recebido em',
             'date' => $columns['date'] ?? 'Data',
         ];
@@ -515,6 +611,13 @@ final class Savol_Veiculos_CPT {
 
         if ($column === 'savol_vsc_received_at') {
             echo esc_html((string) get_post_meta($post_id, 'savol_vsc_received_at', true));
+            return;
+        }
+
+        if ($column === 'savol_vsc_assigned_seller') {
+            $seller_id = absint(get_post_meta($post_id, self::ASSIGNED_SELLER_META, true));
+            $seller = $seller_id > 0 ? get_user_by('id', $seller_id) : null;
+            echo $seller ? esc_html($seller->display_name) : '<span style="color:#777;">Nao delegado</span>';
         }
     }
 
@@ -779,7 +882,7 @@ final class Savol_Veiculos_CPT {
             'savol_vsc_consent_terms' => !empty($consents['acceptedTerms']) ? '1' : '0',
             'savol_vsc_consent_lgpd' => !empty($consents['acceptedLgpd']) ? '1' : '0',
             'savol_vsc_consent_accepted_at' => $consents['acceptedAt'] ?? '',
-            'savol_vsc_source_page_url' => $source['pageUrl'] ?? '',
+            'savol_vsc_source_page_url' => self::normalize_public_page_url((string) ($source['pageUrl'] ?? '')),
             'savol_vsc_source_channel' => $source['channel'] ?? '',
             'savol_vsc_source_user_agent' => $source['userAgent'] ?? '',
             'savol_vsc_source_submitted_at' => $source['submittedAt'] ?? '',
@@ -788,6 +891,23 @@ final class Savol_Veiculos_CPT {
         foreach ($meta as $key => $value) {
             update_post_meta($post_id, $key, sanitize_text_field((string) $value));
         }
+    }
+
+    private static function normalize_public_page_url(string $url): string {
+        $url = trim($url);
+        $fallback = self::PUBLIC_SITE_URL . self::SELL_YOUR_CAR_PUBLIC_PATH;
+
+        if ($url === '') {
+            return $fallback;
+        }
+
+        $host = wp_parse_url($url, PHP_URL_HOST);
+        $host = is_string($host) ? strtolower($host) : '';
+        if (in_array($host, ['localhost', '127.0.0.1', '::1'], true) || str_contains(strtolower($url), 'localhost')) {
+            return $fallback;
+        }
+
+        return $url;
     }
 
     private static function sell_your_car_photo_fields(): array {
@@ -977,10 +1097,15 @@ final class Savol_Veiculos_CPT {
         $taxonomy = isset($_GET['taxonomy']) ? sanitize_key((string) $_GET['taxonomy']) : '';
 
         $is_veiculo_post_screen = ($hook === 'post.php' || $hook === 'post-new.php') && $post_type === self::POST_TYPE;
+        $is_sell_your_car_post_screen = ($hook === 'post.php' || $hook === 'post-new.php') && $post_type === self::SELL_YOUR_CAR_POST_TYPE;
         $is_tax_screen = ($hook === 'edit-tags.php' || $hook === 'term.php') && in_array($taxonomy, ['veiculo_cor', 'veiculo_marca'], true);
         $is_autosync_screen = $hook === 'veiculo_page_savol-veiculos-autosync';
+        $is_seller_screen = in_array($hook, [
+            self::SELL_YOUR_CAR_POST_TYPE . '_page_' . self::SELLER_MENU_SLUG,
+            'toplevel_page_' . self::SELLER_LEADS_MENU_SLUG,
+        ], true);
 
-        if (!$is_veiculo_post_screen && !$is_tax_screen && !$is_autosync_screen) {
+        if (!$is_veiculo_post_screen && !$is_sell_your_car_post_screen && !$is_tax_screen && !$is_autosync_screen && !$is_seller_screen) {
             return;
         }
 
@@ -1052,6 +1177,35 @@ final class Savol_Veiculos_CPT {
                 object-fit: cover;
                 border-radius: 4px;
                 border: 1px solid #dcdcde;
+            }
+            .savol-vsc-admin {
+                max-width: 1280px;
+            }
+            .savol-vsc-cards {
+                display: grid;
+                gap: 18px;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                margin: 18px 0;
+            }
+            .savol-vsc-card {
+                background: #fff;
+                border: 1px solid #dcdcde;
+                border-radius: 8px;
+                box-shadow: 0 8px 20px rgba(15, 23, 42, .05);
+                padding: 18px;
+            }
+            .savol-vsc-card h2 {
+                margin-top: 0;
+            }
+            .savol-vsc-card select,
+            .savol-vsc-card input.regular-text {
+                max-width: 100%;
+                width: 100%;
+            }
+            @media (max-width: 900px) {
+                .savol-vsc-cards {
+                    grid-template-columns: 1fr;
+                }
             }
         ';
 
@@ -1229,6 +1383,29 @@ JS;
     }
 
     public static function register_admin_menu(): void {
+        if (self::is_seller()) {
+            add_menu_page(
+                'Meus leads',
+                'Venda Seu Carro',
+                self::SELLER_CAPABILITY,
+                self::SELLER_LEADS_MENU_SLUG,
+                [__CLASS__, 'render_seller_leads_page'],
+                'dashicons-id',
+                27
+            );
+        }
+
+        if (self::can_manage_sell_your_car_delegation()) {
+            add_submenu_page(
+                'edit.php?post_type=' . self::SELL_YOUR_CAR_POST_TYPE,
+                'Vendedores',
+                'Vendedores',
+                'read',
+                self::SELLER_MENU_SLUG,
+                [__CLASS__, 'render_sellers_page']
+            );
+        }
+
         add_submenu_page(
             'edit.php?post_type=' . self::POST_TYPE,
             'AutoSync',
@@ -1237,6 +1414,601 @@ JS;
             'savol-veiculos-autosync',
             [__CLASS__, 'render_autosync_page']
         );
+    }
+
+    public static function restrict_seller_admin(): void {
+        $script = basename((string) ($_SERVER['PHP_SELF'] ?? ''));
+        if ($script === 'admin.php') {
+            $page = isset($_GET['page']) ? sanitize_text_field((string) wp_unslash($_GET['page'])) : '';
+            if ($page === self::SELLER_MENU_SLUG && self::can_manage_sell_your_car_delegation()) {
+                wp_safe_redirect(self::sellers_admin_url());
+                exit;
+            }
+        }
+
+        if (!self::is_seller() || current_user_can('manage_options') || wp_doing_ajax()) {
+            return;
+        }
+
+        if (in_array($script, ['admin-ajax.php', 'async-upload.php'], true)) {
+            return;
+        }
+
+        if ($script === 'index.php') {
+            wp_safe_redirect(admin_url('admin.php?page=' . self::SELLER_LEADS_MENU_SLUG));
+            exit;
+        }
+
+        if ($script === 'admin.php') {
+            if (isset($_GET['page']) && sanitize_text_field((string) wp_unslash($_GET['page'])) === self::SELLER_LEADS_MENU_SLUG) {
+                return;
+            }
+        }
+
+        if ($script === 'admin-post.php') {
+            $action = isset($_REQUEST['action']) ? sanitize_key((string) wp_unslash($_REQUEST['action'])) : '';
+            if (in_array($action, ['savol_vsc_export_pdf'], true)) {
+                return;
+            }
+        }
+
+        wp_die('Acesso restrito aos leads delegados.', 'Venda Seu Carro', ['response' => 403]);
+    }
+
+    public static function render_sellers_page(): void {
+        if (!self::can_manage_sell_your_car_delegation()) {
+            wp_die('Sem permissao.');
+        }
+
+        $message = isset($_GET['savol_msg']) ? sanitize_text_field((string) wp_unslash($_GET['savol_msg'])) : '';
+        $sellers = self::get_sellers();
+        $leads = self::get_sell_your_car_leads();
+        ?>
+        <div class="wrap savol-vsc-admin">
+            <h1>Venda Seu Carro - Vendedores</h1>
+            <?php if ($message !== '') : ?>
+                <div class="notice notice-success is-dismissible"><p><?php echo esc_html(self::seller_notice_label($message)); ?></p></div>
+            <?php endif; ?>
+
+            <div class="savol-vsc-cards">
+                <div class="savol-vsc-card">
+                    <h2>Criar vendedor</h2>
+                    <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                        <input type="hidden" name="action" value="savol_vsc_create_seller">
+                        <?php wp_nonce_field('savol_vsc_create_seller'); ?>
+                        <p><label>Nome<br><input class="regular-text" type="text" name="seller_name" required></label></p>
+                        <p><label>E-mail<br><input class="regular-text" type="email" name="seller_email" required></label></p>
+                        <p><label>Senha inicial<br><input class="regular-text" type="text" name="seller_password" placeholder="Gerar automaticamente se vazio"></label></p>
+                        <p><button type="submit" class="button button-primary">Criar vendedor</button></p>
+                    </form>
+                </div>
+
+                <div class="savol-vsc-card">
+                    <h2>Delegar lead</h2>
+                    <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                        <input type="hidden" name="action" value="savol_vsc_assign_lead">
+                        <?php wp_nonce_field('savol_vsc_assign_lead_0'); ?>
+                        <p>
+                            <label>Lead<br>
+                                <select name="lead_id" required>
+                                    <option value="">Selecione</option>
+                                    <?php foreach ($leads as $lead) : ?>
+                                        <option value="<?php echo esc_attr((string) $lead->ID); ?>"><?php echo esc_html(self::lead_short_label((int) $lead->ID)); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </label>
+                        </p>
+                        <p>
+                            <label>Vendedor<br>
+                                <select name="seller_id" required>
+                                    <option value="">Selecione</option>
+                                    <?php foreach ($sellers as $seller) : ?>
+                                        <option value="<?php echo esc_attr((string) $seller->ID); ?>"><?php echo esc_html($seller->display_name . ' - ' . $seller->user_email); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </label>
+                        </p>
+                        <p><label><input type="checkbox" name="send_email" value="1" checked> Enviar e-mail com PDF ao vendedor</label></p>
+                        <p><button type="submit" class="button button-primary">Delegar lead</button></p>
+                    </form>
+                </div>
+            </div>
+
+            <div class="savol-vsc-card">
+                <h2>Leads recebidos</h2>
+                <?php self::render_assignment_table($leads); ?>
+            </div>
+        </div>
+        <?php
+    }
+
+    public static function render_seller_leads_page(): void {
+        if (!self::is_seller()) {
+            wp_die('Sem permissao.');
+        }
+
+        $lead_id = isset($_GET['lead_id']) ? absint($_GET['lead_id']) : 0;
+        $leads = self::get_assigned_leads(get_current_user_id());
+        ?>
+        <div class="wrap savol-vsc-admin">
+            <h1>Meus leads - Venda Seu Carro</h1>
+
+            <?php if ($lead_id > 0 && self::can_view_assigned_lead($lead_id)) : ?>
+                <div class="savol-vsc-card">
+                    <h2><?php echo esc_html(self::lead_short_label($lead_id)); ?></h2>
+                    <p><a class="button button-primary" target="_blank" href="<?php echo esc_url(self::lead_pdf_url($lead_id)); ?>">Exportar PDF</a></p>
+                    <?php self::render_lead_details($lead_id); ?>
+                </div>
+            <?php endif; ?>
+
+            <div class="savol-vsc-card">
+                <h2>Leads delegados para voce</h2>
+                <?php if (empty($leads)) : ?>
+                    <p>Nenhum lead delegado ainda.</p>
+                <?php else : ?>
+                    <table class="widefat striped">
+                        <thead><tr><th>Lead</th><th>Cliente</th><th>Veiculo</th><th>Recebido</th><th></th></tr></thead>
+                        <tbody>
+                            <?php foreach ($leads as $lead) : ?>
+                                <tr>
+                                    <td><?php echo esc_html((string) get_post_meta($lead->ID, 'savol_vsc_protocol', true)); ?></td>
+                                    <td><?php echo esc_html((string) get_post_meta($lead->ID, 'savol_vsc_seller_full_name', true)); ?></td>
+                                    <td><?php echo esc_html(self::lead_vehicle_label((int) $lead->ID)); ?></td>
+                                    <td><?php echo esc_html(get_the_date('d/m/Y H:i', $lead)); ?></td>
+                                    <td><a class="button button-small" href="<?php echo esc_url(admin_url('admin.php?page=' . self::SELLER_LEADS_MENU_SLUG . '&lead_id=' . (int) $lead->ID)); ?>">Ver</a></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                <?php endif; ?>
+            </div>
+        </div>
+        <?php
+    }
+
+    public static function handle_create_seller(): void {
+        if (!self::can_manage_sell_your_car_delegation()) {
+            wp_die('Sem permissao.');
+        }
+        check_admin_referer('savol_vsc_create_seller');
+
+        $name = sanitize_text_field((string) wp_unslash($_POST['seller_name'] ?? ''));
+        $email = sanitize_email((string) wp_unslash($_POST['seller_email'] ?? ''));
+        $password = sanitize_text_field((string) wp_unslash($_POST['seller_password'] ?? ''));
+
+        if ($email === '' || !is_email($email)) {
+            self::redirect_sellers('email_invalido');
+        }
+        if ($password === '') {
+            $password = wp_generate_password(14, true);
+        }
+
+        $user_id = email_exists($email);
+        if (!$user_id) {
+            $email_parts = explode('@', $email);
+            $username = sanitize_user((string) ($email_parts[0] ?? 'vendedor'), true);
+            if ($username === '') {
+                $username = 'vendedor_' . wp_generate_password(6, false, false);
+            }
+            $base_username = $username;
+            $suffix = 1;
+            while (username_exists($username)) {
+                $username = $base_username . '_' . $suffix;
+                $suffix++;
+            }
+            $user_id = wp_create_user($username, $password, $email);
+        }
+
+        if (is_wp_error($user_id)) {
+            self::redirect_sellers('erro_usuario');
+        }
+
+        $user = get_user_by('id', (int) $user_id);
+        if ($user) {
+            $user->set_role(self::SELLER_ROLE);
+            wp_update_user([
+                'ID' => (int) $user_id,
+                'display_name' => $name !== '' ? $name : $email,
+                'first_name' => $name,
+            ]);
+        }
+
+        self::redirect_sellers('vendedor_salvo');
+    }
+
+    public static function handle_assign_lead(): void {
+        if (!self::can_manage_sell_your_car_delegation()) {
+            wp_die('Sem permissao.');
+        }
+
+        $lead_id = absint($_POST['lead_id'] ?? 0);
+        $nonce = isset($_POST['_wpnonce']) ? sanitize_text_field((string) wp_unslash($_POST['_wpnonce'])) : '';
+        if (!wp_verify_nonce($nonce, 'savol_vsc_assign_lead_' . $lead_id) && !wp_verify_nonce($nonce, 'savol_vsc_assign_lead_0')) {
+            wp_die('Nonce invalido.');
+        }
+
+        $seller_id = absint($_POST['seller_id'] ?? 0);
+        if (!self::is_sell_your_car_lead($lead_id) || !self::is_seller_user($seller_id)) {
+            self::redirect_sellers('dados_invalidos');
+        }
+
+        update_post_meta($lead_id, self::ASSIGNED_SELLER_META, $seller_id);
+        if (!empty($_POST['send_email'])) {
+            self::send_lead_email($lead_id, $seller_id);
+        }
+
+        self::redirect_sellers('lead_delegado');
+    }
+
+    public static function handle_email_lead(): void {
+        $lead_id = isset($_GET['lead_id']) ? absint($_GET['lead_id']) : 0;
+        if (!self::can_manage_sell_your_car_delegation()) {
+            wp_die('Sem permissao.');
+        }
+        check_admin_referer('savol_vsc_email_lead_' . $lead_id);
+
+        $seller_id = absint(get_post_meta($lead_id, self::ASSIGNED_SELLER_META, true));
+        if ($seller_id <= 0 || !self::send_lead_email($lead_id, $seller_id)) {
+            self::redirect_sellers('email_erro');
+        }
+        self::redirect_sellers('email_enviado');
+    }
+
+    public static function handle_export_pdf(): void {
+        $lead_id = isset($_GET['lead_id']) ? absint($_GET['lead_id']) : 0;
+        if (!self::can_manage_sell_your_car_delegation() && !self::can_view_assigned_lead($lead_id)) {
+            wp_die('Sem permissao.');
+        }
+        check_admin_referer('savol_vsc_pdf_' . $lead_id);
+
+        nocache_headers();
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: attachment; filename="lead-venda-seu-carro-' . $lead_id . '.pdf"');
+        echo self::generate_lead_pdf($lead_id);
+        exit;
+    }
+
+    private static function redirect_sellers(string $message): void {
+        wp_safe_redirect(self::sellers_admin_url(['savol_msg' => $message]));
+        exit;
+    }
+
+    private static function sellers_admin_url(array $args = []): string {
+        $query = array_merge([
+            'post_type' => self::SELL_YOUR_CAR_POST_TYPE,
+            'page' => self::SELLER_MENU_SLUG,
+        ], $args);
+
+        return add_query_arg($query, admin_url('edit.php'));
+    }
+
+    private static function seller_notice_label(string $message): string {
+        $labels = [
+            'vendedor_salvo' => 'Vendedor salvo com acesso restrito.',
+            'lead_delegado' => 'Lead delegado com sucesso.',
+            'email_enviado' => 'E-mail enviado ao vendedor.',
+            'email_invalido' => 'Informe um e-mail valido.',
+            'erro_usuario' => 'Nao foi possivel criar ou atualizar o vendedor.',
+            'dados_invalidos' => 'Selecione um lead e um vendedor validos.',
+            'email_erro' => 'Nao foi possivel enviar o e-mail.',
+        ];
+
+        return $labels[$message] ?? 'Operacao concluida.';
+    }
+
+    private static function get_sellers(): array {
+        return get_users([
+            'role' => self::SELLER_ROLE,
+            'orderby' => 'display_name',
+            'order' => 'ASC',
+        ]);
+    }
+
+    private static function get_sell_your_car_leads(): array {
+        return get_posts([
+            'post_type' => self::SELL_YOUR_CAR_POST_TYPE,
+            'post_status' => ['publish', 'draft', 'private', 'pending'],
+            'posts_per_page' => 200,
+            'orderby' => 'date',
+            'order' => 'DESC',
+            'no_found_rows' => true,
+        ]);
+    }
+
+    private static function get_assigned_leads(int $seller_id): array {
+        if ($seller_id <= 0) {
+            return [];
+        }
+
+        return get_posts([
+            'post_type' => self::SELL_YOUR_CAR_POST_TYPE,
+            'post_status' => ['publish', 'draft', 'private', 'pending'],
+            'posts_per_page' => 200,
+            'orderby' => 'date',
+            'order' => 'DESC',
+            'no_found_rows' => true,
+            'meta_query' => [
+                [
+                    'key' => self::ASSIGNED_SELLER_META,
+                    'value' => (string) $seller_id,
+                    'compare' => '=',
+                ],
+            ],
+        ]);
+    }
+
+    private static function render_assignment_table(array $leads): void {
+        if (empty($leads)) {
+            echo '<p>Nenhum lead encontrado.</p>';
+            return;
+        }
+        ?>
+        <table class="widefat striped">
+            <thead><tr><th>Lead</th><th>Cliente</th><th>Veiculo</th><th>Responsavel</th><th>Acoes</th></tr></thead>
+            <tbody>
+                <?php foreach ($leads as $lead) : ?>
+                    <?php
+                    $seller_id = absint(get_post_meta($lead->ID, self::ASSIGNED_SELLER_META, true));
+                    $seller = $seller_id > 0 ? get_user_by('id', $seller_id) : null;
+                    ?>
+                    <tr>
+                        <td><?php echo esc_html(self::lead_short_label((int) $lead->ID)); ?></td>
+                        <td><?php echo esc_html((string) get_post_meta($lead->ID, 'savol_vsc_seller_full_name', true)); ?></td>
+                        <td><?php echo esc_html(self::lead_vehicle_label((int) $lead->ID)); ?></td>
+                        <td><?php echo $seller ? esc_html($seller->display_name . ' - ' . $seller->user_email) : '<span style="color:#777;">Nao delegado</span>'; ?></td>
+                        <td>
+                            <a class="button button-small" href="<?php echo esc_url(get_edit_post_link((int) $lead->ID, '')); ?>">Abrir</a>
+                            <?php if ($seller) : ?>
+                                <a class="button button-small" href="<?php echo esc_url(self::lead_email_url((int) $lead->ID)); ?>">Enviar e-mail</a>
+                            <?php endif; ?>
+                            <a class="button button-small" target="_blank" href="<?php echo esc_url(self::lead_pdf_url((int) $lead->ID)); ?>">PDF</a>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+        <?php
+    }
+
+    private static function render_lead_details(int $lead_id): void {
+        foreach (self::lead_sections($lead_id) as $title => $items) {
+            echo '<h2>' . esc_html($title) . '</h2>';
+            echo '<table class="widefat striped"><tbody>';
+            foreach ($items as $label => $value) {
+                echo '<tr><th style="width:190px;">' . esc_html($label) . '</th><td>' . esc_html($value !== '' ? $value : '-') . '</td></tr>';
+            }
+            echo '</tbody></table>';
+        }
+    }
+
+    private static function lead_sections(int $lead_id): array {
+        return [
+            'Resumo' => [
+                'Protocolo' => (string) get_post_meta($lead_id, 'savol_vsc_protocol', true),
+                'Recebido em' => (string) get_post_meta($lead_id, 'savol_vsc_received_at', true),
+                'Origem' => (string) get_post_meta($lead_id, 'savol_vsc_source_channel', true),
+                'Pagina' => self::normalize_public_page_url((string) get_post_meta($lead_id, 'savol_vsc_source_page_url', true)),
+            ],
+            'Cliente' => [
+                'Nome' => (string) get_post_meta($lead_id, 'savol_vsc_seller_full_name', true),
+                'E-mail' => (string) get_post_meta($lead_id, 'savol_vsc_seller_email', true),
+                'Telefone' => (string) get_post_meta($lead_id, 'savol_vsc_seller_phone', true),
+                'CPF' => (string) get_post_meta($lead_id, 'savol_vsc_seller_cpf', true),
+                'WhatsApp' => (string) get_post_meta($lead_id, 'savol_vsc_seller_whatsapp', true),
+                'Cidade/UF' => trim((string) get_post_meta($lead_id, 'savol_vsc_seller_city', true) . ' / ' . (string) get_post_meta($lead_id, 'savol_vsc_seller_state', true), ' /'),
+                'Preferencia de contato' => (string) get_post_meta($lead_id, 'savol_vsc_seller_contact_period', true),
+                'Canal de contato' => (string) get_post_meta($lead_id, 'savol_vsc_seller_contact_channel', true),
+            ],
+            'Veiculo' => [
+                'Marca' => (string) get_post_meta($lead_id, 'savol_vsc_vehicle_brand', true),
+                'Modelo' => (string) get_post_meta($lead_id, 'savol_vsc_vehicle_model', true),
+                'Versao' => (string) get_post_meta($lead_id, 'savol_vsc_vehicle_version', true),
+                'Placa' => (string) get_post_meta($lead_id, 'savol_vsc_vehicle_plate', true),
+                'Ano' => (string) get_post_meta($lead_id, 'savol_vsc_vehicle_year', true),
+                'Ano modelo' => (string) get_post_meta($lead_id, 'savol_vsc_vehicle_model_year', true),
+                'KM' => (string) get_post_meta($lead_id, 'savol_vsc_vehicle_km', true),
+                'Cambio' => (string) get_post_meta($lead_id, 'savol_vsc_vehicle_transmission', true),
+                'Combustivel' => (string) get_post_meta($lead_id, 'savol_vsc_vehicle_fuel', true),
+                'Cor' => (string) get_post_meta($lead_id, 'savol_vsc_vehicle_color', true),
+                'Preco desejado' => (string) get_post_meta($lead_id, 'savol_vsc_vehicle_desired_price', true),
+                'Observacoes' => (string) get_post_meta($lead_id, 'savol_vsc_vehicle_notes', true),
+            ],
+        ];
+    }
+
+    private static function lead_short_label(int $lead_id): string {
+        $protocol = trim((string) get_post_meta($lead_id, 'savol_vsc_protocol', true));
+        $client = trim((string) get_post_meta($lead_id, 'savol_vsc_seller_full_name', true));
+        $vehicle = self::lead_vehicle_label($lead_id);
+        return trim(($protocol !== '' ? $protocol . ' - ' : '') . ($client !== '' ? $client . ' - ' : '') . $vehicle, ' -');
+    }
+
+    private static function lead_vehicle_label(int $lead_id): string {
+        $parts = array_filter([
+            (string) get_post_meta($lead_id, 'savol_vsc_vehicle_brand', true),
+            (string) get_post_meta($lead_id, 'savol_vsc_vehicle_model', true),
+            (string) get_post_meta($lead_id, 'savol_vsc_vehicle_model_year', true) ?: (string) get_post_meta($lead_id, 'savol_vsc_vehicle_year', true),
+        ]);
+
+        return !empty($parts) ? implode(' ', $parts) : get_the_title($lead_id);
+    }
+
+    private static function lead_email_url(int $lead_id): string {
+        return wp_nonce_url(admin_url('admin-post.php?action=savol_vsc_email_lead&lead_id=' . $lead_id), 'savol_vsc_email_lead_' . $lead_id);
+    }
+
+    private static function lead_pdf_url(int $lead_id): string {
+        return wp_nonce_url(admin_url('admin-post.php?action=savol_vsc_export_pdf&lead_id=' . $lead_id), 'savol_vsc_pdf_' . $lead_id);
+    }
+
+    private static function send_lead_email(int $lead_id, int $seller_id): bool {
+        $seller = get_user_by('id', $seller_id);
+        if (!$seller || !is_email($seller->user_email) || !self::is_sell_your_car_lead($lead_id)) {
+            return false;
+        }
+
+        $temp_pdf = wp_tempnam('lead-venda-seu-carro-' . $lead_id . '.pdf');
+        $attachments = [];
+        if ($temp_pdf) {
+            file_put_contents($temp_pdf, self::generate_lead_pdf($lead_id));
+            $attachments[] = $temp_pdf;
+        }
+
+        $sent = wp_mail(
+            $seller->user_email,
+            'Novo lead Venda Seu Carro: ' . self::lead_vehicle_label($lead_id),
+            self::lead_email_html($lead_id, $seller),
+            ['Content-Type: text/html; charset=UTF-8'],
+            $attachments
+        );
+
+        if ($temp_pdf && file_exists($temp_pdf)) {
+            unlink($temp_pdf);
+        }
+
+        return $sent;
+    }
+
+    private static function lead_email_html(int $lead_id, \WP_User $seller): string {
+        $detail_url = admin_url('admin.php?page=' . self::SELLER_LEADS_MENU_SLUG . '&lead_id=' . $lead_id);
+        ob_start();
+        ?>
+        <div style="font-family:Arial,sans-serif;background:#f1f5f9;padding:24px;color:#0f172a">
+            <div style="max-width:720px;margin:0 auto;background:#fff;border:1px solid #dbe4ef;border-radius:12px;overflow:hidden">
+                <div style="background:#111827;color:#fff;padding:22px 26px">
+                    <p style="margin:0 0 6px;color:#93c5fd;font-size:12px;font-weight:700;text-transform:uppercase">Savol Seminovos</p>
+                    <h1 style="margin:0;font-size:24px">Novo lead Venda Seu Carro</h1>
+                </div>
+                <div style="padding:24px 26px">
+                    <p>Ola, <?php echo esc_html($seller->display_name); ?>. Um lead foi delegado para seu acompanhamento.</p>
+                    <h2 style="font-size:18px"><?php echo esc_html(self::lead_short_label($lead_id)); ?></h2>
+                    <?php foreach (self::lead_sections($lead_id) as $title => $items) : ?>
+                        <h3 style="font-size:15px;margin:20px 0 8px;color:#1d4ed8"><?php echo esc_html($title); ?></h3>
+                        <table style="width:100%;border-collapse:collapse">
+                            <?php foreach ($items as $label => $value) : ?>
+                                <tr>
+                                    <td style="border-top:1px solid #e2e8f0;padding:8px 0;color:#64748b;width:38%"><?php echo esc_html($label); ?></td>
+                                    <td style="border-top:1px solid #e2e8f0;padding:8px 0;font-weight:700"><?php echo esc_html($value !== '' ? $value : '-'); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </table>
+                    <?php endforeach; ?>
+                    <p style="margin-top:24px"><a href="<?php echo esc_url($detail_url); ?>" style="background:#2563eb;color:#fff;text-decoration:none;border-radius:8px;padding:12px 16px;font-weight:700;display:inline-block">Abrir no painel</a></p>
+                </div>
+            </div>
+        </div>
+        <?php
+        return (string) ob_get_clean();
+    }
+
+    private static function generate_lead_pdf(int $lead_id): string {
+        $lines = [
+            ['Savol Seminovos', 22],
+            ['Lead Venda Seu Carro', 14],
+            [self::lead_short_label($lead_id), 12],
+            ['', 10],
+        ];
+
+        foreach (self::lead_sections($lead_id) as $title => $items) {
+            $lines[] = [$title, 14];
+            foreach ($items as $label => $value) {
+                foreach (self::wrap_pdf_text($label . ': ' . ($value !== '' ? $value : '-'), 92) as $wrapped) {
+                    $lines[] = [$wrapped, 10];
+                }
+            }
+            $lines[] = ['', 6];
+        }
+
+        return self::simple_pdf($lines);
+    }
+
+    private static function wrap_pdf_text(string $text, int $limit): array {
+        $text = self::pdf_clean_text($text);
+        return strlen($text) <= $limit ? [$text] : explode("\n", wordwrap($text, $limit, "\n", true));
+    }
+
+    private static function simple_pdf(array $lines): string {
+        $content = "0.92 0.95 0.99 rg\n0 0 595 842 re f\n0.07 0.09 0.16 rg\n0 770 595 72 re f\n";
+        $y = 804;
+        foreach ($lines as $line) {
+            [$text, $size] = $line;
+            if ($text === '') {
+                $y -= max(8, (int) $size);
+                continue;
+            }
+            if ($y < 54) {
+                break;
+            }
+            $x = ((int) $size >= 14 && $y > 760) ? 44 : 54;
+            $color = $y > 760 ? '1 1 1 rg' : (((int) $size >= 14) ? '0.10 0.22 0.46 rg' : '0.10 0.12 0.18 rg');
+            $content .= $color . "\nBT /F1 " . (int) $size . " Tf {$x} {$y} Td (" . self::pdf_escape($text) . ") Tj ET\n";
+            $y -= ((int) $size >= 14) ? 22 : 15;
+        }
+        $content .= "0.64 0.70 0.78 rg\nBT /F1 9 Tf 54 28 Td (Documento gerado pelo plugin Venda Seu Carro) Tj ET\n";
+
+        $objects = [
+            "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n",
+            "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
+            "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>\nendobj\n",
+            "4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n",
+            "5 0 obj\n<< /Length " . strlen($content) . " >>\nstream\n{$content}\nendstream\nendobj\n",
+        ];
+        $pdf = "%PDF-1.4\n";
+        $offsets = [0];
+        foreach ($objects as $object) {
+            $offsets[] = strlen($pdf);
+            $pdf .= $object;
+        }
+        $xref = strlen($pdf);
+        $pdf .= "xref\n0 " . (count($objects) + 1) . "\n0000000000 65535 f \n";
+        for ($i = 1; $i <= count($objects); $i++) {
+            $pdf .= sprintf("%010d 00000 n \n", $offsets[$i]);
+        }
+        $pdf .= "trailer\n<< /Size " . (count($objects) + 1) . " /Root 1 0 R >>\nstartxref\n{$xref}\n%%EOF";
+        return $pdf;
+    }
+
+    private static function pdf_clean_text(string $text): string {
+        $text = html_entity_decode(wp_strip_all_tags($text), ENT_QUOTES, 'UTF-8');
+        $converted = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $text);
+        return $converted !== false ? $converted : preg_replace('/[^\x20-\x7E]/', '', $text);
+    }
+
+    private static function pdf_escape(string $text): string {
+        return str_replace(['\\', '(', ')'], ['\\\\', '\\(', '\\)'], self::pdf_clean_text($text));
+    }
+
+    private static function is_sell_your_car_lead(int $lead_id): bool {
+        return $lead_id > 0 && get_post_type($lead_id) === self::SELL_YOUR_CAR_POST_TYPE;
+    }
+
+    private static function is_seller_user(int $user_id): bool {
+        $user = get_user_by('id', $user_id);
+        return $user instanceof \WP_User && in_array(self::SELLER_ROLE, (array) $user->roles, true);
+    }
+
+    private static function can_view_assigned_lead(int $lead_id): bool {
+        return self::is_sell_your_car_lead($lead_id)
+            && self::is_seller()
+            && absint(get_post_meta($lead_id, self::ASSIGNED_SELLER_META, true)) === get_current_user_id();
+    }
+
+    private static function is_seller(): bool {
+        $user = wp_get_current_user();
+        return $user && in_array(self::SELLER_ROLE, (array) $user->roles, true) && current_user_can(self::SELLER_CAPABILITY);
+    }
+
+    private static function is_gestor(): bool {
+        $user = wp_get_current_user();
+        return $user instanceof \WP_User && in_array(self::GESTOR_ROLE, (array) $user->roles, true);
+    }
+
+    private static function can_manage_sell_your_car_delegation(): bool {
+        return current_user_can('manage_options')
+            || self::is_gestor()
+            || current_user_can(self::MANAGE_DELEGATION_CAPABILITY)
+            || current_user_can('edit_venda_carro_leads')
+            || current_user_can('savol_access_dashboard');
     }
 
     public static function render_autosync_page(): void {
@@ -1282,12 +2054,27 @@ JS;
                             <p class="description">O token fica armazenado de forma protegida no banco e nao e exibido no painel.</p>
                         </td>
                     </tr>
+                    <tr>
+                        <th scope="row"><label for="savol_autosync_entity_ids">IDs de empresa/grupo</label></th>
+                        <td>
+                            <textarea id="savol_autosync_entity_ids" name="savol_autosync_entity_ids" rows="4" class="large-text code" placeholder="18882, 25813"><?php echo esc_textarea(self::get_autosync_entity_ids_text()); ?></textarea>
+                            <p class="description">Opcional. Informe um ID de grupo ou varios IDs de empresas, separados por virgula, espaco ou linha. O filtro sera aplicado nas chaves do JSON retornado pela API.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="savol_autosync_cnpjs">CNPJs</label></th>
+                        <td>
+                            <textarea id="savol_autosync_cnpjs" name="savol_autosync_cnpjs" rows="4" class="large-text code" placeholder="5218146000123"><?php echo esc_textarea(self::get_autosync_cnpjs_text()); ?></textarea>
+                            <p class="description">Opcional. Informe um ou varios CNPJs, separados por virgula, espaco ou linha. Apenas numeros serao salvos; o filtro sera aplicado nas chaves do JSON retornado pela API.</p>
+                        </td>
+                    </tr>
                 </table>
-                <?php submit_button('Salvar token'); ?>
+                <?php submit_button('Salvar configuracoes'); ?>
             </form>
 
             <p>
                 <button type="button" class="button button-primary" id="savol-autosync-run">Sincronizar estoque agora</button>
+                <span class="description" style="margin-left:8px;">A API permite apenas uma chamada a cada 3 minutos.</span>
             </p>
             <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="margin:10px 0 18px;">
                 <input type="hidden" name="action" value="savol_veiculos_refresh_unidades" />
@@ -1325,9 +2112,13 @@ JS;
 
         $token = isset($_POST['savol_autosync_token']) ? trim((string) wp_unslash($_POST['savol_autosync_token'])) : '';
         $endpoint = isset($_POST['savol_autosync_endpoint']) ? trim((string) wp_unslash($_POST['savol_autosync_endpoint'])) : '';
+        $entity_ids = isset($_POST['savol_autosync_entity_ids']) ? self::normalize_autosync_list((string) wp_unslash($_POST['savol_autosync_entity_ids']), false) : [];
+        $cnpjs = isset($_POST['savol_autosync_cnpjs']) ? self::normalize_autosync_list((string) wp_unslash($_POST['savol_autosync_cnpjs']), true) : [];
         if ($endpoint !== '') {
             update_option(self::AUTOSYNC_ENDPOINT_OPTION, esc_url_raw($endpoint), false);
         }
+        update_option(self::AUTOSYNC_ENTITY_IDS_OPTION, $entity_ids, false);
+        update_option(self::AUTOSYNC_CNPJS_OPTION, $cnpjs, false);
         if ($token !== '') {
             update_option(self::AUTOSYNC_OPTION, self::encrypt_token($token), false);
         }
@@ -1373,6 +2164,12 @@ JS;
         $progress = get_option(self::AUTOSYNC_PROGRESS_OPTION, []);
         if (is_array($progress) && isset($progress['status']) && in_array($progress['status'], ['queued', 'running'], true)) {
             wp_send_json_success(['message' => 'Sincronizacao ja em andamento.']);
+        }
+        $wait_seconds = self::get_autosync_api_wait_seconds();
+        if ($wait_seconds > 0) {
+            $message = self::format_autosync_wait_message($wait_seconds);
+            update_option(self::AUTOSYNC_LAST_ERROR_OPTION, $message, false);
+            wp_send_json_error(['message' => $message], 429);
         }
 
         self::update_progress([
@@ -1486,6 +2283,30 @@ JS;
     }
 
     private static function run_autosync(string $token): bool {
+        if (!self::acquire_autosync_api_lock()) {
+            $message = 'Ja existe uma chamada AutoSync em andamento. Aguarde finalizar antes de iniciar outra.';
+            update_option(self::AUTOSYNC_LAST_ERROR_OPTION, $message, false);
+            self::update_progress(['status' => 'error', 'percent' => 100, 'message' => $message]);
+            return false;
+        }
+
+        try {
+            $wait_seconds = self::get_autosync_api_wait_seconds();
+            if ($wait_seconds > 0) {
+                $message = self::format_autosync_wait_message($wait_seconds);
+                update_option(self::AUTOSYNC_LAST_ERROR_OPTION, $message, false);
+                self::update_progress(['status' => 'error', 'percent' => 100, 'message' => $message]);
+                return false;
+            }
+
+            update_option(self::AUTOSYNC_LAST_API_CALL_OPTION, time(), false);
+            return self::request_autosync_stock($token);
+        } finally {
+            self::release_autosync_api_lock();
+        }
+    }
+
+    private static function request_autosync_stock(string $token): bool {
         self::update_progress([
             'status' => 'running',
             'processed' => 0,
@@ -1494,93 +2315,30 @@ JS;
             'message' => 'Conectando na API...',
         ]);
 
-        $endpoints = self::get_autosync_endpoint_candidates();
-        $attempts = [];
-        foreach ($endpoints as $endpoint) {
-            $attempts[] = [
-                'method' => 'GET',
-                'url' => $endpoint,
-                'headers' => ['Authorization' => 'Bearer ' . $token, 'Content-Type' => 'application/json'],
-            ];
-            $attempts[] = [
-                'method' => 'GET',
-                'url' => $endpoint,
-                'headers' => ['Authorization' => $token, 'Content-Type' => 'application/json'],
-            ];
-            $attempts[] = [
-                'method' => 'GET',
-                'url' => $endpoint,
-                'headers' => ['x-access-token' => $token, 'Content-Type' => 'application/json'],
-            ];
-            $attempts[] = [
-                'method' => 'GET',
-                'url' => $endpoint,
-                'headers' => ['token' => $token, 'Content-Type' => 'application/json'],
-            ];
-            $attempts[] = [
-                'method' => 'POST',
-                'url' => $endpoint,
-                'headers' => ['Content-Type' => 'application/json', 'Authorization' => 'Bearer ' . $token],
-                'body' => wp_json_encode([]),
-            ];
-        }
-        $response = null;
-        $last_error = '';
-        $attempt_logs = [];
-        $best_error = '';
+        $endpoint = self::get_autosync_endpoint();
+        $args = [
+            'timeout' => 60,
+            'method' => 'GET',
+            'headers' => ['Authorization' => $token, 'Content-Type' => 'application/json'],
+            'user-agent' => 'SavolVeiculosAutoSync/1.2.17; WordPress',
+        ];
 
-        foreach ($attempts as $attempt) {
-            $args = [
-                'timeout' => 60,
-                'method' => $attempt['method'],
-                'headers' => $attempt['headers'],
-                'user-agent' => 'SavolVeiculosAutoSync/1.1.2; WordPress',
-            ];
-            if (isset($attempt['body'])) {
-                $args['body'] = $attempt['body'];
-            }
-
-            $response = wp_remote_request($attempt['url'], $args);
-            if (is_wp_error($response)) {
-                $last_error = $response->get_error_message();
-                $attempt_logs[] = self::mask_sensitive((string) $attempt['url']) . ' => WP_Error: ' . $last_error;
-                continue;
-            }
-            $code = (int) wp_remote_retrieve_response_code($response);
-            if ($code < 300) {
-                break;
-            }
-            $body = (string) wp_remote_retrieve_body($response);
-            $safe_url = self::mask_sensitive((string) $attempt['url']);
-            $last_error = 'HTTP ' . $code . ' em ' . $safe_url . ' - ' . mb_substr(wp_strip_all_tags($body), 0, 200);
-            $attempt_logs[] = $safe_url . ' => HTTP ' . $code;
-
-            if ($code === 401 || $code === 403) {
-                $best_error = $last_error;
-                break;
-            }
-            if ($code === 429) {
-                $best_error = 'HTTP 429 - limite de requisicoes. Aguarde 1-2 minutos e tente novamente.';
-                break;
-            }
-            if ($best_error === '' && $code >= 500) {
-                $best_error = $last_error;
-            }
-            usleep(250000);
-        }
-
+        $response = wp_remote_request($endpoint, $args);
         if (is_wp_error($response)) {
-            update_option(self::AUTOSYNC_LAST_ERROR_OPTION, $last_error, false);
-            self::update_progress(['status' => 'error', 'percent' => 100, 'message' => $last_error]);
+            $message = $response->get_error_message();
+            update_option(self::AUTOSYNC_LAST_ERROR_OPTION, $message, false);
+            self::update_progress(['status' => 'error', 'percent' => 100, 'message' => $message]);
             return false;
         }
         if ((int) wp_remote_retrieve_response_code($response) >= 300) {
-            $msg = $best_error !== '' ? $best_error : ($last_error !== '' ? $last_error : 'Resposta HTTP invalida.');
-            if (!empty($attempt_logs)) {
-                $msg .= ' | Tentativas: ' . implode(' ; ', $attempt_logs);
+            $code = (int) wp_remote_retrieve_response_code($response);
+            $body = (string) wp_remote_retrieve_body($response);
+            $message = 'HTTP ' . $code . ' em ' . self::mask_sensitive($endpoint) . ' - ' . mb_substr(wp_strip_all_tags($body), 0, 200);
+            if ($code === 429) {
+                $message = 'HTTP 429 - limite de requisicoes da API. Aguarde pelo menos 3 minutos e tente novamente.';
             }
-            update_option(self::AUTOSYNC_LAST_ERROR_OPTION, $msg, false);
-            self::update_progress(['status' => 'error', 'percent' => 100, 'message' => $msg]);
+            update_option(self::AUTOSYNC_LAST_ERROR_OPTION, $message, false);
+            self::update_progress(['status' => 'error', 'percent' => 100, 'message' => $message]);
             return false;
         }
 
@@ -1604,7 +2362,7 @@ JS;
             return false;
         }
 
-        $rows = $payload['vehicles']['rows'];
+        $rows = self::filter_autosync_rows($payload['vehicles']['rows']);
         $total = count($rows);
         if ($total <= 0) {
             delete_option(self::AUTOSYNC_BATCH_OPTION);
@@ -2060,6 +2818,39 @@ JS;
         update_option(self::AUTOSYNC_PROGRESS_OPTION, $progress, false);
     }
 
+    private static function get_autosync_api_wait_seconds(): int {
+        $last_call = (int) get_option(self::AUTOSYNC_LAST_API_CALL_OPTION, 0);
+        if ($last_call <= 0) {
+            return 0;
+        }
+
+        $elapsed = time() - $last_call;
+        if ($elapsed >= self::AUTOSYNC_API_MIN_INTERVAL) {
+            return 0;
+        }
+
+        return self::AUTOSYNC_API_MIN_INTERVAL - max(0, $elapsed);
+    }
+
+    private static function format_autosync_wait_message(int $wait_seconds): string {
+        $minutes = (int) ceil(max(1, $wait_seconds) / 60);
+        return 'A API AutoSync permite apenas uma chamada a cada 3 minutos. Aguarde cerca de ' . $minutes . ' min para tentar novamente.';
+    }
+
+    private static function acquire_autosync_api_lock(): bool {
+        $now = time();
+        $current = (int) get_option(self::AUTOSYNC_API_LOCK_OPTION, 0);
+        if ($current > 0 && ($now - $current) > self::AUTOSYNC_API_LOCK_TTL) {
+            delete_option(self::AUTOSYNC_API_LOCK_OPTION);
+        }
+
+        return add_option(self::AUTOSYNC_API_LOCK_OPTION, $now, '', 'no');
+    }
+
+    private static function release_autosync_api_lock(): void {
+        delete_option(self::AUTOSYNC_API_LOCK_OPTION);
+    }
+
     private static function set_term_if_value(int $post_id, string $taxonomy, string $value): void {
         $value = trim($value);
         if ($value === '') {
@@ -2192,6 +2983,117 @@ JS;
         }
 
         return array_values(array_unique($clean));
+    }
+
+    private static function get_autosync_entity_ids_text(): string {
+        return implode("\n", self::get_stored_autosync_list(self::AUTOSYNC_ENTITY_IDS_OPTION));
+    }
+
+    private static function get_autosync_cnpjs_text(): string {
+        return implode("\n", self::get_stored_autosync_list(self::AUTOSYNC_CNPJS_OPTION));
+    }
+
+    private static function get_stored_autosync_list(string $option): array {
+        $stored = get_option($option, []);
+        if (is_array($stored)) {
+            return array_values(array_filter(array_map('strval', $stored)));
+        }
+
+        return self::normalize_autosync_list((string) $stored, $option === self::AUTOSYNC_CNPJS_OPTION);
+    }
+
+    private static function normalize_autosync_list(string $raw, bool $digits_only): array {
+        $parts = preg_split('/[\s,;]+/', $raw);
+        $clean = [];
+        foreach ((array) $parts as $part) {
+            $value = trim((string) $part);
+            if ($digits_only) {
+                $value = preg_replace('/\D+/', '', $value);
+            } else {
+                $value = preg_replace('/[^0-9A-Za-z_\-]+/', '', $value);
+            }
+            if ($value !== '' && !in_array($value, $clean, true)) {
+                $clean[] = $value;
+            }
+        }
+
+        return array_slice($clean, 0, 100);
+    }
+
+    private static function filter_autosync_rows(array $rows): array {
+        $entity_ids = self::get_stored_autosync_list(self::AUTOSYNC_ENTITY_IDS_OPTION);
+        $cnpjs = self::get_stored_autosync_list(self::AUTOSYNC_CNPJS_OPTION);
+        if (empty($entity_ids) && empty($cnpjs)) {
+            return $rows;
+        }
+
+        $filtered = [];
+        foreach ($rows as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            if (self::autosync_row_matches_filters($row, $entity_ids, $cnpjs)) {
+                $filtered[] = $row;
+            }
+        }
+
+        return $filtered;
+    }
+
+    private static function autosync_row_matches_filters(array $row, array $entity_ids, array $cnpjs): bool {
+        if (!empty($entity_ids) && self::autosync_row_has_value_for_keys($row, $entity_ids, [
+            'entityid',
+            'entity_id',
+            'companyid',
+            'company_id',
+            'groupid',
+            'group_id',
+            'dealerid',
+            'dealer_id',
+            'storeid',
+            'store_id',
+        ], false)) {
+            return true;
+        }
+
+        if (!empty($cnpjs) && self::autosync_row_has_value_for_keys($row, $cnpjs, [
+            'cnpj',
+            'document',
+            'documentnumber',
+            'document_number',
+            'taxid',
+            'tax_id',
+            'federaltaxnumber',
+            'federal_tax_number',
+        ], true)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    private static function autosync_row_has_value_for_keys(array $row, array $expected_values, array $keys, bool $digits_only): bool {
+        foreach ($row as $key => $value) {
+            $normalized_key = strtolower(preg_replace('/[^a-zA-Z0-9_]+/', '', (string) $key));
+            if (is_array($value) && self::autosync_row_has_value_for_keys($value, $expected_values, $keys, $digits_only)) {
+                return true;
+            }
+            if (!in_array($normalized_key, $keys, true)) {
+                continue;
+            }
+            if (is_array($value) || is_object($value)) {
+                continue;
+            }
+
+            $normalized_value = $digits_only
+                ? preg_replace('/\D+/', '', (string) $value)
+                : preg_replace('/[^0-9A-Za-z_\-]+/', '', (string) $value);
+            if ($normalized_value !== '' && in_array($normalized_value, $expected_values, true)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static function mask_sensitive(string $text): string {

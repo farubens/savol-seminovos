@@ -9,6 +9,7 @@ import { VehicleOfferCard } from "@/components/VehicleOfferCard";
 import { MapDirectionsModal } from "@/components/MapDirectionsModal";
 import { logLeadmobResponse, logLeadPayload } from "@/lib/leadDebug";
 import { getLeadTrackingPayload } from "@/lib/leadTracking";
+import { resolveSavolWhatsAppPhoneFromParts } from "@/lib/savolWhatsApp";
 import { watchVwfsSimulatorClose } from "@/utils/vwfsModalWatcher";
 import {
   BadgeCheck,
@@ -228,20 +229,7 @@ function getStoreMatch(storeName: string, stores: StoreItem[], vehicle?: ApiVehi
 }
 
 function resolveFallbackStorePhone(vehicle?: ApiVehicle | null): string {
-  const source = normalize(`${vehicle?.store ?? ""} ${vehicle?.brand ?? ""} ${vehicle?.city ?? ""}`);
-
-  if (source.includes("toyota") && source.includes("sao bernardo")) return "(11) 3809-1000";
-  if (source.includes("toyota") && source.includes("praia grande")) return "(13) 3476-7000";
-  if (source.includes("toyota")) return "(11) 4979-6000";
-  if (source.includes("volkswagen") || source.includes("volks") || source.includes("vw")) return "(11) 4435-1000";
-  if (source.includes("peugeot")) return "(11) 3381-1000";
-  if (source.includes("citroen") || source.includes("citro")) return "(11) 3381-1001";
-  if (source.includes("fiat")) return "(11) 3319-1000";
-  if (source.includes("kia")) return "(11) 3381-1010";
-  if (source.includes("mg")) return "(11) 3809-1010";
-  if (source.includes("jetour")) return "(11) 3319-1010";
-
-  return "(11) 4435-1000";
+  return resolveSavolWhatsAppPhoneFromParts([vehicle?.store, vehicle?.brand, vehicle?.city]);
 }
 
 function inferCategoryLabel(vehicle: ApiVehicle): string {
@@ -541,10 +529,12 @@ export function VehicleDetailsPageClient({ slug }: Props) {
       store: storeTitle,
       city: vehicle?.city,
       uf: vehicle?.uf,
+      image: vehicle?.image,
+      gallery: galleryItems,
       url: typeof window !== "undefined" ? window.location.href : vehicle?.url,
       molicar: vehicle?.molicar
     }),
-    [storeTitle, vehicle]
+    [galleryItems, storeTitle, vehicle]
   );
 
   useEffect(() => {

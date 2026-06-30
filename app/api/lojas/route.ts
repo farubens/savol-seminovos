@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { resolveSavolWhatsAppPhone } from "@/lib/savolWhatsApp";
 
 const DEFAULT_PER_PAGE = 12;
 const MAX_PER_PAGE = 60;
@@ -47,7 +48,7 @@ const OFFICIAL_STORES: ApiStore[] = [
     brand: "Toyota",
     name: "Unidade Savol Toyota Santo André",
     address: "Av. Artur de Queirós, 469 - Casa Branca, Santo André - SP, 09015-510",
-    phone: "(11) 4979-6000",
+    phone: resolveSavolWhatsAppPhone("Toyota"),
     vehiclesCount: 0,
     storeUrl: "/lojas",
     mapUrl: mapUrl("Av. Artur de Queirós, 469 - Casa Branca, Santo André - SP, 09015-510")
@@ -58,7 +59,7 @@ const OFFICIAL_STORES: ApiStore[] = [
     brand: "Toyota",
     name: "Unidade Savol Toyota São Bernardo do Campo",
     address: "Av. Senador Vergueiro, 2332 - Anchieta, São Bernardo do Campo - SP, 09600-004",
-    phone: "(11) 3809-1000",
+    phone: resolveSavolWhatsAppPhone("Toyota"),
     vehiclesCount: 0,
     storeUrl: "/lojas",
     mapUrl: mapUrl("Av. Senador Vergueiro, 2332 - Anchieta, São Bernardo do Campo - SP, 09600-004")
@@ -69,7 +70,7 @@ const OFFICIAL_STORES: ApiStore[] = [
     brand: "Toyota",
     name: "Unidade Savol Toyota Mauá",
     address: "Av. João Ramalho, 1853 - Vila Noêmia, Mauá - SP, 09371-520",
-    phone: "(11) 4979-6000",
+    phone: resolveSavolWhatsAppPhone("Toyota"),
     vehiclesCount: 0,
     storeUrl: "/lojas",
     mapUrl: mapUrl("Av. João Ramalho, 1853 - Vila Noêmia, Mauá - SP, 09371-520")
@@ -80,7 +81,7 @@ const OFFICIAL_STORES: ApiStore[] = [
     brand: "Toyota",
     name: "Unidade Savol Toyota Praia Grande",
     address: "Av. Guilhermina, 1021 - Guilhermina, Praia Grande - SP, 11701-500",
-    phone: "(13) 3476-7000",
+    phone: resolveSavolWhatsAppPhone("Toyota"),
     vehiclesCount: 0,
     storeUrl: "/lojas",
     mapUrl: mapUrl("Av. Guilhermina, 1021 - Guilhermina, Praia Grande - SP, 11701-500")
@@ -91,7 +92,7 @@ const OFFICIAL_STORES: ApiStore[] = [
     brand: "Toyota",
     name: "Unidade Savol Toyota Dom Pedro II",
     address: "Av. Dom Pedro II, 2500 - Santo André - SP, 09080-110",
-    phone: "(11) 4979-6000",
+    phone: resolveSavolWhatsAppPhone("Toyota"),
     vehiclesCount: 0,
     storeUrl: "/lojas",
     mapUrl: mapUrl("Av. Dom Pedro II, 2500 - Santo André - SP, 09080-110")
@@ -102,7 +103,7 @@ const OFFICIAL_STORES: ApiStore[] = [
     brand: "Volkswagen",
     name: "Unidade Savol Volkswagen Santo André",
     address: "Av. Artur de Queirós, 701 - Casa Branca, Santo André - SP, 09015-510",
-    phone: "(11) 4435-1000",
+    phone: resolveSavolWhatsAppPhone("Volkswagen"),
     vehiclesCount: 0,
     storeUrl: "/lojas",
     mapUrl: mapUrl("Av. Artur de Queirós, 701 - Casa Branca, Santo André - SP, 09015-510")
@@ -113,7 +114,7 @@ const OFFICIAL_STORES: ApiStore[] = [
     brand: "Volkswagen",
     name: "Unidade Savol Volkswagen Pereira Barreto",
     address: "Av. Pereira Barreto, 888 - Paraíso, Santo André - SP, 09190-210",
-    phone: "(11) 4435-1000",
+    phone: resolveSavolWhatsAppPhone("Volkswagen"),
     vehiclesCount: 0,
     storeUrl: "/lojas",
     mapUrl: mapUrl("Av. Pereira Barreto, 888 - Paraíso, Santo André - SP, 09190-210")
@@ -124,7 +125,7 @@ const OFFICIAL_STORES: ApiStore[] = [
     brand: "Peugeot",
     name: "Unidade Savol Peugeot Santo André",
     address: "Av. Artur de Queirós, 426 - Casa Branca, Santo André - SP, 09015-510",
-    phone: "(11) 3381-1000",
+    phone: resolveSavolWhatsAppPhone("Peugeot"),
     vehiclesCount: 0,
     storeUrl: "/lojas",
     mapUrl: mapUrl("Av. Artur de Queirós, 426 - Casa Branca, Santo André - SP, 09015-510")
@@ -135,7 +136,7 @@ const OFFICIAL_STORES: ApiStore[] = [
     brand: "Peugeot",
     name: "Unidade Savol Peugeot São Bernardo do Campo",
     address: "Av. Senador Vergueiro, 2302 - Anchieta, São Bernardo do Campo - SP, 09600-004",
-    phone: "(11) 3381-1000",
+    phone: resolveSavolWhatsAppPhone("Peugeot"),
     vehiclesCount: 0,
     storeUrl: "/lojas",
     mapUrl: mapUrl("Av. Senador Vergueiro, 2302 - Anchieta, São Bernardo do Campo - SP, 09600-004")
@@ -146,7 +147,7 @@ const OFFICIAL_STORES: ApiStore[] = [
     brand: "Peugeot",
     name: "Unidade Savol Peugeot São Caetano do Sul",
     address: "Av. Goiás, 2155 - Santo Antônio, São Caetano do Sul - SP, 09521-300",
-    phone: "(11) 3381-1000",
+    phone: resolveSavolWhatsAppPhone("Peugeot"),
     vehiclesCount: 0,
     storeUrl: "/lojas",
     mapUrl: mapUrl("Av. Goiás, 2155 - Santo Antônio, São Caetano do Sul - SP, 09521-300")
@@ -157,7 +158,7 @@ const OFFICIAL_STORES: ApiStore[] = [
     brand: "Citroen",
     name: "Unidade Savol Citroen Santo André",
     address: "Av. Artur de Queirós, 424 - Casa Branca, Santo André - SP, 09015-510",
-    phone: "(11) 3381-1001",
+    phone: resolveSavolWhatsAppPhone("Citroen"),
     vehiclesCount: 0,
     storeUrl: "/lojas",
     mapUrl: mapUrl("Av. Artur de Queirós, 424 - Casa Branca, Santo André - SP, 09015-510")
@@ -168,7 +169,7 @@ const OFFICIAL_STORES: ApiStore[] = [
     brand: "Citroen",
     name: "Unidade Savol Citroen São Bernardo do Campo",
     address: "Av. Senador Vergueiro, 2302 - Rudge Ramos, São Bernardo do Campo - SP, 09600-004",
-    phone: "(11) 3381-1001",
+    phone: resolveSavolWhatsAppPhone("Citroen"),
     vehiclesCount: 0,
     storeUrl: "/lojas",
     mapUrl: mapUrl("Av. Senador Vergueiro, 2302 - Rudge Ramos, São Bernardo do Campo - SP, 09600-004")
@@ -179,7 +180,7 @@ const OFFICIAL_STORES: ApiStore[] = [
     brand: "Citroen",
     name: "Unidade Savol Citroen São Caetano do Sul",
     address: "Av. Goiás, 2155 - Santo Antônio, São Caetano do Sul - SP, 09521-300",
-    phone: "(11) 3381-1001",
+    phone: resolveSavolWhatsAppPhone("Citroen"),
     vehiclesCount: 0,
     storeUrl: "/lojas",
     mapUrl: mapUrl("Av. Goiás, 2155 - Santo Antônio, São Caetano do Sul - SP, 09521-300")
@@ -190,7 +191,7 @@ const OFFICIAL_STORES: ApiStore[] = [
     brand: "Fiat",
     name: "Unidade Savol Fiat Santo André",
     address: "Av. Artur de Queirós, 414 - Casa Branca, Santo André - SP, 09015-510",
-    phone: "(11) 3319-1000",
+    phone: resolveSavolWhatsAppPhone("Fiat"),
     vehiclesCount: 0,
     storeUrl: "/lojas",
     mapUrl: mapUrl("Av. Artur de Queirós, 414 - Casa Branca, Santo André - SP, 09015-510")
@@ -201,7 +202,7 @@ const OFFICIAL_STORES: ApiStore[] = [
     brand: "Fiat",
     name: "Unidade Savol Fiat São Caetano do Sul",
     address: "Av. Goiás, 2145 - Barcelona, São Caetano do Sul - SP, 09550-001",
-    phone: "(11) 3319-1000",
+    phone: resolveSavolWhatsAppPhone("Fiat"),
     vehiclesCount: 0,
     storeUrl: "/lojas",
     mapUrl: mapUrl("Av. Goiás, 2145 - Barcelona, São Caetano do Sul - SP, 09550-001")
@@ -212,7 +213,7 @@ const OFFICIAL_STORES: ApiStore[] = [
     brand: "Fiat",
     name: "Unidade Savol Fiat São Bernardo do Campo",
     address: "Av. Senador Vergueiro, 2348 - Anchieta, São Bernardo do Campo - SP, 09600-004",
-    phone: "(11) 3319-1000",
+    phone: resolveSavolWhatsAppPhone("Fiat"),
     vehiclesCount: 0,
     storeUrl: "/lojas",
     mapUrl: mapUrl("Av. Senador Vergueiro, 2348 - Anchieta, São Bernardo do Campo - SP, 09600-004")
@@ -223,7 +224,7 @@ const OFFICIAL_STORES: ApiStore[] = [
     brand: "Kia",
     name: "Unidade Savol Kia Santo André",
     address: "Av. Artur de Queirós, 727 - Casa Branca, Santo André - SP, 09015-510",
-    phone: "(11) 3381-1010",
+    phone: resolveSavolWhatsAppPhone("Kia"),
     vehiclesCount: 0,
     storeUrl: "/lojas",
     mapUrl: mapUrl("Av. Artur de Queirós, 727 - Casa Branca, Santo André - SP, 09015-510")
@@ -234,7 +235,7 @@ const OFFICIAL_STORES: ApiStore[] = [
     brand: "Kia",
     name: "Unidade Savol Kia São Paulo",
     address: "Av. Nazaré, 444 - Ipiranga, São Paulo - SP, 04262-000",
-    phone: "(11) 3381-1010",
+    phone: resolveSavolWhatsAppPhone("Kia"),
     vehiclesCount: 0,
     storeUrl: "/lojas",
     mapUrl: mapUrl("Av. Nazaré, 444 - Ipiranga, São Paulo - SP, 04262-000")
@@ -245,7 +246,7 @@ const OFFICIAL_STORES: ApiStore[] = [
     brand: "MG Motor",
     name: "Unidade Savol MG Motor São Caetano",
     address: "Av. Goiás, 3048 - Santo Antônio, São Caetano do Sul - SP, 09521-310",
-    phone: "(11) 3809-1010",
+    phone: resolveSavolWhatsAppPhone("MG Motor"),
     vehiclesCount: 0,
     storeUrl: "/lojas",
     mapUrl: mapUrl("Av. Goiás, 3048 - Santo Antônio, São Caetano do Sul - SP, 09521-310")
@@ -256,7 +257,7 @@ const OFFICIAL_STORES: ApiStore[] = [
     brand: "Jetour",
     name: "Unidade Savol JETOUR Santo André",
     address: "Av. D. Pedro II, 2550 - Bairro Campestre, Santo André - SP, 09080-111",
-    phone: "(11) 3319-1010",
+    phone: resolveSavolWhatsAppPhone("Jetour"),
     vehiclesCount: 0,
     storeUrl: "/lojas",
     mapUrl: mapUrl("Av. D. Pedro II, 2550 - Bairro Campestre, Santo André - SP, 09080-111")
@@ -267,7 +268,7 @@ const OFFICIAL_STORES: ApiStore[] = [
     brand: "Jetour",
     name: "Unidade Savol JETOUR São Caetano do Sul",
     address: "Alameda Terracota, 545 - Piso 1, Térreo - Cerâmica, São Caetano do Sul - SP, 09531-190",
-    phone: "(11) 3319-1010",
+    phone: resolveSavolWhatsAppPhone("Jetour"),
     vehiclesCount: 0,
     storeUrl: "/lojas",
     mapUrl: mapUrl("Alameda Terracota, 545 - Piso 1, Térreo - Cerâmica, São Caetano do Sul - SP, 09531-190")
@@ -278,7 +279,7 @@ const OFFICIAL_STORES: ApiStore[] = [
     brand: "MG Motor",
     name: "Unidade Savol MG Motor Anália Franco",
     address: "Av. Regente Feijó, 1739 - Jardim Anália Franco, São Paulo - SP, 03342-000",
-    phone: "(11) 3809-1010",
+    phone: resolveSavolWhatsAppPhone("MG Motor"),
     vehiclesCount: 0,
     storeUrl: "/lojas",
     mapUrl: mapUrl("Av. Regente Feijó, 1739 - Jardim Anália Franco, São Paulo - SP, 03342-000")
