@@ -2,15 +2,15 @@
 
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
+import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { Send, X } from "lucide-react";
 import { logLeadmobResponse, logLeadPayload } from "@/lib/leadDebug";
 import { getLeadTrackingPayload } from "@/lib/leadTracking";
 import { resolveSavolWhatsAppPhoneFromParts } from "@/lib/savolWhatsApp";
 import type { LeadmobVehicle } from "@/lib/leadmob";
-import type { ApiStore } from "@/types/home";
 
-const WHATSAPP_PHONE = "551144351000";
+const WHATSAPP_PHONE = "551149796000";
+const TOYOTA_STORE_NAME = "Savol Toyota";
 const WHATSAPP_TEXT = "Olá! Quero atendimento da Savol.";
 const AUTO_OPEN_STORAGE_KEY = "savol-whatsapp-chat-opened";
 const TYPING_DELAY_MS = 800;
@@ -60,10 +60,6 @@ function isVehicleDetailPath(pathname: string): boolean {
   return parts.length === 2 && parts[0] === "veiculos";
 }
 
-function formatStoreName(value: string): string {
-  return value.replace(/^Unidade Savol\s*/i, "Savol ").trim();
-}
-
 function isAgentStepVisible(current: ChatStep | null, target: ChatStep): boolean {
   if (!current) return false;
   return CHAT_STEP_ORDER.indexOf(current) >= CHAT_STEP_ORDER.indexOf(target);
@@ -73,9 +69,6 @@ export function FloatingWhatsAppButton() {
   const pathname = usePathname();
   const isVehicleDetail = isVehicleDetailPath(pathname);
   const [isOpen, setIsOpen] = useState(false);
-  const [stores, setStores] = useState<ApiStore[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [selectedStoreId, setSelectedStoreId] = useState("");
   const [step, setStep] = useState<ChatStep>("intro");
   const [visibleAgentStep, setVisibleAgentStep] = useState<ChatStep | null>(null);
   const [isTyping, setIsTyping] = useState(false);
@@ -83,39 +76,11 @@ export function FloatingWhatsAppButton() {
   const [chatForm, setChatForm] = useState<ChatForm>({ name: "", email: "", phone: "" });
   const [currentValue, setCurrentValue] = useState("");
   const [fieldError, setFieldError] = useState("");
-  const hasLoadedStoresRef = useRef(false);
   const chatBodyRef = useRef<HTMLDivElement | null>(null);
-
-  const sortedStores = useMemo(
-    () => [...stores].sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
-    [stores]
-  );
-
-  useEffect(() => {
-    if (!isOpen || hasLoadedStoresRef.current || isVehicleDetail) return;
-
-    const controller = new AbortController();
-    hasLoadedStoresRef.current = true;
-    setLoading(true);
-    fetch("/api/lojas?per_page=60", { signal: controller.signal })
-      .then((response) => (response.ok ? response.json() : { items: [] }))
-      .then((payload: { items?: ApiStore[] } | ApiStore[]) => {
-        const items = Array.isArray(payload) ? payload : payload.items;
-        setStores(Array.isArray(items) ? items : []);
-      })
-      .catch(() => {
-        setStores([]);
-        hasLoadedStoresRef.current = false;
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-
-    return () => controller.abort();
-  }, [isOpen]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (isVehicleDetail) return;
     if (window.sessionStorage.getItem(AUTO_OPEN_STORAGE_KEY) === "true") return;
 
     const timerId = window.setTimeout(() => {
@@ -124,7 +89,7 @@ export function FloatingWhatsAppButton() {
     }, 7000);
 
     return () => window.clearTimeout(timerId);
-  }, []);
+  }, [isVehicleDetail]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -161,12 +126,6 @@ export function FloatingWhatsAppButton() {
     chatBody.scrollTo({ top: chatBody.scrollHeight, behavior: "smooth" });
   }, [chatForm.email, chatForm.name, chatForm.phone, isOpen, isTyping, visibleAgentStep]);
 
-  useEffect(() => {
-    if (selectedStoreId || sortedStores.length === 0) return;
-    setSelectedStoreId(String(sortedStores[0].id));
-  }, [selectedStoreId, sortedStores]);
-
-  const selectedStore = sortedStores.find((store) => String(store.id) === selectedStoreId);
   const canSubmitTextStep = step === "intro" || step === "name" || step === "email" || step === "phone";
   const isCurrentStepReady = visibleAgentStep === step && !isTyping;
 
@@ -262,8 +221,8 @@ export function FloatingWhatsAppButton() {
           vehicleContext.vehicle?.model,
           vehicleContext.phone
         ])
-      : selectedStore?.phone ?? WHATSAPP_PHONE;
-    const unitText = vehicleContext?.unitName ?? (selectedStore ? formatStoreName(selectedStore.name) : "Atendimento Savol");
+      : WHATSAPP_PHONE;
+    const unitText = vehicleContext?.unitName ?? TOYOTA_STORE_NAME;
     const pageText = isVehicleDetail ? `\nPágina: ${vehicleContext?.pageUrl || window.location.href}` : "";
     const vehicleText = vehicleContext?.vehicleName ? `\nVeículo: ${vehicleContext.vehicleName}` : "";
     const message = [
@@ -316,6 +275,10 @@ export function FloatingWhatsAppButton() {
     setIsOpen(false);
   };
 
+  if (isVehicleDetail) {
+    return null;
+  }
+
   return (
     <>
       <button
@@ -356,7 +319,7 @@ export function FloatingWhatsAppButton() {
             {chatForm.phone ? <p className="whatsapp-chat-bubble whatsapp-chat-bubble--user">{chatForm.phone}</p> : null}
             {isAgentStepVisible(visibleAgentStep, "store") ? (
               <p className="whatsapp-chat-bubble whatsapp-chat-bubble--agent">
-                {isVehicleDetail ? "Pronto. Vou te encaminhar para a unidade deste veículo." : "Por último, escolha a unidade de atendimento."}
+                {isVehicleDetail ? "Pronto. Vou te encaminhar para a unidade deste veículo." : "Pronto. Vou encaminhar seu atendimento para a Toyota."}
               </p>
             ) : null}
             {isTyping ? (
@@ -369,8 +332,6 @@ export function FloatingWhatsAppButton() {
           </div>
 
           <div className="whatsapp-store-form whatsapp-chat-controls">
-            {loading ? <p className="whatsapp-store-loading">Carregando lojas...</p> : null}
-
             {canSubmitTextStep && isCurrentStepReady ? (
               <div className="whatsapp-chat-input-row">
                 {step === "intro" ? (
@@ -397,20 +358,6 @@ export function FloatingWhatsAppButton() {
 
             {step === "store" && isCurrentStepReady ? (
               <>
-                {!isVehicleDetail ? (
-                  <label className="whatsapp-store-field">
-                    <span className="sr-only">Unidade de atendimento</span>
-                    <select value={selectedStoreId} onChange={(event) => setSelectedStoreId(event.target.value)} disabled={loading || isSendingLead || sortedStores.length === 0}>
-                      {sortedStores.length === 0 ? <option value="">Atendimento Savol</option> : null}
-                      {sortedStores.map((store) => (
-                        <option key={store.id} value={store.id}>
-                          {formatStoreName(store.name)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                ) : null}
-
                 <button type="button" className="whatsapp-start-btn" onClick={startWhatsApp} disabled={isSendingLead}>
                   {isSendingLead ? "Enviando..." : "Ir para o WhatsApp"}
                 </button>
