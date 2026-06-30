@@ -239,8 +239,9 @@ final class Savol_Veiculos_CPT {
         add_action('add_meta_boxes', [__CLASS__, 'add_meta_boxes']);
         add_action('save_post_' . self::POST_TYPE, [__CLASS__, 'save_meta']);
         add_action('admin_enqueue_scripts', [__CLASS__, 'enqueue_admin_assets']);
-        add_action('admin_menu', [__CLASS__, 'register_admin_menu']);
+        add_action('admin_menu', [__CLASS__, 'register_admin_menu'], 1001);
         add_action('admin_init', [__CLASS__, 'restrict_seller_admin']);
+        add_filter('user_has_cap', [__CLASS__, 'grant_runtime_caps'], 20, 4);
         add_action('admin_post_savol_vsc_create_seller', [__CLASS__, 'handle_create_seller']);
         add_action('admin_post_savol_vsc_assign_lead', [__CLASS__, 'handle_assign_lead']);
         add_action('admin_post_savol_vsc_email_lead', [__CLASS__, 'handle_email_lead']);
@@ -319,6 +320,24 @@ final class Savol_Veiculos_CPT {
         return array_values(array_unique(array_filter(self::SELL_LEAD_CAPS, static function ($cap): bool {
             return is_string($cap) && $cap !== 'do_not_allow';
         })));
+    }
+
+    public static function grant_runtime_caps(array $allcaps, array $caps, array $args, \WP_User $user): array {
+        if (in_array(self::GESTOR_ROLE, (array) $user->roles, true)) {
+            $allcaps['read'] = true;
+            $allcaps['savol_access_dashboard'] = true;
+            $allcaps[self::MANAGE_DELEGATION_CAPABILITY] = true;
+            foreach (self::sell_lead_role_caps() as $cap) {
+                $allcaps[$cap] = true;
+            }
+        }
+
+        if (in_array(self::SELLER_ROLE, (array) $user->roles, true)) {
+            $allcaps['read'] = true;
+            $allcaps[self::SELLER_CAPABILITY] = true;
+        }
+
+        return $allcaps;
     }
 
     public static function register_post_type(): void {

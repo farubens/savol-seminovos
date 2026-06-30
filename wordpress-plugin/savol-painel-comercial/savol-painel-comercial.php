@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Savol Painel Comercial
  * Description: Painel comercial Savol com KPIs, seminovos, leads e acesso limpo para gestores.
- * Version: 0.5.6
+ * Version: 0.5.7
  * Author: Savol
  */
 
@@ -15,7 +15,7 @@ if (!class_exists('Savol_Painel_Comercial')) :
 final class Savol_Painel_Comercial {
     private const ROLE = 'gestor_savol';
     private const ROLE_LABEL = 'Gestor Savol';
-    private const VERSION = '0.5.6';
+    private const VERSION = '0.5.7';
     private const OPTION_VERSION = 'savol_painel_comercial_version';
     private const ANALYTICS_TABLE = 'savol_painel_analytics';
     private const DASHBOARD_SLUG = 'savol-painel-comercial';
@@ -70,6 +70,7 @@ final class Savol_Painel_Comercial {
 
     public static function init(): void {
         add_filter('register_post_type_args', [__CLASS__, 'filter_post_type_args'], 20, 2);
+        add_filter('user_has_cap', [__CLASS__, 'grant_runtime_caps'], 20, 4);
         add_action('init', [__CLASS__, 'maybe_sync_roles'], 20);
         add_action('admin_menu', [__CLASS__, 'register_admin_menu'], 999);
         add_action('wp_dashboard_setup', [__CLASS__, 'register_dashboard_widget']);
@@ -233,6 +234,20 @@ final class Savol_Painel_Comercial {
 
     private static function is_real_cap($cap): bool {
         return $cap !== 'do_not_allow';
+    }
+
+    public static function grant_runtime_caps(array $allcaps, array $caps, array $args, WP_User $user): array {
+        if (!in_array(self::ROLE, (array) $user->roles, true)) {
+            return $allcaps;
+        }
+
+        foreach (self::gestor_caps() as $cap) {
+            if (self::is_real_cap($cap)) {
+                $allcaps[$cap] = true;
+            }
+        }
+
+        return $allcaps;
     }
 
     public static function register_admin_menu(): void {
