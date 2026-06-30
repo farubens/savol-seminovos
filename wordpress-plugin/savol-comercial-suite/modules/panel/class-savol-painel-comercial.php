@@ -16,9 +16,16 @@ final class Savol_Painel_Comercial {
     private const VEHICLE_POST_TYPE = 'veiculo';
     private const SELL_LEAD_POST_TYPE = 'venda_carro_lead';
     private const FINANCE_LEAD_POST_TYPE = 'savol_finance_lead';
+    private const SELLER_MENU_SLUG = 'savol-venda-seu-carro-vendedores';
     private const LOGIN_IMAGE_URL = 'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=1800&q=82';
     private const DASHBOARD_CAPABILITY = 'savol_access_dashboard';
     private const SELL_LEAD_DELEGATION_CAPABILITY = 'savol_manage_venda_seu_carro_delegation';
+    private const SELLER_USER_CAPS = [
+        'list_users',
+        'create_users',
+        'edit_users',
+        'promote_users',
+    ];
     private const ALLOWED_ADMIN_POST_ACTIONS = [
         'savol_vsc_create_seller',
         'savol_vsc_assign_lead',
@@ -194,8 +201,7 @@ final class Savol_Painel_Comercial {
     }
 
     private static function gestor_caps(): array {
-        return [
-            'read',
+        return array_values(array_unique(array_merge([
             'read',
             'upload_files',
             'read_veiculo',
@@ -214,12 +220,13 @@ final class Savol_Painel_Comercial {
             'publish_venda_carro_leads',
             self::DASHBOARD_CAPABILITY,
             self::SELL_LEAD_DELEGATION_CAPABILITY,
-        ];
+        ], self::SELLER_USER_CAPS)));
     }
 
     private static function administrator_caps(): array {
         return array_values(array_unique(array_merge(
             ['read', 'upload_files', self::DASHBOARD_CAPABILITY, self::SELL_LEAD_DELEGATION_CAPABILITY],
+            self::SELLER_USER_CAPS,
             array_filter(array_values(self::VEHICLE_CAPS), [__CLASS__, 'is_real_cap']),
             array_filter(array_values(self::SELL_LEAD_CAPS), [__CLASS__, 'is_real_cap'])
         )));
@@ -288,6 +295,25 @@ final class Savol_Painel_Comercial {
             'edit_venda_carro_leads',
             'edit.php?post_type=' . self::SELL_LEAD_POST_TYPE
         );
+
+        if (class_exists('Savol_Veiculos_CPT')) {
+            add_submenu_page(
+                'edit.php?post_type=' . self::SELL_LEAD_POST_TYPE,
+                'Vendedores',
+                'Vendedores',
+                self::SELL_LEAD_DELEGATION_CAPABILITY,
+                self::SELLER_MENU_SLUG,
+                ['Savol_Veiculos_CPT', 'render_sellers_page']
+            );
+
+            add_submenu_page(
+                self::DASHBOARD_SLUG,
+                'Vendedores',
+                'Vendedores',
+                self::SELL_LEAD_DELEGATION_CAPABILITY,
+                'edit.php?post_type=' . self::SELL_LEAD_POST_TYPE . '&page=' . self::SELLER_MENU_SLUG
+            );
+        }
 
     }
 
