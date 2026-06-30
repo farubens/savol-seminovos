@@ -2,6 +2,7 @@ export type ApiVehicle = {
   id: number;
   slug: string;
   url: string;
+  absoluteUrl?: string;
   name: string;
   subtitle: string;
   image: string;
@@ -11,6 +12,7 @@ export type ApiVehicle = {
   fuel: string;
   km: string;
   store: string;
+  storeId?: number | null;
   oldPrice: string;
   price: string;
   qualityTag: string;

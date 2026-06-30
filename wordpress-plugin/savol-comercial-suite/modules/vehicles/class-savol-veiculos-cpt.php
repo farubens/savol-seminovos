@@ -337,8 +337,18 @@ final class Savol_Veiculos_CPT {
     }
 
     public static function grant_runtime_caps(array $allcaps, array $caps, array $args, \WP_User $user): array {
-        if (in_array(self::GESTOR_ROLE, (array) $user->roles, true)) {
+        $has_gestor_access = in_array(self::GESTOR_ROLE, (array) $user->roles, true)
+            || !empty($user->allcaps['savol_access_dashboard'])
+            || !empty($user->allcaps[self::MANAGE_DELEGATION_CAPABILITY])
+            || !empty($user->allcaps['edit_venda_carro_leads']);
+
+        if ($has_gestor_access) {
             $allcaps['read'] = true;
+            $allcaps['upload_files'] = true;
+            $allcaps['list_users'] = true;
+            $allcaps['create_users'] = true;
+            $allcaps['edit_users'] = true;
+            $allcaps['promote_users'] = true;
             $allcaps['savol_access_dashboard'] = true;
             $allcaps[self::MANAGE_DELEGATION_CAPABILITY] = true;
             foreach (self::SELLER_USER_CAPS as $cap) {
@@ -1447,10 +1457,19 @@ JS;
         }
 
         add_submenu_page(
+            null,
+            'Vendedores',
+            'Vendedores',
+            self::MANAGE_DELEGATION_CAPABILITY,
+            self::SELLER_MENU_SLUG,
+            [__CLASS__, 'render_sellers_page']
+        );
+
+        add_submenu_page(
             'edit.php?post_type=' . self::SELL_YOUR_CAR_POST_TYPE,
             'Vendedores',
             'Vendedores',
-            'read',
+            self::MANAGE_DELEGATION_CAPABILITY,
             self::SELLER_MENU_SLUG,
             [__CLASS__, 'render_sellers_page']
         );
@@ -1468,6 +1487,13 @@ JS;
     public static function restrict_seller_admin(): void {
         $script = basename((string) ($_SERVER['PHP_SELF'] ?? ''));
         if ($script === 'admin.php') {
+            $page = isset($_GET['page']) ? sanitize_text_field((string) wp_unslash($_GET['page'])) : '';
+            if ($page === self::SELLER_MENU_SLUG && self::can_manage_sell_your_car_delegation()) {
+                return;
+            }
+        }
+
+        if ($script === 'edit.php') {
             $page = isset($_GET['page']) ? sanitize_text_field((string) wp_unslash($_GET['page'])) : '';
             if ($page === self::SELLER_MENU_SLUG && self::can_manage_sell_your_car_delegation()) {
                 wp_safe_redirect(self::sellers_admin_url());
@@ -1723,12 +1749,9 @@ JS;
     }
 
     private static function sellers_admin_url(array $args = []): string {
-        $query = array_merge([
-            'post_type' => self::SELL_YOUR_CAR_POST_TYPE,
-            'page' => self::SELLER_MENU_SLUG,
-        ], $args);
+        $query = array_merge(['page' => self::SELLER_MENU_SLUG], $args);
 
-        return add_query_arg($query, admin_url('edit.php'));
+        return add_query_arg($query, admin_url('admin.php'));
     }
 
     private static function seller_notice_label(string $message): string {

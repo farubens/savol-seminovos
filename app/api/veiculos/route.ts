@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { resolveSavolTechnicalStoreIdFromParts } from "@/lib/savolStores";
 import { buildOldPriceLabelFromOfficialPrice } from "@/utils/pricing";
 
 const DEFAULT_WP_BASE_URL =
@@ -12,6 +13,7 @@ const FALLBACK_IMAGE = "/images/em-preparacao.jpg";
 const API_CACHE_TTL_MS = 2 * 60 * 1000;
 const WP_DEFAULT_USER = "fa.rubens@gmail.com";
 const WP_DEFAULT_APP_PASSWORD = "W9y4 bUld QOIG PV4u oIHo csrb";
+const SITE_BASE_URL = (process.env.NEXT_PUBLIC_SITE_URL?.trim() || "https://www.savolseminovos.com.br").replace(/\/+$/, "");
 
 type WpMedia = {
   id: number;
@@ -46,6 +48,7 @@ type ApiVehicle = {
   id: number;
   slug: string;
   url: string;
+  absoluteUrl: string;
   name: string;
   subtitle: string;
   image: string;
@@ -55,6 +58,7 @@ type ApiVehicle = {
   fuel: string;
   km: string;
   store: string;
+  storeId: number | null;
   oldPrice: string;
   price: string;
   qualityTag: string;
@@ -416,6 +420,8 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
   const city = getEmbeddedTerm(vehicle, "veiculo_cidade");
   const uf = getEmbeddedTerm(vehicle, "veiculo_uf");
   const store = getEmbeddedTerm(vehicle, "veiculo_unidade");
+  const storeLabel = buildStoreLabel(store);
+  const storeId = resolveSavolTechnicalStoreIdFromParts([storeLabel, brand, city, uf]);
   const primaryHighlight = getEmbeddedTerm(vehicle, "veiculo_informacao_destaque");
   const secondaryHighlights = getEmbeddedTerms(vehicle, "veiculo_destaque_secundario");
 
@@ -439,6 +445,7 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
     id: vehicle.id,
     slug: vehicle.slug ?? String(vehicle.id),
     url: `/veiculos/${vehicle.slug ?? vehicle.id}`,
+    absoluteUrl: `${SITE_BASE_URL}/veiculos/${vehicle.slug ?? vehicle.id}`,
     name: buildName(brand, model, version, title),
     subtitle: buildSubtitle(version, model, excerpt),
     image,
@@ -447,7 +454,8 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
     transmission: extractTransmission(version, content, metaCambio),
     fuel: extractFuel(version, content, metaFuel),
     km: formatKm(content, metaKm),
-    store: buildStoreLabel(store),
+    store: storeLabel,
+    storeId,
     oldPrice: priceData.oldPrice,
     price: priceData.price,
     qualityTag: primaryHighlight,

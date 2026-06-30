@@ -121,6 +121,11 @@ function normalizeFinancingPayload(payload: FinancingLeadPayload, context: Finan
   const message = [payload.message, cpf ? `CPF: ${cpf}` : ""].filter(Boolean).join("\n");
   const submittedAt = new Date().toISOString();
   const unitName = resolveFinancingUnitName(payload);
+  const vehicleUrl = String(payload.vehicle?.url || "").trim();
+  const vehicleStoreId = payload.vehicle?.storeId;
+  const unitTechnicalId = isTechnicalUnitId(payload.unitName)
+    ? String(payload.unitName).trim()
+    : payload.meta?.unit_technical_id || payload.meta?.store_id || (isTechnicalUnitId(vehicleStoreId) ? String(vehicleStoreId).trim() : undefined);
 
   return {
     ...payload,
@@ -140,10 +145,10 @@ function normalizeFinancingPayload(payload: FinancingLeadPayload, context: Finan
       form,
       subject,
       source_integration: context.sourceName || payload.meta?.source_integration,
-      page_url: payload.meta?.page_url || fallbackTracking.meta?.page_url,
+      page_url: payload.meta?.page_url || vehicleUrl || fallbackTracking.meta?.page_url,
       user_agent: context.userAgent || payload.meta?.user_agent,
       unit_name: unitName,
-      unit_technical_id: isTechnicalUnitId(payload.unitName) ? String(payload.unitName).trim() : payload.meta?.unit_technical_id,
+      unit_technical_id: unitTechnicalId,
       submitted_at: submittedAt
     }
   };

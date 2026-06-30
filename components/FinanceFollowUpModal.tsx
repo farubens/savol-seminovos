@@ -15,6 +15,7 @@ type FinanceFollowUpModalProps = {
     unitName?: string;
     message?: string;
     vehicle?: LeadmobVehicle;
+    meta?: Record<string, string | number | boolean | null | undefined>;
   };
 };
 
@@ -128,7 +129,10 @@ export function FinanceFollowUpModal({ open, onClose, context }: FinanceFollowUp
         vehicle: context?.vehicle,
         message: [context?.message, `CPF: ${cleanDigits(form.cpf, 11)}`].filter(Boolean).join("\n"),
         utm: tracking.utm,
-        meta: tracking.meta
+        meta: {
+          ...tracking.meta,
+          ...(context?.meta || {})
+        }
       };
       logLeadPayload(formName, leadPayload);
       const response = await fetch("/api/financiamento-leads", {

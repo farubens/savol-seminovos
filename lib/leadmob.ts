@@ -32,6 +32,7 @@ export type LeadmobVehicle = {
   price?: string | number;
   oldPrice?: string | number;
   store?: string;
+  storeId?: string | number | null;
   city?: string;
   uf?: string;
   url?: string;

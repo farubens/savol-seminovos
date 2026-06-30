@@ -662,9 +662,11 @@ export function CategoryFinder() {
                 fuel={vehicle.fuel}
                 km={vehicle.km}
                 store={vehicle.store}
+                storeId={vehicle.storeId}
                 oldPrice={vehicle.oldPrice}
                 price={vehicle.price}
                 detailUrl={vehicle.url}
+                adUrl={vehicle.absoluteUrl}
                 qualityTag={vehicle.qualityTag}
                 secondaryHighlights={vehicle.secondaryHighlights}
                 delay={index * 0.05}

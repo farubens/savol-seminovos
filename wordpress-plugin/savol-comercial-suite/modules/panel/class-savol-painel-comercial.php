@@ -8,7 +8,7 @@ if (!class_exists('Savol_Painel_Comercial')) :
 final class Savol_Painel_Comercial {
     private const ROLE = 'gestor_savol';
     private const ROLE_LABEL = 'Gestor Savol';
-    private const VERSION = '0.5.8';
+    private const VERSION = '0.5.9';
     private const OPTION_VERSION = 'savol_painel_comercial_version';
     private const ANALYTICS_TABLE = 'savol_painel_analytics';
     private const DASHBOARD_SLUG = 'savol-painel-comercial';
@@ -246,7 +246,11 @@ final class Savol_Painel_Comercial {
     }
 
     public static function grant_runtime_caps(array $allcaps, array $caps, array $args, WP_User $user): array {
-        if (!in_array(self::ROLE, (array) $user->roles, true)) {
+        $has_savol_role_or_cap = in_array(self::ROLE, (array) $user->roles, true)
+            || !empty($user->allcaps[self::DASHBOARD_CAPABILITY])
+            || !empty($user->allcaps[self::SELL_LEAD_DELEGATION_CAPABILITY]);
+
+        if (!$has_savol_role_or_cap) {
             return $allcaps;
         }
 
@@ -311,7 +315,7 @@ final class Savol_Painel_Comercial {
                 'Vendedores',
                 'Vendedores',
                 self::SELL_LEAD_DELEGATION_CAPABILITY,
-                'edit.php?post_type=' . self::SELL_LEAD_POST_TYPE . '&page=' . self::SELLER_MENU_SLUG
+                'admin.php?page=' . self::SELLER_MENU_SLUG
             );
         }
 
@@ -387,7 +391,7 @@ final class Savol_Painel_Comercial {
         }
 
         if ($script === 'admin.php') {
-            return in_array(self::request_value('page'), [self::DASHBOARD_SLUG, self::LEGACY_DASHBOARD_SLUG], true);
+            return in_array(self::request_value('page'), [self::DASHBOARD_SLUG, self::LEGACY_DASHBOARD_SLUG, self::SELLER_MENU_SLUG], true);
         }
 
         if ($script === 'edit.php') {

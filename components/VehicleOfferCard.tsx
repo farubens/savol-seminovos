@@ -30,6 +30,7 @@ import { MapDirectionsModal } from "@/components/MapDirectionsModal";
 import { type SavedVehicle, useSavolAccount } from "@/components/SavolAccountProvider";
 import { logLeadmobResponse, logLeadPayload } from "@/lib/leadDebug";
 import { getLeadTrackingPayload } from "@/lib/leadTracking";
+import { resolveSavolTechnicalStoreIdFromParts } from "@/lib/savolStores";
 import { buildOldPriceLabelFromOfficialPrice } from "@/utils/pricing";
 import { watchVwfsSimulatorClose } from "@/utils/vwfsModalWatcher";
 
@@ -44,9 +45,11 @@ type Props = {
   fuel: string;
   km: string;
   store: string;
+  storeId?: number | null;
   oldPrice?: string;
   price: string;
   detailUrl?: string;
+  adUrl?: string;
   qualityTag?: string;
   secondaryHighlights?: string[];
   delay?: number;
@@ -329,9 +332,11 @@ export function VehicleOfferCard({
   fuel,
   km,
   store,
+  storeId = null,
   oldPrice = "",
   price,
   detailUrl = "#",
+  adUrl = "",
   qualityTag = "",
   secondaryHighlights = [],
   delay = 0,
@@ -379,6 +384,10 @@ export function VehicleOfferCard({
   const vwfsClientKey = process.env.NEXT_PUBLIC_VWFS_CLIENT_KEY?.trim() || VWFS_UAT_CLIENT_KEY;
   const vwfsClientToken = process.env.NEXT_PUBLIC_VWFS_CLIENT_TOKEN?.trim() || VWFS_UAT_CLIENT_TOKEN;
   const vwfsStoreId = Number(process.env.NEXT_PUBLIC_VWFS_STORE_ID ?? String(VWFS_DEFAULT_STORE_ID));
+  const resolvedVwfsStoreId = useMemo(
+    () => storeId || resolveSavolTechnicalStoreIdFromParts([store, name, subtitle]) || vwfsStoreId,
+    [name, store, storeId, subtitle, vwfsStoreId]
+  );
   const vwfsScriptSrc = process.env.NEXT_PUBLIC_VWFS_SCRIPT_SRC?.trim() || VWFS_UAT_SCRIPT;
   const [isFinanceModalOpen, setIsFinanceModalOpen] = useState(false);
   const [isFinanceFollowUpOpen, setIsFinanceFollowUpOpen] = useState(false);
@@ -402,7 +411,7 @@ export function VehicleOfferCard({
     consent: true
   });
   const installmentOptions = [12, 24, 36, 48, 60, 72];
-  const hasVwfsConfig = Boolean(vwfsClientKey && vwfsClientToken && vwfsStoreId > 0);
+  const hasVwfsConfig = Boolean(vwfsClientKey && vwfsClientToken && resolvedVwfsStoreId > 0);
   const hasVehicleIdForVwfs = Boolean(normalizeMolicar(molicar) || normalizePlateValue(plate));
   const modalTitle = useMemo(() => {
     const normalizedName = normalizeSpaces(name);
@@ -538,7 +547,7 @@ export function VehicleOfferCard({
     return {
       clientKey: vwfsClientKey,
       clientToken: vwfsClientToken,
-      storeId: vwfsStoreId,
+      storeId: resolvedVwfsStoreId,
       carType: resolveCarType(`${name} ${subtitle}`),
       carValue,
       inputPercent: 40,
@@ -713,6 +722,7 @@ export function VehicleOfferCard({
     () => {
       const years = parseVehicleYears(year);
       const [brandToken = ""] = normalizeSpaces(name).split(" ");
+      const resolvedUrl = toAbsoluteDetailUrl(adUrl || detailUrl);
       return {
         id: vehicleId,
         plate,
@@ -728,13 +738,14 @@ export function VehicleOfferCard({
         price,
         oldPrice: resolvedOldPrice,
         store,
+        storeId: resolvedVwfsStoreId,
         image: safeImage,
         gallery,
-        url: toAbsoluteDetailUrl(detailUrl),
+        url: resolvedUrl,
         molicar
       };
     },
-    [detailUrl, fuel, gallery, km, molicar, name, plate, price, resolvedOldPrice, safeImage, store, subtitle, transmission, vehicleId, year]
+    [adUrl, detailUrl, fuel, gallery, km, molicar, name, plate, price, resolvedOldPrice, resolvedVwfsStoreId, safeImage, store, subtitle, transmission, vehicleId, year]
   );
 
   const handleProposalSubmit = async () => {
@@ -767,7 +778,12 @@ export function VehicleOfferCard({
           proposalForm.message
         ].filter(Boolean).join("\n"),
         utm: tracking.utm,
-        meta: tracking.meta
+        meta: {
+          ...tracking.meta,
+          page_url: leadVehicleContext.url,
+          store_id: resolvedVwfsStoreId,
+          unit_technical_id: resolvedVwfsStoreId
+        }
       };
       logLeadPayload("proposta-financiamento-card", leadPayload);
       const response = await fetch("/api/financiamento-leads", {
@@ -1205,7 +1221,12 @@ export function VehicleOfferCard({
           subject: "Financiamento",
           unitName: store,
           vehicle: leadVehicleContext,
-          message: `Veículo: ${name}\nPreço: ${price}`
+          message: `Veículo: ${name}\nPreço: ${price}`,
+          meta: {
+            page_url: leadVehicleContext.url,
+            store_id: resolvedVwfsStoreId,
+            unit_technical_id: resolvedVwfsStoreId
+          }
         }}
       />
     </>

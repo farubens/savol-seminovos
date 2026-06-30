@@ -9,6 +9,7 @@ import { VehicleOfferCard } from "@/components/VehicleOfferCard";
 import { MapDirectionsModal } from "@/components/MapDirectionsModal";
 import { logLeadmobResponse, logLeadPayload } from "@/lib/leadDebug";
 import { getLeadTrackingPayload } from "@/lib/leadTracking";
+import { resolveSavolTechnicalStoreIdFromParts } from "@/lib/savolStores";
 import { resolveSavolWhatsAppPhoneFromParts } from "@/lib/savolWhatsApp";
 import { watchVwfsSimulatorClose } from "@/utils/vwfsModalWatcher";
 import {
@@ -263,6 +264,7 @@ function toSavedVehicle(vehicle: ApiVehicle): SavedVehicle {
     id: vehicle.id,
     slug: vehicle.slug,
     url: vehicle.url,
+    absoluteUrl: vehicle.absoluteUrl,
     name: vehicle.name,
     subtitle: vehicle.subtitle,
     image: vehicle.image,
@@ -272,6 +274,7 @@ function toSavedVehicle(vehicle: ApiVehicle): SavedVehicle {
     fuel: vehicle.fuel,
     km: vehicle.km,
     store: vehicle.store,
+    storeId: vehicle.storeId,
     oldPrice: vehicle.oldPrice,
     price: vehicle.price,
     qualityTag: vehicle.qualityTag,
@@ -509,6 +512,8 @@ export function VehicleDetailsPageClient({ slug }: Props) {
 
   const breadcrumbCategory = vehicle ? inferCategoryLabel(vehicle) : "";
   const storeTitle = removeStorePrefix(vehicle?.store ?? "Unidade Savol");
+  const resolvedStoreId =
+    vehicle?.storeId || resolveSavolTechnicalStoreIdFromParts([storeTitle, vehicle?.brand, vehicle?.city, vehicle?.uf]) || Number(process.env.NEXT_PUBLIC_VWFS_STORE_ID ?? String(VWFS_DEFAULT_STORE_ID));
   const storeAddress = storeItem?.address || (!isUnknownValue(vehicle?.city ?? "") ? `${vehicle?.city} - ${vehicle?.uf}` : "Endereço sob consulta");
   const storePhone = storeItem?.phone || resolveFallbackStorePhone(vehicle);
   const leadVehicleContext = useMemo(
@@ -527,14 +532,15 @@ export function VehicleDetailsPageClient({ slug }: Props) {
       price: vehicle?.price,
       oldPrice: vehicle?.oldPrice,
       store: storeTitle,
+      storeId: resolvedStoreId,
       city: vehicle?.city,
       uf: vehicle?.uf,
       image: vehicle?.image,
       gallery: galleryItems,
-      url: typeof window !== "undefined" ? window.location.href : vehicle?.url,
+      url: vehicle?.absoluteUrl || (typeof window !== "undefined" ? window.location.href : vehicle?.url),
       molicar: vehicle?.molicar
     }),
-    [galleryItems, storeTitle, vehicle]
+    [galleryItems, resolvedStoreId, storeTitle, vehicle]
   );
 
   useEffect(() => {
@@ -553,7 +559,6 @@ export function VehicleDetailsPageClient({ slug }: Props) {
   const secondaryHighlights = vehicle?.secondaryHighlights ?? [];
   const vwfsClientKey = process.env.NEXT_PUBLIC_VWFS_CLIENT_KEY?.trim() || VWFS_UAT_CLIENT_KEY;
   const vwfsClientToken = process.env.NEXT_PUBLIC_VWFS_CLIENT_TOKEN?.trim() || VWFS_UAT_CLIENT_TOKEN;
-  const vwfsStoreId = Number(process.env.NEXT_PUBLIC_VWFS_STORE_ID ?? String(VWFS_DEFAULT_STORE_ID));
   const vwfsScriptSrc = process.env.NEXT_PUBLIC_VWFS_SCRIPT_SRC?.trim() || VWFS_UAT_SCRIPT;
 
   const technicalRows = useMemo(
@@ -590,7 +595,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
     const normalizedPlate = normalizePlateValue(vehicle.plate ?? "");
     const carValue = toVwfsMoney(vehicle.price);
 
-    if (!vwfsClientKey || !vwfsClientToken || vwfsStoreId <= 0 || (!normalizedMolicar && !normalizedPlate)) {
+    if (!vwfsClientKey || !vwfsClientToken || resolvedStoreId <= 0 || (!normalizedMolicar && !normalizedPlate)) {
       window.alert("Simulador oficial indisponível para este veículo no momento.");
       return;
     }
@@ -604,7 +609,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
     const payload = {
       clientKey: vwfsClientKey,
       clientToken: vwfsClientToken,
-      storeId: vwfsStoreId,
+      storeId: resolvedStoreId,
       carType: resolveCarType(`${vehicle.name} ${vehicle.subtitle}`),
       carValue,
       inputPercent: 40,
@@ -760,7 +765,12 @@ export function VehicleDetailsPageClient({ slug }: Props) {
           leadForm.message
         ].filter(Boolean).join("\n"),
         utm: tracking.utm,
-        meta: tracking.meta
+        meta: {
+          ...tracking.meta,
+          page_url: leadVehicleContext.url,
+          store_id: resolvedStoreId,
+          unit_technical_id: resolvedStoreId
+        }
       };
       logLeadPayload("proposta-veiculo", leadPayload);
       const response = await fetch("/api/leadmob", {
@@ -1170,9 +1180,11 @@ export function VehicleDetailsPageClient({ slug }: Props) {
                   fuel={item.fuel}
                   km={item.km}
                   store={removeStorePrefix(item.store)}
+                  storeId={item.storeId}
                   oldPrice={item.oldPrice}
                   price={item.price}
                   detailUrl={item.url}
+                  adUrl={item.absoluteUrl}
                   qualityTag={item.qualityTag}
                   secondaryHighlights={item.secondaryHighlights}
                 />
@@ -1224,7 +1236,12 @@ export function VehicleDetailsPageClient({ slug }: Props) {
           subject: "Financiamento",
           unitName: storeTitle,
           vehicle: leadVehicleContext,
-          message: vehicle ? `Veículo: ${vehicle.name}\nPreço: ${vehicle.price}\nPágina: ${typeof window !== "undefined" ? window.location.href : ""}` : ""
+          message: vehicle ? `Veículo: ${vehicle.name}\nPreço: ${vehicle.price}\nPágina: ${leadVehicleContext.url}` : "",
+          meta: {
+            page_url: leadVehicleContext.url,
+            store_id: resolvedStoreId,
+            unit_technical_id: resolvedStoreId
+          }
         }}
       />
     </section>
