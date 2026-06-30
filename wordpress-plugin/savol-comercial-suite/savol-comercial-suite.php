@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Savol Comercial Suite
  * Description: Plugin all-in-one Savol para veiculos, painel comercial, Venda Seu Carro, financiamento e conta de clientes.
- * Version: 1.0.2
+ * Version: 1.0.3
  * Author: Savol
  */
 
@@ -10,9 +10,17 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('SAVOL_COMERCIAL_SUITE_VERSION', '1.0.2');
-define('SAVOL_COMERCIAL_SUITE_FILE', __FILE__);
-define('SAVOL_COMERCIAL_SUITE_PATH', plugin_dir_path(__FILE__));
+if (!defined('SAVOL_COMERCIAL_SUITE_VERSION')) {
+    define('SAVOL_COMERCIAL_SUITE_VERSION', '1.0.3');
+}
+if (!defined('SAVOL_COMERCIAL_SUITE_FILE')) {
+    define('SAVOL_COMERCIAL_SUITE_FILE', __FILE__);
+}
+if (!defined('SAVOL_COMERCIAL_SUITE_PATH')) {
+    define('SAVOL_COMERCIAL_SUITE_PATH', plugin_dir_path(__FILE__));
+}
+
+if (!function_exists('savol_comercial_suite_legacy_plugins')) :
 
 function savol_comercial_suite_legacy_plugins(): array
 {
@@ -102,8 +110,12 @@ function savol_comercial_suite_load_modules(): void
     }
 
     require_once SAVOL_COMERCIAL_SUITE_PATH . 'modules/vehicles/class-savol-veiculos-cpt.php';
-    require_once SAVOL_COMERCIAL_SUITE_PATH . 'modules/financing/financing-leads.php';
-    require_once SAVOL_COMERCIAL_SUITE_PATH . 'modules/account/account-api.php';
+    if (!function_exists('savol_financing_activate')) {
+        require_once SAVOL_COMERCIAL_SUITE_PATH . 'modules/financing/financing-leads.php';
+    }
+    if (!function_exists('savol_account_json_error')) {
+        require_once SAVOL_COMERCIAL_SUITE_PATH . 'modules/account/account-api.php';
+    }
     require_once SAVOL_COMERCIAL_SUITE_PATH . 'modules/panel/class-savol-painel-comercial.php';
 
     if (class_exists('Savol_Veiculos_CPT')) {
@@ -144,3 +156,5 @@ function savol_comercial_suite_bootstrap(): void
 
 savol_comercial_suite_load_modules();
 add_action('init', 'savol_comercial_suite_bootstrap', 99);
+
+endif;

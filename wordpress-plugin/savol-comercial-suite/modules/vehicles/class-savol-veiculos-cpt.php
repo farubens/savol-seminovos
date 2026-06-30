@@ -3,6 +3,8 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+if (!class_exists('Savol_Veiculos_CPT')) :
+
 final class Savol_Veiculos_CPT {
     private const POST_TYPE = 'veiculo';
     private const SELL_YOUR_CAR_POST_TYPE = 'venda_carro_lead';
@@ -1448,7 +1450,7 @@ JS;
             'edit.php?post_type=' . self::SELL_YOUR_CAR_POST_TYPE,
             'Vendedores',
             'Vendedores',
-            self::MANAGE_DELEGATION_CAPABILITY,
+            'read',
             self::SELLER_MENU_SLUG,
             [__CLASS__, 'render_sellers_page']
         );
@@ -3345,4 +3347,5 @@ JS;
     }
 }
 
+endif;
 

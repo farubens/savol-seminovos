@@ -1,4 +1,11 @@
 <?php
+/**
+ * Plugin Name: Savol Seminovos Account API
+ * Description: Endpoints headless para favoritos e veículos visitados dos clientes Savol Seminovos.
+ * Version: 0.1.0
+ * Author: Savol
+ */
+
 if (!defined('ABSPATH')) {
     exit;
 }
@@ -93,7 +100,7 @@ function savol_account_create_session(WP_REST_Request $request)
     }
 
     if (!$email || !is_email($email)) {
-        return savol_account_json_error('Informe um e-mail vÃ¡lido.');
+        return savol_account_json_error('Informe um e-mail válido.');
     }
 
     $user = get_user_by('email', $email);
@@ -121,7 +128,7 @@ function savol_account_create_session(WP_REST_Request $request)
         ]);
 
         if (is_wp_error($user_id)) {
-            return savol_account_json_error('NÃ£o foi possÃ­vel criar o usuÃ¡rio.', 500);
+            return savol_account_json_error('Não foi possível criar o usuário.', 500);
         }
     } else {
         $user_id = (int) $user->ID;
@@ -188,7 +195,7 @@ function savol_account_login(WP_REST_Request $request)
     $password = (string) $request->get_param('password');
 
     if (!$email || !is_email($email)) {
-        return savol_account_json_error('Informe um e-mail vÃ¡lido.');
+        return savol_account_json_error('Informe um e-mail válido.');
     }
 
     if (!$password) {
@@ -197,7 +204,7 @@ function savol_account_login(WP_REST_Request $request)
 
     $user = get_user_by('email', $email);
     if (!$user || !wp_check_password($password, $user->user_pass, $user->ID)) {
-        return savol_account_json_error('E-mail ou senha invÃ¡lidos.', 401);
+        return savol_account_json_error('E-mail ou senha inválidos.', 401);
     }
 
     return savol_account_session_response((int) $user->ID);
@@ -210,11 +217,11 @@ function savol_account_register(WP_REST_Request $request)
     $password_confirmation = (string) $request->get_param('passwordConfirmation');
 
     if (!$email || !is_email($email)) {
-        return savol_account_json_error('Informe um e-mail vÃ¡lido.');
+        return savol_account_json_error('Informe um e-mail válido.');
     }
 
     if (email_exists($email)) {
-        return savol_account_json_error('Este e-mail jÃ¡ estÃ¡ cadastrado. Use a opÃ§Ã£o Entrar.', 409);
+        return savol_account_json_error('Este e-mail já está cadastrado. Use a opção Entrar.', 409);
     }
 
     if (strlen($password) < 6) {
@@ -222,7 +229,7 @@ function savol_account_register(WP_REST_Request $request)
     }
 
     if ($password !== $password_confirmation) {
-        return savol_account_json_error('As senhas nÃ£o conferem.');
+        return savol_account_json_error('As senhas não conferem.');
     }
 
     $username = sanitize_user(current(explode('@', $email)), true);
@@ -248,7 +255,7 @@ function savol_account_register(WP_REST_Request $request)
     ]);
 
     if (is_wp_error($user_id)) {
-        return savol_account_json_error('NÃ£o foi possÃ­vel criar o usuÃ¡rio.', 500);
+        return savol_account_json_error('Não foi possível criar o usuário.', 500);
     }
 
     return savol_account_session_response((int) $user_id);
@@ -286,7 +293,7 @@ function savol_account_get_garage(WP_REST_Request $request)
 {
     $user_id = savol_account_find_user_by_token(savol_account_get_bearer_token($request));
     if (!$user_id) {
-        return savol_account_json_error('SessÃ£o invÃ¡lida.', 401);
+        return savol_account_json_error('Sessão inválida.', 401);
     }
 
     return savol_account_read_garage($user_id);
@@ -296,7 +303,7 @@ function savol_account_update_garage(WP_REST_Request $request)
 {
     $user_id = savol_account_find_user_by_token(savol_account_get_bearer_token($request));
     if (!$user_id) {
-        return savol_account_json_error('SessÃ£o invÃ¡lida.', 401);
+        return savol_account_json_error('Sessão inválida.', 401);
     }
 
     $favorites = savol_account_sanitize_vehicle_ids($request->get_param('favorites'), 120);
@@ -309,5 +316,3 @@ function savol_account_update_garage(WP_REST_Request $request)
 }
 
 endif;
-
-

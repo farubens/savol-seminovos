@@ -15,13 +15,14 @@ const WHATSAPP_TEXT = "Olá! Quero atendimento da Savol.";
 const AUTO_OPEN_STORAGE_KEY = "savol-whatsapp-chat-opened";
 const TYPING_DELAY_MS = 800;
 
-type ChatStep = "intro" | "name" | "email" | "phone" | "store" | "done";
-const CHAT_STEP_ORDER: ChatStep[] = ["intro", "name", "email", "phone", "store", "done"];
+type ChatStep = "intro" | "name" | "email" | "phone" | "message" | "done";
+const CHAT_STEP_ORDER: ChatStep[] = ["intro", "name", "email", "phone", "message", "done"];
 
 type ChatForm = {
   name: string;
   email: string;
   phone: string;
+  message: string;
 };
 
 type VehicleLeadContext = {
@@ -73,7 +74,7 @@ export function FloatingWhatsAppButton() {
   const [visibleAgentStep, setVisibleAgentStep] = useState<ChatStep | null>(null);
   const [isTyping, setIsTyping] = useState(false);
   const [isSendingLead, setIsSendingLead] = useState(false);
-  const [chatForm, setChatForm] = useState<ChatForm>({ name: "", email: "", phone: "" });
+  const [chatForm, setChatForm] = useState<ChatForm>({ name: "", email: "", phone: "", message: "" });
   const [currentValue, setCurrentValue] = useState("");
   const [fieldError, setFieldError] = useState("");
   const chatBodyRef = useRef<HTMLDivElement | null>(null);
@@ -124,9 +125,9 @@ export function FloatingWhatsAppButton() {
     const chatBody = chatBodyRef.current;
     if (!chatBody) return;
     chatBody.scrollTo({ top: chatBody.scrollHeight, behavior: "smooth" });
-  }, [chatForm.email, chatForm.name, chatForm.phone, isOpen, isTyping, visibleAgentStep]);
+  }, [chatForm.email, chatForm.message, chatForm.name, chatForm.phone, isOpen, isTyping, visibleAgentStep]);
 
-  const canSubmitTextStep = step === "intro" || step === "name" || step === "email" || step === "phone";
+  const canSubmitTextStep = step === "intro" || step === "name" || step === "email" || step === "phone" || step === "message";
   const isCurrentStepReady = visibleAgentStep === step && !isTyping;
 
   const resetChat = () => {
@@ -134,7 +135,7 @@ export function FloatingWhatsAppButton() {
     setVisibleAgentStep(null);
     setIsTyping(false);
     setIsSendingLead(false);
-    setChatForm({ name: "", email: "", phone: "" });
+    setChatForm({ name: "", email: "", phone: "", message: "" });
     setCurrentValue("");
     setFieldError("");
   };
@@ -184,7 +185,17 @@ export function FloatingWhatsAppButton() {
         return;
       }
       setChatForm((current) => ({ ...current, phone: formatPhoneInput(value) }));
-      setStep("store");
+      setStep("message");
+      return;
+    }
+
+    if (step === "message") {
+      if (!value) {
+        setFieldError("Escreva uma mensagem para nossa equipe.");
+        return;
+      }
+      setChatForm((current) => ({ ...current, message: value }));
+      void startWhatsApp(value);
     }
   };
 
@@ -193,8 +204,9 @@ export function FloatingWhatsAppButton() {
     setCurrentValue(step === "phone" ? formatPhoneInput(value) : value);
   };
 
-  const handleInputKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+  const handleInputKeyDown = (event: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     if (event.key !== "Enter") return;
+    if (event.currentTarget.tagName === "TEXTAREA" && !event.ctrlKey && !event.metaKey) return;
     event.preventDefault();
     submitCurrentStep();
   };
@@ -209,7 +221,7 @@ export function FloatingWhatsAppButton() {
     }
   };
 
-  const startWhatsApp = async () => {
+  async function startWhatsApp(messageOverride?: string) {
     if (isSendingLead) return;
 
     const vehicleContext = getVehicleLeadContext();
@@ -223,6 +235,8 @@ export function FloatingWhatsAppButton() {
         ])
       : WHATSAPP_PHONE;
     const unitText = vehicleContext?.unitName ?? TOYOTA_STORE_NAME;
+    const customerUnitText = vehicleContext?.unitName ?? "Atendimento Savol";
+    const customerMessage = (messageOverride ?? chatForm.message).trim();
     const pageText = isVehicleDetail ? `\nPágina: ${vehicleContext?.pageUrl || window.location.href}` : "";
     const vehicleText = vehicleContext?.vehicleName ? `\nVeículo: ${vehicleContext.vehicleName}` : "";
     const message = [
@@ -230,7 +244,8 @@ export function FloatingWhatsAppButton() {
       `Nome: ${chatForm.name}`,
       `E-mail: ${chatForm.email}`,
       `Telefone: ${chatForm.phone}`,
-      `Unidade de atendimento: ${unitText}${vehicleText}${pageText}`
+      `Mensagem: ${customerMessage}`,
+      `Atendimento: ${customerUnitText}${vehicleText}${pageText}`
     ].join("\n");
 
     setIsSendingLead(true);
@@ -250,6 +265,7 @@ export function FloatingWhatsAppButton() {
         phone: chatForm.phone,
         unitName: unitText,
         vehicle: vehicleContext?.vehicle,
+        customerMessage,
         message,
         utm: tracking.utm,
         meta: {
@@ -272,8 +288,7 @@ export function FloatingWhatsAppButton() {
 
     window.open(createWhatsAppHref(phone, message), "_blank", "noopener,noreferrer");
     setStep("done");
-    setIsOpen(false);
-  };
+  }
 
   if (isVehicleDetail) {
     return null;
@@ -317,9 +332,15 @@ export function FloatingWhatsAppButton() {
             {chatForm.email ? <p className="whatsapp-chat-bubble whatsapp-chat-bubble--user">{chatForm.email}</p> : null}
             {isAgentStepVisible(visibleAgentStep, "phone") ? <p className="whatsapp-chat-bubble whatsapp-chat-bubble--agent">Agora me informe seu telefone.</p> : null}
             {chatForm.phone ? <p className="whatsapp-chat-bubble whatsapp-chat-bubble--user">{chatForm.phone}</p> : null}
-            {isAgentStepVisible(visibleAgentStep, "store") ? (
+            {isAgentStepVisible(visibleAgentStep, "message") ? (
               <p className="whatsapp-chat-bubble whatsapp-chat-bubble--agent">
-                {isVehicleDetail ? "Pronto. Vou te encaminhar para a unidade deste veículo." : "Pronto. Vou encaminhar seu atendimento para a Toyota."}
+                Para finalizar, escreva sua mensagem. Pode contar rapidinho como podemos ajudar.
+              </p>
+            ) : null}
+            {chatForm.message ? <p className="whatsapp-chat-bubble whatsapp-chat-bubble--user">{chatForm.message}</p> : null}
+            {step === "done" ? (
+              <p className="whatsapp-chat-bubble whatsapp-chat-bubble--agent">
+                Sua mensagem foi enviada com sucesso. Nosso horario de atendimento e de segunda a sexta, das 8h as 18h. Retornaremos assim que possivel.
               </p>
             ) : null}
             {isTyping ? (
@@ -340,28 +361,30 @@ export function FloatingWhatsAppButton() {
                   </button>
                 ) : (
                   <>
-                    <input
-                      type={step === "email" ? "email" : "text"}
-                      inputMode={step === "phone" ? "numeric" : "text"}
-                      placeholder={step === "name" ? "Digite seu nome" : step === "email" ? "Digite seu e-mail" : "Digite seu telefone"}
-                      value={currentValue}
-                      onChange={(event) => handleInputChange(event.target.value)}
-                      onKeyDown={handleInputKeyDown}
-                    />
-                    <button type="button" className="whatsapp-chat-send" aria-label="Enviar resposta" onClick={submitCurrentStep}>
+                    {step === "message" ? (
+                      <textarea
+                        rows={3}
+                        placeholder="Escreva aqui sua mensagem..."
+                        value={currentValue}
+                        onChange={(event) => handleInputChange(event.target.value)}
+                        onKeyDown={handleInputKeyDown}
+                      />
+                    ) : (
+                      <input
+                        type={step === "email" ? "email" : "text"}
+                        inputMode={step === "phone" ? "numeric" : "text"}
+                        placeholder={step === "name" ? "Digite seu nome" : step === "email" ? "Digite seu e-mail" : "Digite seu telefone"}
+                        value={currentValue}
+                        onChange={(event) => handleInputChange(event.target.value)}
+                        onKeyDown={handleInputKeyDown}
+                      />
+                    )}
+                    <button type="button" className="whatsapp-chat-send" aria-label="Enviar resposta" onClick={submitCurrentStep} disabled={isSendingLead}>
                       <Send size={17} />
                     </button>
                   </>
                 )}
               </div>
-            ) : null}
-
-            {step === "store" && isCurrentStepReady ? (
-              <>
-                <button type="button" className="whatsapp-start-btn" onClick={startWhatsApp} disabled={isSendingLead}>
-                  {isSendingLead ? "Enviando..." : "Ir para o WhatsApp"}
-                </button>
-              </>
             ) : null}
 
             {fieldError ? <p className="whatsapp-chat-error">{fieldError}</p> : null}

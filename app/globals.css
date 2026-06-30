@@ -6156,7 +6156,8 @@ h2 {
   grid-column: 1 / -1;
 }
 
-.whatsapp-chat-input-row input {
+.whatsapp-chat-input-row input,
+.whatsapp-chat-input-row textarea {
   width: 100%;
   min-height: 44px;
   border: 1px solid #c9dbd0;
@@ -6168,7 +6169,14 @@ h2 {
   outline: none;
 }
 
+.whatsapp-chat-input-row textarea {
+  min-height: 82px;
+  padding: 12px;
+  resize: none;
+}
+
 .whatsapp-chat-input-row input:focus,
+.whatsapp-chat-input-row textarea:focus,
 .whatsapp-store-field select:focus {
   border-color: #62bf85;
   box-shadow: 0 0 0 3px rgba(18, 140, 74, 0.12);

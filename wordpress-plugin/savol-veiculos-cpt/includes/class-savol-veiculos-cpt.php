@@ -3,6 +3,8 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+if (!class_exists('Savol_Veiculos_CPT')) :
+
 final class Savol_Veiculos_CPT {
     private const POST_TYPE = 'veiculo';
     private const SELL_YOUR_CAR_POST_TYPE = 'venda_carro_lead';
@@ -14,6 +16,12 @@ final class Savol_Veiculos_CPT {
     private const ASSIGNED_SELLER_META = '_savol_vsc_assigned_seller_id';
     private const GESTOR_ROLE = 'gestor_savol';
     private const MANAGE_DELEGATION_CAPABILITY = 'savol_manage_venda_seu_carro_delegation';
+    private const SELLER_USER_CAPS = [
+        'list_users',
+        'create_users',
+        'edit_users',
+        'promote_users',
+    ];
     private const PUBLIC_SITE_URL = 'https://savolseminovos.com.br';
     private const SELL_YOUR_CAR_PUBLIC_PATH = '/venda-seu-carro';
     private const SELL_LEAD_CAPS = [
@@ -300,6 +308,9 @@ final class Savol_Veiculos_CPT {
         if ($admin) {
             $admin->add_cap(self::SELLER_CAPABILITY);
             $admin->add_cap(self::MANAGE_DELEGATION_CAPABILITY);
+            foreach (self::SELLER_USER_CAPS as $cap) {
+                $admin->add_cap($cap);
+            }
             foreach (self::sell_lead_role_caps() as $cap) {
                 $admin->add_cap($cap);
             }
@@ -310,6 +321,9 @@ final class Savol_Veiculos_CPT {
             $gestor->add_cap('read');
             $gestor->add_cap(self::MANAGE_DELEGATION_CAPABILITY);
             $gestor->add_cap('savol_access_dashboard');
+            foreach (self::SELLER_USER_CAPS as $cap) {
+                $gestor->add_cap($cap);
+            }
             foreach (self::sell_lead_role_caps() as $cap) {
                 $gestor->add_cap($cap);
             }
@@ -327,6 +341,9 @@ final class Savol_Veiculos_CPT {
             $allcaps['read'] = true;
             $allcaps['savol_access_dashboard'] = true;
             $allcaps[self::MANAGE_DELEGATION_CAPABILITY] = true;
+            foreach (self::SELLER_USER_CAPS as $cap) {
+                $allcaps[$cap] = true;
+            }
             foreach (self::sell_lead_role_caps() as $cap) {
                 $allcaps[$cap] = true;
             }
@@ -1433,7 +1450,7 @@ JS;
             'edit.php?post_type=' . self::SELL_YOUR_CAR_POST_TYPE,
             'Vendedores',
             'Vendedores',
-            self::MANAGE_DELEGATION_CAPABILITY,
+            'read',
             self::SELLER_MENU_SLUG,
             [__CLASS__, 'render_sellers_page']
         );
@@ -3330,4 +3347,5 @@ JS;
     }
 }
 
+endif;
 

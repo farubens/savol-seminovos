@@ -3,11 +3,13 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-const SAVOL_FINANCING_LEAD_POST_TYPE = 'savol_finance_lead';
-const SAVOL_FINANCING_LEADS_TOKEN_OPTION = 'savol_financing_leads_token';
-const SAVOL_FINANCING_PUBLIC_SITE_URL = 'https://savolseminovos.com.br';
-const SAVOL_FINANCING_MANAGER_ROLE = 'gestor_savol';
-const SAVOL_FINANCING_CAPS = [
+if (!function_exists('savol_financing_activate')) :
+
+define('SAVOL_FINANCING_LEAD_POST_TYPE', 'savol_finance_lead');
+define('SAVOL_FINANCING_LEADS_TOKEN_OPTION', 'savol_financing_leads_token');
+define('SAVOL_FINANCING_PUBLIC_SITE_URL', 'https://savolseminovos.com.br');
+define('SAVOL_FINANCING_MANAGER_ROLE', 'gestor_savol');
+define('SAVOL_FINANCING_CAPS', [
     'edit_post' => 'edit_savol_finance_lead',
     'read_post' => 'read_savol_finance_lead',
     'delete_post' => 'delete_savol_finance_lead',
@@ -22,7 +24,7 @@ const SAVOL_FINANCING_CAPS = [
     'edit_private_posts' => 'edit_private_savol_finance_leads',
     'edit_published_posts' => 'edit_published_savol_finance_leads',
     'create_posts' => 'do_not_allow',
-];
+]);
 
 
 add_action('init', 'savol_financing_register_post_type');
@@ -677,4 +679,7 @@ function savol_financing_render_settings_page(): void
     </div>
     <?php
 }
+
+endif;
+
 

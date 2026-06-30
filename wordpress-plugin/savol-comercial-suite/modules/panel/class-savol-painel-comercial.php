@@ -307,15 +307,6 @@ final class Savol_Painel_Comercial {
 
         if (class_exists('Savol_Veiculos_CPT')) {
             add_submenu_page(
-                'edit.php?post_type=' . self::SELL_LEAD_POST_TYPE,
-                'Vendedores',
-                'Vendedores',
-                self::SELL_LEAD_DELEGATION_CAPABILITY,
-                self::SELLER_MENU_SLUG,
-                ['Savol_Veiculos_CPT', 'render_sellers_page']
-            );
-
-            add_submenu_page(
                 self::DASHBOARD_SLUG,
                 'Vendedores',
                 'Vendedores',
