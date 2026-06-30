@@ -16,6 +16,22 @@ final class Savol_Veiculos_CPT {
     private const MANAGE_DELEGATION_CAPABILITY = 'savol_manage_venda_seu_carro_delegation';
     private const PUBLIC_SITE_URL = 'https://savolseminovos.com.br';
     private const SELL_YOUR_CAR_PUBLIC_PATH = '/venda-seu-carro';
+    private const SELL_LEAD_CAPS = [
+        'edit_post' => 'edit_venda_carro_lead',
+        'read_post' => 'read_venda_carro_lead',
+        'delete_post' => 'delete_venda_carro_lead',
+        'edit_posts' => 'edit_venda_carro_leads',
+        'edit_others_posts' => 'edit_others_venda_carro_leads',
+        'publish_posts' => 'publish_venda_carro_leads',
+        'read_private_posts' => 'read_private_venda_carro_leads',
+        'delete_posts' => 'delete_venda_carro_leads',
+        'delete_private_posts' => 'delete_private_venda_carro_leads',
+        'delete_published_posts' => 'delete_published_venda_carro_leads',
+        'delete_others_posts' => 'delete_others_venda_carro_leads',
+        'edit_private_posts' => 'edit_private_venda_carro_leads',
+        'edit_published_posts' => 'edit_published_venda_carro_leads',
+        'create_posts' => 'do_not_allow',
+    ];
     private const NONCE_ACTION = 'savol_veiculos_save_meta';
     private const NONCE_NAME = 'savol_veiculos_nonce';
     private const AUTOSYNC_OPTION = 'savol_veiculos_autosync_token';
@@ -283,12 +299,26 @@ final class Savol_Veiculos_CPT {
         if ($admin) {
             $admin->add_cap(self::SELLER_CAPABILITY);
             $admin->add_cap(self::MANAGE_DELEGATION_CAPABILITY);
+            foreach (self::sell_lead_role_caps() as $cap) {
+                $admin->add_cap($cap);
+            }
         }
 
         $gestor = get_role(self::GESTOR_ROLE);
         if ($gestor) {
+            $gestor->add_cap('read');
             $gestor->add_cap(self::MANAGE_DELEGATION_CAPABILITY);
+            $gestor->add_cap('savol_access_dashboard');
+            foreach (self::sell_lead_role_caps() as $cap) {
+                $gestor->add_cap($cap);
+            }
         }
+    }
+
+    private static function sell_lead_role_caps(): array {
+        return array_values(array_unique(array_filter(self::SELL_LEAD_CAPS, static function ($cap): bool {
+            return is_string($cap) && $cap !== 'do_not_allow';
+        })));
     }
 
     public static function register_post_type(): void {
@@ -338,24 +368,9 @@ final class Savol_Veiculos_CPT {
             'menu_position' => 27,
             'show_in_rest' => false,
             'supports' => ['title', 'editor', 'custom-fields'],
-            'capability_type' => self::SELL_YOUR_CAR_POST_TYPE,
-            'capabilities' => [
-                'edit_post' => 'manage_options',
-                'read_post' => 'manage_options',
-                'delete_post' => 'manage_options',
-                'edit_posts' => 'manage_options',
-                'edit_others_posts' => 'manage_options',
-                'publish_posts' => 'manage_options',
-                'read_private_posts' => 'manage_options',
-                'delete_posts' => 'manage_options',
-                'delete_private_posts' => 'manage_options',
-                'delete_published_posts' => 'manage_options',
-                'delete_others_posts' => 'manage_options',
-                'edit_private_posts' => 'manage_options',
-                'edit_published_posts' => 'manage_options',
-                'create_posts' => 'do_not_allow',
-            ],
-            'map_meta_cap' => false,
+            'capability_type' => ['venda_carro_lead', 'venda_carro_leads'],
+            'capabilities' => self::SELL_LEAD_CAPS,
+            'map_meta_cap' => true,
         ]);
     }
 
@@ -1395,16 +1410,14 @@ JS;
             );
         }
 
-        if (self::can_manage_sell_your_car_delegation()) {
-            add_submenu_page(
-                'edit.php?post_type=' . self::SELL_YOUR_CAR_POST_TYPE,
-                'Vendedores',
-                'Vendedores',
-                'read',
-                self::SELLER_MENU_SLUG,
-                [__CLASS__, 'render_sellers_page']
-            );
-        }
+        add_submenu_page(
+            'edit.php?post_type=' . self::SELL_YOUR_CAR_POST_TYPE,
+            'Vendedores',
+            'Vendedores',
+            self::MANAGE_DELEGATION_CAPABILITY,
+            self::SELLER_MENU_SLUG,
+            [__CLASS__, 'render_sellers_page']
+        );
 
         add_submenu_page(
             'edit.php?post_type=' . self::POST_TYPE,

@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Savol Veiculos CPT
  * Description: Cria o post type de veiculos com metacampos e taxonomias para carros.
- * Version: 1.2.21
+ * Version: 1.2.22
  * Author: Unti Digital
  * Author URI: https://untidigital.com.br
  * License: GPL2+
