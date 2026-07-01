@@ -5709,10 +5709,21 @@ h2 {
   transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 
+.sell-photo-slot.is-required {
+  border-color: #fb7b9b;
+  background: #fff5f8;
+  box-shadow: inset 0 0 0 1px rgba(236, 72, 112, 0.08);
+}
+
 .sell-photo-slot:hover {
   border-color: var(--yellow);
   box-shadow: 0 14px 28px rgba(9, 39, 91, 0.12);
   transform: translateY(-2px);
+}
+
+.sell-photo-slot.is-required:hover {
+  border-color: #e9376f;
+  box-shadow: 0 14px 28px rgba(188, 31, 75, 0.16);
 }
 
 .sell-photo-slot input {
@@ -5753,6 +5764,10 @@ h2 {
   padding: 12px;
 }
 
+.sell-photo-slot.is-required .sell-photo-slot-empty {
+  color: #9f1239;
+}
+
 .sell-photo-slot-empty small {
   font-weight: 800;
 }
@@ -5764,12 +5779,36 @@ h2 {
   text-align: center;
   padding: 8px 6px;
   font-size: 12px;
-  line-height: 1;
+  line-height: 1.2;
+  display: grid;
+  gap: 3px;
+  place-items: center;
+}
+
+.sell-photo-slot strong span,
+.sell-photo-slot strong em {
+  font-style: normal;
+}
+
+.sell-photo-slot strong em {
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: none;
+}
+
+.sell-photo-slot.is-required strong {
+  background: #e9376f;
+  color: #ffffff;
 }
 
 .sell-photo-slot.has-photo {
   border-style: solid;
   border-color: #c9d9f8;
+  background: #fff;
+}
+
+.sell-photo-slot.is-required.has-photo {
+  border-color: #fb7b9b;
   background: #fff;
 }
 

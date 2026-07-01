@@ -615,7 +615,7 @@ export function SellYourCarWizard() {
                           return (
                             <label
                               key={slot.id}
-                              className={`sell-photo-slot${photo ? " has-photo" : ""}${dragActive ? " is-drag-active" : ""}`}
+                              className={`sell-photo-slot${slot.required ? " is-required" : ""}${photo ? " has-photo" : ""}${dragActive ? " is-drag-active" : ""}`}
                               onDrop={(event) => onDropPhoto(slot.id, event)}
                               onDragOver={(event) => {
                                 event.preventDefault();
@@ -637,7 +637,10 @@ export function SellYourCarWizard() {
                                   <small>Clique ou arraste</small>
                                 </span>
                               )}
-                              <strong>{slot.label}{slot.required ? " *" : ""}</strong>
+                              <strong>
+                                <span>{slot.label}</span>
+                                {slot.required ? <em>(Obrigatório)</em> : null}
+                              </strong>
                             </label>
                           );
                         })}
