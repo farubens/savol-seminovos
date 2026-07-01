@@ -76,6 +76,14 @@ type SellYourCarSubmitResponse = {
   error?: string;
 };
 
+type PlateLookupVehicle = Partial<Pick<SellFormData, "plate" | "brand" | "model" | "version" | "modelYear" | "manufactureYear" | "color">>;
+
+type PlateLookupResponse = {
+  ok?: boolean;
+  vehicle?: PlateLookupVehicle;
+  error?: string;
+};
+
 const STEPS: Array<{ id: Step; label: string }> = [
   { id: 1, label: "Placa" },
   { id: 2, label: "Dados do veículo" },
@@ -283,6 +291,8 @@ export function SellYourCarWizard() {
   const [step, setStep] = useState<Step>(1);
   const [form, setForm] = useState<SellFormData>(createInitialFormState);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [plateLookupStatus, setPlateLookupStatus] = useState<"idle" | "loading" | "found" | "not-found" | "error">("idle");
+  const [plateLookupMessage, setPlateLookupMessage] = useState("");
   const [dragActive, setDragActive] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [protocol, setProtocol] = useState<string | null>(null);
@@ -295,6 +305,58 @@ export function SellYourCarWizard() {
   useEffect(() => () => {
     getPhotosList(photosRef.current).forEach((photo) => URL.revokeObjectURL(photo.previewUrl));
   }, []);
+
+  useEffect(() => {
+    if (form.plate.length !== 7) {
+      setPlateLookupStatus("idle");
+      setPlateLookupMessage("");
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      setPlateLookupStatus("loading");
+      setPlateLookupMessage("Consultando dados do veiculo...");
+
+      fetch(`/api/venda-seu-carro/placa?placa=${encodeURIComponent(form.plate)}`, {
+        method: "GET",
+        signal: controller.signal
+      })
+        .then(async (response) => {
+          const payload = (await response.json().catch(() => ({}))) as PlateLookupResponse;
+          if (!response.ok || !payload.ok || !payload.vehicle) {
+            throw new Error(payload.error || "lookup");
+          }
+
+          const vehicle = payload.vehicle;
+          const hasData = Boolean(vehicle.brand || vehicle.model || vehicle.version || vehicle.modelYear || vehicle.manufactureYear || vehicle.color);
+          setForm((current) => {
+            if (current.plate !== form.plate) return current;
+            return {
+              ...current,
+              brand: vehicle.brand || current.brand,
+              model: vehicle.model || current.model,
+              version: vehicle.version || current.version,
+              modelYear: vehicle.modelYear || current.modelYear,
+              manufactureYear: vehicle.manufactureYear || current.manufactureYear,
+              color: vehicle.color || current.color
+            };
+          });
+          setPlateLookupStatus(hasData ? "found" : "not-found");
+          setPlateLookupMessage(hasData ? "Dados encontrados. Revise e complete o que faltar." : "Placa consultada. Complete os dados do veiculo.");
+        })
+        .catch((error: unknown) => {
+          if (error instanceof DOMException && error.name === "AbortError") return;
+          setPlateLookupStatus("error");
+          setPlateLookupMessage("Nao conseguimos consultar essa placa agora. Voce pode continuar preenchendo manualmente.");
+        });
+    }, 350);
+
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [form.plate]);
 
 
   const isStepDone = (checkStep: Step): boolean => {
@@ -523,6 +585,9 @@ export function SellYourCarWizard() {
                       </div>
                       <FieldError error={errors.plate} />
                       <p className="sell-plate-caption">{form.plate.length === 7 ? `${plateKindLabel} identificada. Continue para preencher os dados do veículo.` : "Digite a placa completa para começar a avaliação."}</p>
+                      {plateLookupStatus !== "idle" ? (
+                        <p className={`sell-plate-lookup sell-plate-lookup--${plateLookupStatus}`}>{plateLookupMessage}</p>
+                      ) : null}
                     </div>
                   )}
 

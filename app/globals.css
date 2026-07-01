@@ -5576,6 +5576,32 @@ h2 {
   line-height: 1.45;
 }
 
+.sell-plate-lookup {
+  max-width: 560px;
+  margin: -4px 0 0;
+  padding: 10px 14px;
+  border: 1px solid #d8e2f1;
+  border-radius: 8px;
+  background: #f8fbff;
+  color: #385184;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.sell-plate-lookup--found {
+  border-color: #b7ead0;
+  background: #f1fff7;
+  color: #11633b;
+}
+
+.sell-plate-lookup--error,
+.sell-plate-lookup--not-found {
+  border-color: #f2dcc1;
+  background: #fffaf2;
+  color: #8a4f0f;
+}
+
 .sell-form-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
