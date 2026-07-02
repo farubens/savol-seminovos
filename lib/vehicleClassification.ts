@@ -165,3 +165,7 @@ export function isHybridVehicle(vehicle: ApiVehicle): boolean {
     hasToken(source, "phev")
   );
 }
+
+export function isElectrifiedVehicle(vehicle: ApiVehicle): boolean {
+  return isElectricVehicle(vehicle) || isHybridVehicle(vehicle);
+}

@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useHomeSessionData } from "@/components/HomeSessionDataProvider";
 import { VehicleOfferCard } from "@/components/VehicleOfferCard";
-import { getBodyInfo, isElectricVehicle } from "@/lib/vehicleClassification";
+import { getBodyInfo, isElectrifiedVehicle } from "@/lib/vehicleClassification";
 import type { ApiVehicle } from "@/types/home";
 
 type TabKey = "marca" | "categoria" | "eletricos" | "descrever";
@@ -208,7 +208,7 @@ export function CategoryFinder() {
       const body = getBodyInfo(vehicle);
 
       bodyCounts.set(body.slug, (bodyCounts.get(body.slug) ?? 0) + 1);
-      if (isElectricVehicle(vehicle)) electricCount += 1;
+      if (isElectrifiedVehicle(vehicle)) electricCount += 1;
     }
 
     const countByCardId: Record<string, number> = {
@@ -324,7 +324,7 @@ export function CategoryFinder() {
   const electricFeaturedVehicles = useMemo<ApiVehicle[]>(() => {
     if (!vehicles.length) return [];
 
-    return vehicles.filter(isElectricVehicle).slice(0, 8);
+    return vehicles.filter(isElectrifiedVehicle).slice(0, 8);
   }, [vehicles]);
 
   useEffect(() => {

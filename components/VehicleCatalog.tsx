@@ -7,7 +7,7 @@ import type { ApiVehicle } from "@/types/home";
 import { useHomeSessionData } from "@/components/HomeSessionDataProvider";
 import { SellYourCarCta } from "@/components/SellYourCarCta";
 import { VehicleOfferCard } from "@/components/VehicleOfferCard";
-import { getBodyInfo as getClassifiedBodyInfo, getCategoryInfo as getClassifiedCategoryInfo, isElectricVehicle, isHybridVehicle } from "@/lib/vehicleClassification";
+import { getBodyInfo as getClassifiedBodyInfo, getCategoryInfo as getClassifiedCategoryInfo, isElectrifiedVehicle, isElectricVehicle, isHybridVehicle } from "@/lib/vehicleClassification";
 
 const DEFAULT_SORT = "destaques";
 const PAGE_SIZE = 20;
@@ -434,8 +434,7 @@ export function VehicleCatalog() {
 
   const catalogCategoryOptions = useMemo<CatalogCategoryOption[]>(() => {
     const bodyCounts = new Map<string, { label: string; count: number }>();
-    let electricCount = 0;
-    let hybridCount = 0;
+    let electrifiedCount = 0;
 
     for (const vehicle of vehicles) {
       const body = getClassifiedBodyInfo(vehicle);
@@ -447,8 +446,7 @@ export function VehicleCatalog() {
         });
       }
 
-      if (isElectricVehicle(vehicle)) electricCount += 1;
-      if (isHybridVehicle(vehicle)) hybridCount += 1;
+      if (isElectrifiedVehicle(vehicle)) electrifiedCount += 1;
     }
 
     const orderedBodySlugs = ["hatch", "sedan", "suv", "pickup", "van", "coupe", "wagon"];
@@ -465,8 +463,7 @@ export function VehicleCatalog() {
       }
     }
 
-    if (electricCount > 0) options.push({ kind: "energy", slug: "eletrico", label: "Elétricos", count: electricCount });
-    if (hybridCount > 0) options.push({ kind: "energy", slug: "hibrido", label: "Híbridos", count: hybridCount });
+    if (electrifiedCount > 0) options.push({ kind: "energy", slug: "eletrico", label: "Elétricos", count: electrifiedCount });
 
     return options;
   }, [vehicles]);
@@ -522,6 +519,7 @@ export function VehicleCatalog() {
       const vehicleFuel = toSlug(vehicle.fuel);
       const body = getClassifiedBodyInfo(vehicle);
       const category = getClassifiedCategoryInfo(body);
+      const isElectrified = isElectrifiedVehicle(vehicle);
       const isElectric = isElectricVehicle(vehicle);
       const isHybrid = isHybridVehicle(vehicle);
 
@@ -533,7 +531,7 @@ export function VehicleCatalog() {
       if (selectedFuels.length > 0 && !selectedFuels.includes(vehicleFuel)) return false;
       if (selectedBodies.length > 0 && !selectedBodies.includes(body.slug)) return false;
       if (selectedCategories.length > 0 && !selectedCategories.includes(category.slug)) return false;
-      if (selectedEnergy === "eletrico" && !isElectric) return false;
+      if (selectedEnergy === "eletrico" && !isElectrified) return false;
       if (selectedEnergy === "hibrido" && !isHybrid) return false;
 
       const vehicleYear = parseYearValue(vehicle.year);
@@ -564,7 +562,8 @@ export function VehicleCatalog() {
             vehicle.color,
             body.label,
             category.label,
-            isElectric ? "eletrico 100 eletrico ev bev" : "",
+            isElectrified ? "eletrico eletrificado eletrificados" : "",
+            isElectric ? "100 eletrico ev bev" : "",
             isHybrid ? "hibrido hybrid hev mhev phev plug-in" : ""
           ].join(" ")
         );
