@@ -20,6 +20,14 @@ type CatalogCategoryOption =
   | { kind: "body"; slug: string; label: string; count: number }
   | { kind: "energy"; slug: "eletrico" | "hibrido"; label: string; count: number };
 
+const DEFAULT_TRANSMISSION_OPTIONS: OptionEntry[] = [
+  ["automatico", "Automático"],
+  ["manual", "Manual"],
+  ["cvt", "CVT"],
+  ["dct", "DCT"],
+  ["automatizado", "Automatizado"]
+];
+
 function normalize(value: string): string {
   return value
     .toLowerCase()
@@ -122,6 +130,20 @@ function buildOptionEntries(values: string[]): OptionEntry[] {
   }
 
   return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1], "pt-BR"));
+}
+
+function mergeOptionEntries(preferredEntries: OptionEntry[], discoveredEntries: OptionEntry[]): OptionEntry[] {
+  const map = new Map<string, string>();
+
+  for (const [slug, label] of preferredEntries) {
+    map.set(slug, label);
+  }
+
+  for (const [slug, label] of discoveredEntries) {
+    if (!map.has(slug)) map.set(slug, label);
+  }
+
+  return Array.from(map.entries());
 }
 
 function getBodyInfo(vehicle: ApiVehicle): BodyInfo {
@@ -424,7 +446,10 @@ export function VehicleCatalog() {
     }
   }, [models, selectedBrands.length, selectedModels]);
 
-  const transmissions = useMemo(() => buildOptionEntries(vehicles.map((vehicle) => vehicle.transmission)), [vehicles]);
+  const transmissions = useMemo(
+    () => mergeOptionEntries(DEFAULT_TRANSMISSION_OPTIONS, buildOptionEntries(vehicles.map((vehicle) => vehicle.transmission))),
+    [vehicles]
+  );
   const colors = useMemo(() => buildOptionEntries(vehicles.map((vehicle) => vehicle.color)), [vehicles]);
   const fuels = useMemo(() => buildOptionEntries(vehicles.map((vehicle) => vehicle.fuel)), [vehicles]);
 

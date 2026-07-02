@@ -321,14 +321,15 @@ function extractFuel(version: string, content: string, metaFuel: string): string
 }
 
 function extractTransmission(version: string, content: string, metaCambio: string): string {
-  if (metaCambio) return cleanText(metaCambio);
-
-  const source = normalizeForMatch(`${version} ${content}`);
+  const source = normalizeForMatch(`${version} ${content} ${metaCambio}`);
   if (source.includes("cvt")) return "CVT";
-  if (source.includes("automatic")) return "Automático";
   if (source.includes("manual")) return "Manual";
-  if (/\bat\d?\b/.test(source)) return "Automático";
+  if (source.includes("automatizado")) return "Automatizado";
+  if (/\bdct\b/.test(source)) return "DCT";
   if (/\bmt\d?\b/.test(source)) return "Manual";
+  if (metaCambio) return cleanText(metaCambio);
+  if (source.includes("automatic")) return "Automático";
+  if (/\bat\d?\b/.test(source)) return "Automático";
   return "Câmbio não informado";
 }
 
