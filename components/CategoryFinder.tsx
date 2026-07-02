@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useHomeSessionData } from "@/components/HomeSessionDataProvider";
 import { VehicleOfferCard } from "@/components/VehicleOfferCard";
-import { getBodyInfo, getCategoryInfo } from "@/lib/vehicleClassification";
+import { getBodyInfo, getCategoryInfo, isElectricVehicle } from "@/lib/vehicleClassification";
 import type { ApiVehicle } from "@/types/home";
 
 type TabKey = "marca" | "categoria" | "eletricos" | "descrever";
@@ -86,18 +86,6 @@ function normalizeText(value: string): string {
     .trim();
 }
 
-function isElectricLikeVehicle(vehicle: ApiVehicle): boolean {
-  const source = normalizeText(`${vehicle.fuel} ${vehicle.name} ${vehicle.model} ${vehicle.version} ${vehicle.subtitle}`);
-  return (
-    source.includes("eletric") ||
-    source.includes("hibrid") ||
-    source.includes("hybrid") ||
-    source.includes("ev") ||
-    source.includes("phev") ||
-    source.includes("plug-in")
-  );
-}
-
 function parsePriceValue(value: string): number | null {
   if (!value) return null;
   let cleaned = value.replace(/[^\d,.-]/g, "");
@@ -173,7 +161,7 @@ const cardsByTab: Record<Exclude<TabKey, "descrever" | "marca">, CategoryCardIte
     { id: "suv-c", title: "SUV", amount: "312 veículos", bgImage: bg.suv, icon: "suv", href: "/veiculos?bodies=suv" },
     { id: "pickup-c", title: "Pickup", amount: "164 veículos", bgImage: bg.picape, icon: "picape", href: "/veiculos?bodies=pickup" },
     { id: "util-c", title: "Utilitários", amount: "52 veículos", bgImage: bg.utilitarios, icon: "utilitarios", href: "/veiculos?categories=utilitarios" },
-    { id: "ele-c", title: "Elétricos", amount: "48 veículos", bgImage: bg.esportivo, icon: "eletrico", href: "/veiculos?q=eletrico" }
+    { id: "ele-c", title: "Elétricos", amount: "48 veículos", bgImage: bg.esportivo, icon: "eletrico", href: "/veiculos?energy=eletrico" }
   ],
   eletricos: [
     { id: "hev-e", title: "Híbridos", amount: "81 veículos", bgImage: bg.suv, icon: "eletrico", href: "/veiculos?q=hibrido" },
@@ -188,7 +176,7 @@ const cardsByTab: Record<Exclude<TabKey, "descrever" | "marca">, CategoryCardIte
 
 export function CategoryFinder() {
   const router = useRouter();
-  const { vehicles } = useHomeSessionData();
+  const { vehicles, loading } = useHomeSessionData();
   const [activeTab, setActiveTab] = useState<TabKey>("marca");
   const [selectedMarca, setSelectedMarca] = useState("all");
   const [selectedModelo, setSelectedModelo] = useState("all");
@@ -204,7 +192,14 @@ export function CategoryFinder() {
   const cards = useMemo(() => {
     if (activeTab === "eletricos") return cardsByTab.eletricos;
     if (activeTab !== "categoria") return [];
-    if (!vehicles.length) return cardsByTab.categoria;
+    if (!vehicles.length) {
+      if (!loading) return [];
+
+      return cardsByTab.categoria.map((card) => ({
+        ...card,
+        amount: "Carregando"
+      }));
+    }
 
     const bodyCounts = new Map<string, number>();
     const categoryCounts = new Map<string, number>();
@@ -216,7 +211,7 @@ export function CategoryFinder() {
 
       bodyCounts.set(body.slug, (bodyCounts.get(body.slug) ?? 0) + 1);
       categoryCounts.set(category.slug, (categoryCounts.get(category.slug) ?? 0) + 1);
-      if (isElectricLikeVehicle(vehicle)) electricCount += 1;
+      if (isElectricVehicle(vehicle)) electricCount += 1;
     }
 
     const countByCardId: Record<string, number> = {
@@ -237,7 +232,7 @@ export function CategoryFinder() {
         };
       })
       .filter((card) => (countByCardId[card.id] ?? 0) > 0);
-  }, [activeTab, vehicles]);
+  }, [activeTab, loading, vehicles]);
 
   const visualCards = useMemo(() => {
     if (!(activeTab === "categoria" || activeTab === "eletricos")) return [];
@@ -332,11 +327,7 @@ export function CategoryFinder() {
   const electricFeaturedVehicles = useMemo<ApiVehicle[]>(() => {
     if (!vehicles.length) return [];
 
-    const electricLike = vehicles.filter(isElectricLikeVehicle);
-    const electricIds = new Set(electricLike.map((vehicle) => vehicle.id));
-    const fallback = vehicles.filter((vehicle) => !electricIds.has(vehicle.id));
-
-    return [...electricLike, ...fallback].slice(0, 8);
+    return vehicles.filter(isElectricVehicle).slice(0, 8);
   }, [vehicles]);
 
   useEffect(() => {

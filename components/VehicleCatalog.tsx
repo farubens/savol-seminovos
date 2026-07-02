@@ -7,7 +7,7 @@ import type { ApiVehicle } from "@/types/home";
 import { useHomeSessionData } from "@/components/HomeSessionDataProvider";
 import { SellYourCarCta } from "@/components/SellYourCarCta";
 import { VehicleOfferCard } from "@/components/VehicleOfferCard";
-import { getBodyInfo as getClassifiedBodyInfo, getCategoryInfo as getClassifiedCategoryInfo } from "@/lib/vehicleClassification";
+import { getBodyInfo as getClassifiedBodyInfo, getCategoryInfo as getClassifiedCategoryInfo, isElectricVehicle, isHybridVehicle } from "@/lib/vehicleClassification";
 
 const DEFAULT_SORT = "destaques";
 const PAGE_SIZE = 20;
@@ -152,6 +152,7 @@ function buildQueryString(options: {
   colors: string[];
   fuels: string[];
   bodies: string[];
+  energy: string;
   yearMin: number | null;
   yearMax: number | null;
   priceMin: number | null;
@@ -173,6 +174,7 @@ function buildQueryString(options: {
   if (options.colors.length) params.set("colors", options.colors.join(","));
   if (options.fuels.length) params.set("fuels", options.fuels.join(","));
   if (options.bodies.length) params.set("bodies", options.bodies.join(","));
+  if (options.energy) params.set("energy", options.energy);
 
   if (options.yearMin != null) params.set("yearMin", String(options.yearMin));
   if (options.yearMax != null) params.set("yearMax", String(options.yearMax));
@@ -241,6 +243,7 @@ export function VehicleCatalog() {
   const colorsParam = searchParams.get("colors");
   const fuelsParam = searchParams.get("fuels");
   const bodiesParam = searchParams.get("bodies");
+  const energyParam = searchParams.get("energy");
 
   const legacyStoreParam = searchParams.get("store");
   const legacyBrandParam = searchParams.get("brand");
@@ -267,6 +270,7 @@ export function VehicleCatalog() {
   const urlColors = useMemo(() => parseListParam(colorsParam), [colorsParam]);
   const urlFuels = useMemo(() => parseListParam(fuelsParam), [fuelsParam]);
   const urlBodies = useMemo(() => parseListParam(bodiesParam), [bodiesParam]);
+  const urlEnergy = energyParam === "eletrico" || energyParam === "hibrido" ? energyParam : "";
 
   const legacyStore = legacyStoreParam ?? "all";
   const legacyBrand = legacyBrandParam ?? "all";
@@ -298,6 +302,7 @@ export function VehicleCatalog() {
   const [selectedColors, setSelectedColors] = useState<string[]>(urlColors);
   const [selectedFuels, setSelectedFuels] = useState<string[]>(urlFuels);
   const [selectedBodies, setSelectedBodies] = useState<string[]>(urlBodies);
+  const [selectedEnergy, setSelectedEnergy] = useState(urlEnergy);
 
   const [yearMin, setYearMin] = useState<number | null>(urlYearMin);
   const [yearMax, setYearMax] = useState<number | null>(urlYearMax);
@@ -318,6 +323,7 @@ export function VehicleCatalog() {
     setSelectedColors(urlColors);
     setSelectedFuels(urlFuels);
     setSelectedBodies(urlBodies);
+    setSelectedEnergy(urlEnergy);
 
     setYearMin(urlYearMin);
     setYearMax(urlYearMax);
@@ -343,6 +349,7 @@ export function VehicleCatalog() {
     urlColors,
     urlFuels,
     urlBodies,
+    urlEnergy,
     legacyStore,
     legacyBrand,
     legacyModel,
@@ -459,6 +466,8 @@ export function VehicleCatalog() {
       const vehicleFuel = toSlug(vehicle.fuel);
       const body = getClassifiedBodyInfo(vehicle);
       const category = getClassifiedCategoryInfo(body);
+      const isElectric = isElectricVehicle(vehicle);
+      const isHybrid = isHybridVehicle(vehicle);
 
       if (selectedStores.length > 0 && !selectedStores.includes(vehicleStore)) return false;
       if (selectedBrands.length > 0 && !selectedBrands.includes(vehicleBrand)) return false;
@@ -468,6 +477,8 @@ export function VehicleCatalog() {
       if (selectedFuels.length > 0 && !selectedFuels.includes(vehicleFuel)) return false;
       if (selectedBodies.length > 0 && !selectedBodies.includes(body.slug)) return false;
       if (selectedCategories.length > 0 && !selectedCategories.includes(category.slug)) return false;
+      if (selectedEnergy === "eletrico" && !isElectric) return false;
+      if (selectedEnergy === "hibrido" && !isHybrid) return false;
 
       const vehicleYear = parseYearValue(vehicle.year);
       if (yearMin != null && (vehicleYear == null || vehicleYear < yearMin)) return false;
@@ -496,7 +507,9 @@ export function VehicleCatalog() {
             vehicle.store,
             vehicle.color,
             body.label,
-            category.label
+            category.label,
+            isElectric ? "eletrico 100 eletrico ev bev" : "",
+            isHybrid ? "hibrido hybrid hev mhev phev plug-in" : ""
           ].join(" ")
         );
 
@@ -516,6 +529,7 @@ export function VehicleCatalog() {
     selectedFuels,
     selectedBodies,
     selectedCategories,
+    selectedEnergy,
     yearMin,
     yearMax,
     normalizedPriceRange.min,
@@ -645,6 +659,7 @@ export function VehicleCatalog() {
       colors: selectedColors,
       fuels: selectedFuels,
       bodies: selectedBodies,
+      energy: selectedEnergy,
       yearMin,
       yearMax,
       priceMin: priceRange.min,
@@ -684,6 +699,7 @@ export function VehicleCatalog() {
     setSelectedColors([]);
     setSelectedFuels([]);
     setSelectedBodies([]);
+    setSelectedEnergy("");
 
     setYearMin(null);
     setYearMax(null);
@@ -721,6 +737,7 @@ export function VehicleCatalog() {
     selectedColors.length +
     selectedFuels.length +
     selectedBodies.length +
+    (selectedEnergy ? 1 : 0) +
     (yearMin != null ? 1 : 0) +
     (yearMax != null ? 1 : 0) +
     (priceMin != null || priceMax != null ? 1 : 0) +
@@ -768,6 +785,15 @@ export function VehicleCatalog() {
       label: labelMaps.bodies.get(slug) ?? slug,
       remove: () => setSelectedBodies((current) => current.filter((item) => item !== slug))
     })),
+    ...(selectedEnergy
+      ? [
+          {
+            key: `energy-${selectedEnergy}`,
+            label: selectedEnergy === "eletrico" ? "Elétricos" : "Híbridos",
+            remove: () => setSelectedEnergy("")
+          }
+        ]
+      : []),
     ...(yearMin != null
       ? [
           {

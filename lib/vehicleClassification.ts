@@ -15,6 +15,14 @@ function hasAny(source: string, terms: string[]): boolean {
   return terms.some((term) => source.includes(term));
 }
 
+function hasToken(source: string, token: string): boolean {
+  return new RegExp(`(^|[^a-z0-9])${token}([^a-z0-9]|$)`).test(source);
+}
+
+function energySource(vehicle: ApiVehicle): string {
+  return normalize(`${vehicle.fuel} ${vehicle.category ?? ""} ${vehicle.body ?? ""} ${vehicle.name} ${vehicle.model} ${vehicle.version} ${vehicle.subtitle}`);
+}
+
 function bodyFromText(value: string): BodyInfo | null {
   const source = normalize(value);
   if (!source) return null;
@@ -130,4 +138,30 @@ export function getCategoryInfo(body: BodyInfo): CategoryInfo {
   if (body.slug === "van") return { slug: "utilitarios", label: "Utilitarios" };
   if (body.slug === "hatch" || body.slug === "sedan" || body.slug === "coupe" || body.slug === "wagon") return { slug: "passeio", label: "Passeio" };
   return { slug: "outros", label: "Outros" };
+}
+
+export function isElectricVehicle(vehicle: ApiVehicle): boolean {
+  const source = energySource(vehicle);
+
+  return (
+    source.includes("eletric") ||
+    source.includes("100 eletrico") ||
+    hasToken(source, "bev") ||
+    hasToken(source, "ev") ||
+    hasAny(source, ["byd dolphin", "byd seal", "byd yuan"])
+  );
+}
+
+export function isHybridVehicle(vehicle: ApiVehicle): boolean {
+  const source = energySource(vehicle);
+
+  return (
+    source.includes("hibrid") ||
+    source.includes("hybrid") ||
+    source.includes("plug-in") ||
+    source.includes("plug in") ||
+    hasToken(source, "hev") ||
+    hasToken(source, "mhev") ||
+    hasToken(source, "phev")
+  );
 }
