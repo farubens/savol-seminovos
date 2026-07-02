@@ -12,7 +12,7 @@ const TOYOTA_STORE_NAME = "Savol Toyota";
 const AUTO_OPEN_STORAGE_KEY = "savol-whatsapp-chat-opened";
 const TYPING_DELAY_MS = 800;
 const FINAL_RESPONSE_TEXT =
-  "EM BREVE UM DE NOSSOS ATENDENTES IRA ENTRAR EM CONTATO, NOSSO HORARIO DE ATENDIMENTO É SEGUNDA A SEXTA DAS 8 AS 18.";
+  "Obrigado! Recebemos sua mensagem. Em breve, um de nossos atendentes entrará em contato. Nosso horário de atendimento é de segunda a sexta-feira, das 8h às 18h.";
 
 type ChatStep = "intro" | "name" | "email" | "phone" | "message" | "done";
 const CHAT_STEP_ORDER: ChatStep[] = ["intro", "name", "email", "phone", "message", "done"];
@@ -112,8 +112,18 @@ export function FloatingWhatsAppButton() {
     if (!isOpen) return;
     const chatBody = chatBodyRef.current;
     if (!chatBody) return;
-    chatBody.scrollTo({ top: chatBody.scrollHeight, behavior: "smooth" });
-  }, [chatForm.email, chatForm.message, chatForm.name, chatForm.phone, isOpen, isTyping, visibleAgentStep]);
+
+    const scrollToLatestMessage = () => {
+      chatBody.scrollTo({ top: chatBody.scrollHeight, behavior: "smooth" });
+    };
+    const frameId = window.requestAnimationFrame(scrollToLatestMessage);
+    const timerId = window.setTimeout(scrollToLatestMessage, 80);
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      window.clearTimeout(timerId);
+    };
+  }, [chatForm.email, chatForm.message, chatForm.name, chatForm.phone, isOpen, isTyping, step, visibleAgentStep]);
 
   const canSubmitTextStep = step === "intro" || step === "name" || step === "email" || step === "phone" || step === "message";
   const isCurrentStepReady = visibleAgentStep === step && !isTyping;
