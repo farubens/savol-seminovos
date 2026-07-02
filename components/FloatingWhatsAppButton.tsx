@@ -6,14 +6,13 @@ import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { Send, X } from "lucide-react";
 import { logLeadmobResponse, logLeadPayload } from "@/lib/leadDebug";
 import { getLeadTrackingPayload } from "@/lib/leadTracking";
-import { resolveSavolWhatsAppPhoneFromParts } from "@/lib/savolWhatsApp";
 import type { LeadmobVehicle } from "@/lib/leadmob";
 
-const WHATSAPP_PHONE = "551149796000";
 const TOYOTA_STORE_NAME = "Savol Toyota";
-const WHATSAPP_TEXT = "Olá! Quero atendimento da Savol.";
 const AUTO_OPEN_STORAGE_KEY = "savol-whatsapp-chat-opened";
 const TYPING_DELAY_MS = 800;
+const FINAL_RESPONSE_TEXT =
+  "EM BREVE UM DE NOSSOS ATENDENTES IRA ENTRAR EM CONTATO, NOSSO HORARIO DE ATENDIMENTO É SEGUNDA A SEXTA DAS 8 AS 18.";
 
 type ChatStep = "intro" | "name" | "email" | "phone" | "message" | "done";
 const CHAT_STEP_ORDER: ChatStep[] = ["intro", "name", "email", "phone", "message", "done"];
@@ -33,13 +32,6 @@ type VehicleLeadContext = {
   vehicle?: LeadmobVehicle;
 };
 
-function normalizePhone(value: string): string {
-  const digits = value.replace(/[^\d]/g, "");
-  if (!digits) return WHATSAPP_PHONE;
-  if (digits.startsWith("55")) return digits;
-  return `55${digits}`;
-}
-
 function cleanDigits(value: string, maxLength: number): string {
   return value.replace(/\D/g, "").slice(0, maxLength);
 }
@@ -50,10 +42,6 @@ function formatPhoneInput(value: string): string {
   if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
   if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
   return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
-}
-
-function createWhatsAppHref(phone: string, message = WHATSAPP_TEXT): string {
-  return `https://wa.me/${normalizePhone(phone)}?text=${encodeURIComponent(message)}`;
 }
 
 function isVehicleDetailPath(pathname: string): boolean {
@@ -225,15 +213,6 @@ export function FloatingWhatsAppButton() {
     if (isSendingLead) return;
 
     const vehicleContext = getVehicleLeadContext();
-    const phone = isVehicleDetail && vehicleContext
-      ? resolveSavolWhatsAppPhoneFromParts([
-          vehicleContext.unitName,
-          vehicleContext.vehicle?.store,
-          vehicleContext.vehicle?.brand,
-          vehicleContext.vehicle?.model,
-          vehicleContext.phone
-        ])
-      : WHATSAPP_PHONE;
     const unitText = vehicleContext?.unitName ?? TOYOTA_STORE_NAME;
     const customerUnitText = vehicleContext?.unitName ?? "Atendimento Savol";
     const customerMessage = (messageOverride ?? chatForm.message).trim();
@@ -281,12 +260,11 @@ export function FloatingWhatsAppButton() {
       });
       await logLeadmobResponse(formName, response);
     } catch {
-      // O WhatsApp deve continuar abrindo mesmo se o CRM estiver temporariamente indisponível.
+      // O chat deve responder mesmo se o CRM estiver temporariamente indisponivel.
     } finally {
       setIsSendingLead(false);
     }
 
-    window.open(createWhatsAppHref(phone, message), "_blank", "noopener,noreferrer");
     setStep("done");
   }
 
@@ -339,9 +317,7 @@ export function FloatingWhatsAppButton() {
             ) : null}
             {chatForm.message ? <p className="whatsapp-chat-bubble whatsapp-chat-bubble--user">{chatForm.message}</p> : null}
             {step === "done" ? (
-              <p className="whatsapp-chat-bubble whatsapp-chat-bubble--agent">
-                Sua mensagem foi enviada com sucesso. Nosso horario de atendimento e de segunda a sexta, das 8h as 18h. Retornaremos assim que possivel.
-              </p>
+              <p className="whatsapp-chat-bubble whatsapp-chat-bubble--agent">{FINAL_RESPONSE_TEXT}</p>
             ) : null}
             {isTyping ? (
               <p className="whatsapp-chat-bubble whatsapp-chat-bubble--agent whatsapp-chat-typing" aria-label="Atendente digitando">
