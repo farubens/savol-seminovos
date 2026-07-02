@@ -16,6 +16,9 @@ const LOAD_MORE_DELAY_MS = 350;
 type OptionEntry = [slug: string, label: string];
 type BodyInfo = { slug: string; label: string };
 type CategoryInfo = { slug: string; label: string };
+type CatalogCategoryOption =
+  | { kind: "body"; slug: string; label: string; count: number }
+  | { kind: "energy"; slug: "eletrico" | "hibrido"; label: string; count: number };
 
 function normalize(value: string): string {
   return value
@@ -193,6 +196,20 @@ function buildQueryString(options: {
 
 function toggleListValue(list: string[], value: string): string[] {
   return list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
+}
+
+function getBodyCategoryLabel(slug: string, fallback: string): string {
+  const labels: Record<string, string> = {
+    hatch: "Hatch",
+    sedan: "Sedan",
+    suv: "SUV",
+    pickup: "Picape",
+    van: "Utilitários",
+    coupe: "Cupê",
+    wagon: "Perua"
+  };
+
+  return labels[slug] ?? fallback;
 }
 
 function createSeededRandom(seed: number): () => number {
@@ -401,7 +418,7 @@ export function VehicleCatalog() {
     const map = new Map<string, string>();
     for (const vehicle of vehicles) {
       const body = getClassifiedBodyInfo(vehicle);
-      if (!map.has(body.slug)) map.set(body.slug, body.label);
+      if (!map.has(body.slug)) map.set(body.slug, getBodyCategoryLabel(body.slug, body.label));
     }
     return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1], "pt-BR"));
   }, [vehicles]);
@@ -413,6 +430,45 @@ export function VehicleCatalog() {
       if (!map.has(category.slug)) map.set(category.slug, category.label);
     }
     return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1], "pt-BR"));
+  }, [vehicles]);
+
+  const catalogCategoryOptions = useMemo<CatalogCategoryOption[]>(() => {
+    const bodyCounts = new Map<string, { label: string; count: number }>();
+    let electricCount = 0;
+    let hybridCount = 0;
+
+    for (const vehicle of vehicles) {
+      const body = getClassifiedBodyInfo(vehicle);
+      if (body.slug !== "outros") {
+        const current = bodyCounts.get(body.slug);
+        bodyCounts.set(body.slug, {
+          label: getBodyCategoryLabel(body.slug, body.label),
+          count: (current?.count ?? 0) + 1
+        });
+      }
+
+      if (isElectricVehicle(vehicle)) electricCount += 1;
+      if (isHybridVehicle(vehicle)) hybridCount += 1;
+    }
+
+    const orderedBodySlugs = ["hatch", "sedan", "suv", "pickup", "van", "coupe", "wagon"];
+    const options: CatalogCategoryOption[] = [];
+
+    for (const slug of orderedBodySlugs) {
+      const entry = bodyCounts.get(slug);
+      if (entry) options.push({ kind: "body", slug, label: entry.label, count: entry.count });
+    }
+
+    for (const [slug, entry] of bodyCounts) {
+      if (!orderedBodySlugs.includes(slug)) {
+        options.push({ kind: "body", slug, label: entry.label, count: entry.count });
+      }
+    }
+
+    if (electricCount > 0) options.push({ kind: "energy", slug: "eletrico", label: "Elétricos", count: electricCount });
+    if (hybridCount > 0) options.push({ kind: "energy", slug: "hibrido", label: "Híbridos", count: hybridCount });
+
+    return options;
   }, [vehicles]);
 
   const yearOptions = useMemo(() => {
@@ -928,16 +984,27 @@ export function VehicleCatalog() {
                 <details className="catalog-filter-block">
                   <summary>Categorias</summary>
                   <div className="catalog-checklist">
-                    {categories.map(([slug, label]) => (
-                      <label key={slug} className="catalog-check-item">
-                        <input
-                          type="checkbox"
-                          checked={selectedCategories.includes(slug)}
-                          onChange={() => setSelectedCategories((current) => toggleListValue(current, slug))}
-                        />
-                        <span>{label}</span>
-                      </label>
-                    ))}
+                    {catalogCategoryOptions.map((option) => {
+                      const checked = option.kind === "body" ? selectedBodies.includes(option.slug) : selectedEnergy === option.slug;
+
+                      return (
+                        <label key={`${option.kind}-${option.slug}`} className="catalog-check-item">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => {
+                              if (option.kind === "body") {
+                                setSelectedBodies((current) => toggleListValue(current, option.slug));
+                                return;
+                              }
+
+                              setSelectedEnergy((current) => (current === option.slug ? "" : option.slug));
+                            }}
+                          />
+                          <span>{option.label}</span>
+                        </label>
+                      );
+                    })}
                   </div>
                 </details>
 
@@ -1227,18 +1294,6 @@ export function VehicleCatalog() {
                     {fuels.map(([slug, label]) => (
                       <label key={slug} className="catalog-check-item">
                         <input type="checkbox" checked={selectedFuels.includes(slug)} onChange={() => setSelectedFuels((current) => toggleListValue(current, slug))} />
-                        <span>{label}</span>
-                      </label>
-                    ))}
-                  </div>
-                </details>
-
-                <details className="catalog-filter-block">
-                  <summary>Carroceria</summary>
-                  <div className="catalog-checklist">
-                    {bodies.map(([slug, label]) => (
-                      <label key={slug} className="catalog-check-item">
-                        <input type="checkbox" checked={selectedBodies.includes(slug)} onChange={() => setSelectedBodies((current) => toggleListValue(current, slug))} />
                         <span>{label}</span>
                       </label>
                     ))}

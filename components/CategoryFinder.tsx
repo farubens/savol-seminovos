@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useHomeSessionData } from "@/components/HomeSessionDataProvider";
 import { VehicleOfferCard } from "@/components/VehicleOfferCard";
-import { getBodyInfo, getCategoryInfo, isElectricVehicle } from "@/lib/vehicleClassification";
+import { getBodyInfo, isElectricVehicle } from "@/lib/vehicleClassification";
 import type { ApiVehicle } from "@/types/home";
 
 type TabKey = "marca" | "categoria" | "eletricos" | "descrever";
@@ -160,7 +160,7 @@ const cardsByTab: Record<Exclude<TabKey, "descrever" | "marca">, CategoryCardIte
     { id: "sedan-c", title: "Sedan", amount: "198 veículos", bgImage: bg.sedan, icon: "sedan", href: "/veiculos?bodies=sedan" },
     { id: "suv-c", title: "SUV", amount: "312 veículos", bgImage: bg.suv, icon: "suv", href: "/veiculos?bodies=suv" },
     { id: "pickup-c", title: "Pickup", amount: "164 veículos", bgImage: bg.picape, icon: "picape", href: "/veiculos?bodies=pickup" },
-    { id: "util-c", title: "Utilitários", amount: "52 veículos", bgImage: bg.utilitarios, icon: "utilitarios", href: "/veiculos?categories=utilitarios" },
+    { id: "util-c", title: "Utilitários", amount: "52 veículos", bgImage: bg.utilitarios, icon: "utilitarios", href: "/veiculos?bodies=van" },
     { id: "ele-c", title: "Elétricos", amount: "48 veículos", bgImage: bg.esportivo, icon: "eletrico", href: "/veiculos?energy=eletrico" }
   ],
   eletricos: [
@@ -202,15 +202,12 @@ export function CategoryFinder() {
     }
 
     const bodyCounts = new Map<string, number>();
-    const categoryCounts = new Map<string, number>();
     let electricCount = 0;
 
     for (const vehicle of vehicles) {
       const body = getBodyInfo(vehicle);
-      const category = getCategoryInfo(body);
 
       bodyCounts.set(body.slug, (bodyCounts.get(body.slug) ?? 0) + 1);
-      categoryCounts.set(category.slug, (categoryCounts.get(category.slug) ?? 0) + 1);
       if (isElectricVehicle(vehicle)) electricCount += 1;
     }
 
@@ -219,7 +216,7 @@ export function CategoryFinder() {
       "sedan-c": bodyCounts.get("sedan") ?? 0,
       "suv-c": bodyCounts.get("suv") ?? 0,
       "pickup-c": bodyCounts.get("pickup") ?? 0,
-      "util-c": categoryCounts.get("utilitarios") ?? 0,
+      "util-c": bodyCounts.get("van") ?? 0,
       "ele-c": electricCount
     };
 
