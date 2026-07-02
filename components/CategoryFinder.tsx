@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useHomeSessionData } from "@/components/HomeSessionDataProvider";
 import { VehicleOfferCard } from "@/components/VehicleOfferCard";
+import { getBodyInfo, getCategoryInfo } from "@/lib/vehicleClassification";
 import type { ApiVehicle } from "@/types/home";
 
 type TabKey = "marca" | "categoria" | "eletricos" | "descrever";
@@ -23,7 +24,7 @@ type CategoryCardItem = {
 type BrandItem = {
   id: string;
   name: string;
-  logo: string;
+  logo?: string;
 };
 
 type SelectOption = {
@@ -47,21 +48,9 @@ const aiExamples = [
   "Carro para família com porta-malas grande e segurança"
 ];
 
-const fallbackBrands: BrandItem[] = [
-  { id: "brand-toyota", name: "TOYOTA", logo: "/images/brands/toyota.png" },
-  { id: "brand-fiat", name: "FIAT", logo: "/images/brands/fiat.svg" },
-  { id: "brand-volkswagen", name: "VOLKSWAGEN", logo: "/images/brands/volkswagen.png" },
-  { id: "brand-kia", name: "KIA", logo: "/images/brands/kia.png" },
-  { id: "brand-chevrolet", name: "CHEVROLET", logo: "/images/brands/chevrolet.svg" },
-  { id: "brand-ford", name: "FORD", logo: "/images/brands/ford.svg" },
-  { id: "brand-honda", name: "HONDA", logo: "/images/brands/honda.svg" },
-  { id: "brand-hyundai", name: "HYUNDAI", logo: "/images/brands/hyundai.svg" },
-  { id: "brand-jeep", name: "JEEP", logo: "/images/brands/jeep.svg" },
-  { id: "brand-nissan", name: "NISSAN", logo: "/images/brands/nissan.svg" },
-  { id: "brand-renault", name: "RENAULT", logo: "/images/brands/renault.svg" }
-];
-
 const brandLogoMap: Record<string, string> = {
+  byd: "/images/brands/byd.svg",
+  chery: "/images/brands/chery.svg",
   toyota: "/images/brands/toyota.png",
   fiat: "/images/brands/fiat.svg",
   volkswagen: "/images/brands/volkswagen.png",
@@ -183,7 +172,7 @@ const cardsByTab: Record<Exclude<TabKey, "descrever" | "marca">, CategoryCardIte
     { id: "sedan-c", title: "Sedan", amount: "198 veículos", bgImage: bg.sedan, icon: "sedan", href: "/veiculos?bodies=sedan" },
     { id: "suv-c", title: "SUV", amount: "312 veículos", bgImage: bg.suv, icon: "suv", href: "/veiculos?bodies=suv" },
     { id: "pickup-c", title: "Pickup", amount: "164 veículos", bgImage: bg.picape, icon: "picape", href: "/veiculos?bodies=pickup" },
-    { id: "util-c", title: "Utilitários", amount: "52 veículos", bgImage: bg.utilitarios, icon: "utilitarios", href: "/veiculos?bodies=utilitario" },
+    { id: "util-c", title: "Utilitários", amount: "52 veículos", bgImage: bg.utilitarios, icon: "utilitarios", href: "/veiculos?categories=utilitarios" },
     { id: "ele-c", title: "Elétricos", amount: "48 veículos", bgImage: bg.esportivo, icon: "eletrico", href: "/veiculos?q=eletrico" }
   ],
   eletricos: [
@@ -213,8 +202,42 @@ export function CategoryFinder() {
   const sliderRef = useRef<HTMLDivElement | null>(null);
 
   const cards = useMemo(() => {
-    return activeTab === "categoria" || activeTab === "eletricos" ? cardsByTab[activeTab] : [];
-  }, [activeTab]);
+    if (activeTab === "eletricos") return cardsByTab.eletricos;
+    if (activeTab !== "categoria") return [];
+    if (!vehicles.length) return cardsByTab.categoria;
+
+    const bodyCounts = new Map<string, number>();
+    const categoryCounts = new Map<string, number>();
+    let electricCount = 0;
+
+    for (const vehicle of vehicles) {
+      const body = getBodyInfo(vehicle);
+      const category = getCategoryInfo(body);
+
+      bodyCounts.set(body.slug, (bodyCounts.get(body.slug) ?? 0) + 1);
+      categoryCounts.set(category.slug, (categoryCounts.get(category.slug) ?? 0) + 1);
+      if (isElectricLikeVehicle(vehicle)) electricCount += 1;
+    }
+
+    const countByCardId: Record<string, number> = {
+      "hatch-c": bodyCounts.get("hatch") ?? 0,
+      "sedan-c": bodyCounts.get("sedan") ?? 0,
+      "suv-c": bodyCounts.get("suv") ?? 0,
+      "pickup-c": bodyCounts.get("pickup") ?? 0,
+      "util-c": categoryCounts.get("utilitarios") ?? 0,
+      "ele-c": electricCount
+    };
+
+    return cardsByTab.categoria
+      .map((card) => {
+        const count = countByCardId[card.id] ?? 0;
+        return {
+          ...card,
+          amount: `${count} ${count === 1 ? "veículo" : "veículos"}`
+        };
+      })
+      .filter((card) => (countByCardId[card.id] ?? 0) > 0);
+  }, [activeTab, vehicles]);
 
   const visualCards = useMemo(() => {
     if (!(activeTab === "categoria" || activeTab === "eletricos")) return [];
@@ -237,6 +260,8 @@ export function CategoryFinder() {
     for (const vehicle of vehicles) {
       const brandName = (vehicle.brand ?? "").trim();
       if (!brandName) continue;
+      const normalizedBrand = normalizeText(brandName);
+      if (normalizedBrand.includes("marca") && normalizedBrand.includes("informada")) continue;
 
       const slug = toSlug(brandName);
       const current = marcaMap.get(slug);
@@ -284,23 +309,16 @@ export function CategoryFinder() {
   }, [selectedMarca, vehicles]);
 
   const brandItems = useMemo<BrandItem[]>(() => {
-    const apiBrands = marcaOptions.map((term) => {
-      const slug = term.slug || toSlug(term.name);
-      const logo = brandLogoMap[slug] ?? "/images/logo.png";
-      return {
-        id: `brand-${term.id}`,
-        name: term.name.toUpperCase(),
-        logo
-      };
-    });
-
-    const bySlug = new Map<string, BrandItem>();
-    for (const brand of [...apiBrands, ...fallbackBrands]) {
-      const slug = toSlug(brand.name);
-      if (!bySlug.has(slug)) bySlug.set(slug, brand);
-    }
-
-    return Array.from(bySlug.values()).sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+    return marcaOptions
+      .map((term) => {
+        const slug = term.slug || toSlug(term.name);
+        return {
+          id: `brand-${slug}`,
+          name: term.name.toUpperCase(),
+          logo: brandLogoMap[slug]
+        };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
   }, [marcaOptions]);
 
   const priceOptions = useMemo<number[]>(() => {
@@ -597,7 +615,11 @@ export function CategoryFinder() {
                   }}
                 >
                   <div className="brand-logo-wrap">
-                    <Image src={brand.logo} alt={brand.name} width={148} height={68} className="brand-logo" />
+                    {brand.logo ? (
+                      <Image src={brand.logo} alt={brand.name} width={148} height={68} className="brand-logo" />
+                    ) : (
+                      <span className="brand-logo-fallback">{brand.name}</span>
+                    )}
                   </div>
                   <h3>{brand.name}</h3>
                 </article>

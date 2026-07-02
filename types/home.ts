@@ -21,6 +21,8 @@ export type ApiVehicle = {
   model: string;
   version: string;
   color: string;
+  category?: string;
+  body?: string;
   city: string;
   uf: string;
   molicar?: string;

@@ -1114,6 +1114,20 @@ h2 {
   transition: transform 0.24s ease;
 }
 
+.brand-logo-fallback {
+  display: grid;
+  place-items: center;
+  width: min(130px, 100%);
+  min-height: 54px;
+  color: var(--blue);
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.1;
+  text-align: center;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+
 .brand-card h3 {
   margin: 0;
   font-size: 14px;

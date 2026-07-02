@@ -67,6 +67,8 @@ type ApiVehicle = {
   model: string;
   version: string;
   color: string;
+  category: string;
+  body: string;
   city: string;
   uf: string;
   molicar?: string;
@@ -431,6 +433,8 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
   const metaPrice = getMetaField(vehicle, "preco");
   const metaFuel = getMetaField(vehicle, "combustivel");
   const metaCambio = getMetaField(vehicle, "cambio");
+  const metaCategory = getMetaField(vehicle, "categoria");
+  const metaBody = getMetaField(vehicle, "carroceria") || getMetaField(vehicle, "savol_vsc_vehicle_body_type");
   const metaCondition = getMetaField(vehicle, "condicao");
   const metaGalleryUrls = getMetaField(vehicle, "autosync_photo_urls");
   const metaMolicar = getMetaField(vehicle, "molicar");
@@ -466,6 +470,8 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
     color: color || "Cor não informada",
     city: city || "Cidade não informada",
     uf: uf || "UF não informada",
+    category: metaCategory,
+    body: metaBody,
     molicar: metaMolicar || "",
     plate: metaPlate || ""
   };

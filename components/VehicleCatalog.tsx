@@ -7,6 +7,7 @@ import type { ApiVehicle } from "@/types/home";
 import { useHomeSessionData } from "@/components/HomeSessionDataProvider";
 import { SellYourCarCta } from "@/components/SellYourCarCta";
 import { VehicleOfferCard } from "@/components/VehicleOfferCard";
+import { getBodyInfo as getClassifiedBodyInfo, getCategoryInfo as getClassifiedCategoryInfo } from "@/lib/vehicleClassification";
 
 const DEFAULT_SORT = "destaques";
 const PAGE_SIZE = 20;
@@ -392,7 +393,7 @@ export function VehicleCatalog() {
   const bodies = useMemo(() => {
     const map = new Map<string, string>();
     for (const vehicle of vehicles) {
-      const body = getBodyInfo(vehicle);
+      const body = getClassifiedBodyInfo(vehicle);
       if (!map.has(body.slug)) map.set(body.slug, body.label);
     }
     return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1], "pt-BR"));
@@ -401,7 +402,7 @@ export function VehicleCatalog() {
   const categories = useMemo(() => {
     const map = new Map<string, string>();
     for (const vehicle of vehicles) {
-      const category = getCategoryInfo(getBodyInfo(vehicle));
+      const category = getClassifiedCategoryInfo(getClassifiedBodyInfo(vehicle));
       if (!map.has(category.slug)) map.set(category.slug, category.label);
     }
     return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1], "pt-BR"));
@@ -446,7 +447,7 @@ export function VehicleCatalog() {
 
   const filteredVehicles = useMemo(() => {
     const queryTokens = normalize(query)
-      .split(/\s+/)
+      .split(/[^a-z0-9]+/)
       .filter(Boolean);
 
     return vehicles.filter((vehicle) => {
@@ -456,8 +457,8 @@ export function VehicleCatalog() {
       const vehicleTransmission = toSlug(vehicle.transmission);
       const vehicleColor = toSlug(vehicle.color);
       const vehicleFuel = toSlug(vehicle.fuel);
-      const body = getBodyInfo(vehicle);
-      const category = getCategoryInfo(body);
+      const body = getClassifiedBodyInfo(vehicle);
+      const category = getClassifiedCategoryInfo(body);
 
       if (selectedStores.length > 0 && !selectedStores.includes(vehicleStore)) return false;
       if (selectedBrands.length > 0 && !selectedBrands.includes(vehicleBrand)) return false;
