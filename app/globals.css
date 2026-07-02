@@ -4213,6 +4213,23 @@ h2 {
   box-shadow: 0 8px 18px rgba(168, 91, 0, 0.1);
 }
 
+.vehicle-quick-btn:disabled {
+  cursor: wait;
+  opacity: 0.78;
+}
+
+.vehicle-quick-btn--finance {
+  border-color: #f0c247;
+  background: #fff8e8;
+  color: #0c2f74;
+}
+
+.vehicle-quick-btn--finance:hover {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--blue-dark);
+}
+
 .vehicle-quick-btn.is-active {
   border-color: #f2c774;
   background: #fff7e8;

@@ -936,6 +936,9 @@ export function VehicleDetailsPageClient({ slug }: Props) {
                 />
                 WhatsApp
               </a>
+              <button type="button" className="vehicle-quick-btn vehicle-quick-btn--finance" onClick={openFinanceSimulator} disabled={isOpeningFinanceSimulator}>
+                {isOpeningFinanceSimulator ? <LoaderCircle size={16} className="spin" /> : <WalletCards size={16} />} Ver parcelas
+              </button>
               <button type="button" className={`vehicle-quick-btn${isCurrentVehicleFavorite ? " is-favorite" : ""}`} onClick={() => vehicle && toggleFavorite(toSavedVehicle(vehicle))}>
                 <Heart size={16} fill={isCurrentVehicleFavorite ? "currentColor" : "none"} /> {isCurrentVehicleFavorite ? "Favorito" : "Favoritar"}
               </button>
