@@ -404,12 +404,26 @@ export function VehicleCatalog() {
   const stores = useMemo(() => buildOptionEntries(vehicles.map((vehicle) => vehicle.store)), [vehicles]);
   const brands = useMemo(() => buildOptionEntries(vehicles.map((vehicle) => vehicle.brand)), [vehicles]);
   const models = useMemo(() => {
-    return buildOptionEntries(
-      vehicles
-        .filter((vehicle) => selectedBrands.length === 0 || selectedBrands.includes(toSlug(vehicle.brand)))
-        .map((vehicle) => vehicle.model)
-    );
+    if (!selectedBrands.length) return [];
+
+    return buildOptionEntries(vehicles.filter((vehicle) => selectedBrands.includes(toSlug(vehicle.brand))).map((vehicle) => vehicle.model));
   }, [vehicles, selectedBrands]);
+
+  useEffect(() => {
+    if (!selectedBrands.length) {
+      if (selectedModels.length) setSelectedModels([]);
+      return;
+    }
+
+    if (!selectedModels.length) return;
+
+    const validModels = new Set(models.map(([slug]) => slug));
+    const nextSelectedModels = selectedModels.filter((slug) => validModels.has(slug));
+    if (nextSelectedModels.length !== selectedModels.length) {
+      setSelectedModels(nextSelectedModels);
+    }
+  }, [models, selectedBrands.length, selectedModels]);
+
   const transmissions = useMemo(() => buildOptionEntries(vehicles.map((vehicle) => vehicle.transmission)), [vehicles]);
   const colors = useMemo(() => buildOptionEntries(vehicles.map((vehicle) => vehicle.color)), [vehicles]);
   const fuels = useMemo(() => buildOptionEntries(vehicles.map((vehicle) => vehicle.fuel)), [vehicles]);
@@ -1019,17 +1033,19 @@ export function VehicleCatalog() {
                   </div>
                 </details>
 
-                <details className="catalog-filter-block">
-                  <summary>Modelo</summary>
-                  <div className="catalog-checklist">
-                    {models.map(([slug, label]) => (
-                      <label key={slug} className="catalog-check-item">
-                        <input type="checkbox" checked={selectedModels.includes(slug)} onChange={() => setSelectedModels((current) => toggleListValue(current, slug))} />
-                        <span>{label}</span>
-                      </label>
-                    ))}
-                  </div>
-                </details>
+                {selectedBrands.length > 0 && models.length > 0 ? (
+                  <details className="catalog-filter-block">
+                    <summary>Modelo</summary>
+                    <div className="catalog-checklist">
+                      {models.map(([slug, label]) => (
+                        <label key={slug} className="catalog-check-item">
+                          <input type="checkbox" checked={selectedModels.includes(slug)} onChange={() => setSelectedModels((current) => toggleListValue(current, slug))} />
+                          <span>{label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </details>
+                ) : null}
 
                 <details className="catalog-filter-block">
                   <summary>Ano</summary>
