@@ -37,7 +37,6 @@ type UploadedPhoto = {
 type PhotoSlotId =
   | "vehicle"
   | "documentFront"
-  | "documentBack"
   | "front"
   | "leftSide"
   | "rightSide"
@@ -95,13 +94,12 @@ const STEPS: Array<{ id: Step; label: string }> = [
 const PHOTO_SLOTS: Array<{ id: PhotoSlotId; label: string; required: boolean }> = [
   { id: "vehicle", label: "Foto do carro", required: true },
   { id: "documentFront", label: "Frente do documento", required: true },
-  { id: "documentBack", label: "Verso do documento", required: true },
+  { id: "odometer", label: "Hodômetro", required: true },
   { id: "front", label: "Frente do veículo", required: false },
   { id: "leftSide", label: "Lateral esquerda", required: false },
   { id: "rightSide", label: "Lateral direita", required: false },
   { id: "rear", label: "Traseira", required: false },
   { id: "dashboard", label: "Painel", required: false },
-  { id: "odometer", label: "Odômetro", required: false },
   { id: "spare", label: "Estepe", required: false },
   { id: "trunk", label: "Porta-malas", required: false },
   { id: "roof", label: "Teto", required: false },
@@ -393,7 +391,7 @@ export function SellYourCarWizard() {
       if (!form.color) nextErrors.color = "Informe a cor";
       if (!form.desiredPrice) nextErrors.desiredPrice = "Informe o valor pretendido";
     }
-    if (targetStep === 3 && !PHOTO_SLOTS.filter((slot) => slot.required).every((slot) => Boolean(form.photos[slot.id]))) nextErrors.photos = "Envie as fotos obrigatórias: carro, frente do documento e verso do documento.";
+    if (targetStep === 3 && !PHOTO_SLOTS.filter((slot) => slot.required).every((slot) => Boolean(form.photos[slot.id]))) nextErrors.photos = "Envie as fotos obrigatórias: carro, frente do documento e hodômetro.";
     if (targetStep === 4) {
       if (!form.fullName) nextErrors.fullName = "Informe seu nome";
       if (!form.email || !/^\S+@\S+\.\S+$/.test(form.email)) nextErrors.email = "Informe um e-mail válido";

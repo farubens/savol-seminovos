@@ -5,7 +5,7 @@ import { insertLeadmobLead } from "@/lib/leadmob";
 const REQUIRED_PHOTO_FIELDS = [
   "photo_vehicle",
   "photo_documentFront",
-  "photo_documentBack"
+  "photo_odometer"
 ];
 
 const MAX_PHOTO_SIZE_BYTES = 1200 * 1024;

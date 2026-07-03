@@ -49,7 +49,7 @@ crypto.createHmac("sha256", SELL_YOUR_CAR_TOKEN_SECRET)
 | `photo_rightSide` | File | Sim | Lateral direita. |
 | `photo_rear` | File | Sim | Traseira. |
 | `photo_dashboard` | File | Sim | Painel. |
-| `photo_odometer` | File | Sim | Odômetro. |
+| `photo_odometer` | File | Sim | Hodômetro. |
 | `photo_spare` | File | Sim | Estepe. |
 | `photo_trunk` | File | Sim | Porta-malas. |
 | `photo_roof` | File | Sim | Teto. |

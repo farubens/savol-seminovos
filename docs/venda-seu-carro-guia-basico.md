@@ -88,7 +88,7 @@ O formulário exige 12 fotos:
 - Lateral direita
 - Traseira
 - Painel
-- Odômetro
+- Hodômetro
 - Estepe
 - Porta-malas
 - Teto
