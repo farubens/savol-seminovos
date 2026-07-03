@@ -32,7 +32,10 @@ const SAVOL_TECHNICAL_BRAND_FALLBACKS: StoreRule[] = [
 
 function matchesAlias(normalized: string, alias: string): boolean {
   const normalizedAlias = normalizeSavolContactText(alias);
-  return normalized.includes(normalizedAlias);
+  if (normalized.includes(normalizedAlias)) return true;
+
+  const aliasTokens = normalizedAlias.split(" ").filter((token) => token.length > 1);
+  return aliasTokens.length > 1 && aliasTokens.every((token) => normalized.includes(token));
 }
 
 export function resolveSavolTechnicalStoreIdFromParts(parts: Array<string | null | undefined>): number | null {
