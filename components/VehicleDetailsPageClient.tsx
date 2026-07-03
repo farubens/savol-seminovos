@@ -75,9 +75,9 @@ type DetailsTab = "sobre" | "opcionais" | "ficha" | "financiamento" | "loja";
 
 const FALLBACK_IMAGE = "/images/em-preparacao.jpg";
 const PREPARATION_IMAGE_TOKEN = "/images/em-preparacao";
-const VWFS_UAT_SCRIPT = "https://uat.vwfsbrasil.com.br/seller/partners/simulator.js";
-const VWFS_UAT_CLIENT_KEY = "M7alq91A0YbgWoXjZDQqx5NrJK83dB5RwGnmp4xP";
-const VWFS_UAT_CLIENT_TOKEN = "dcfc4f7a26fc8e704465e0e7892011d3cca98aad2eb21c18b47c4901a0eed82b";
+const VWFS_DEFAULT_SCRIPT = "https://seller.vwfsbrasil.com.br/simulador-ofertas/v2/simulator.js";
+const VWFS_DEFAULT_CLIENT_KEY = "A7a4bq5l8zEVvP0wNR9wvkMmxrYWJZ6d1OjXDnBy";
+const VWFS_DEFAULT_CLIENT_TOKEN = "73697e9cda39da51b4fe07dfd94d5389a630670759a3dced21444ad8bfb25fab";
 const VWFS_DEFAULT_STORE_ID = 123454;
 
 let vwfsScriptPromise: Promise<boolean> | null = null;
@@ -557,9 +557,9 @@ export function VehicleDetailsPageClient({ slug }: Props) {
     );
   }, [leadVehicleContext, storePhone, storeTitle, vehicle]);
   const secondaryHighlights = vehicle?.secondaryHighlights ?? [];
-  const vwfsClientKey = process.env.NEXT_PUBLIC_VWFS_CLIENT_KEY?.trim() || VWFS_UAT_CLIENT_KEY;
-  const vwfsClientToken = process.env.NEXT_PUBLIC_VWFS_CLIENT_TOKEN?.trim() || VWFS_UAT_CLIENT_TOKEN;
-  const vwfsScriptSrc = process.env.NEXT_PUBLIC_VWFS_SCRIPT_SRC?.trim() || VWFS_UAT_SCRIPT;
+  const vwfsClientKey = process.env.NEXT_PUBLIC_VWFS_CLIENT_KEY?.trim() || VWFS_DEFAULT_CLIENT_KEY;
+  const vwfsClientToken = process.env.NEXT_PUBLIC_VWFS_CLIENT_TOKEN?.trim() || VWFS_DEFAULT_CLIENT_TOKEN;
+  const vwfsScriptSrc = process.env.NEXT_PUBLIC_VWFS_SCRIPT_SRC?.trim() || VWFS_DEFAULT_SCRIPT;
 
   const technicalRows = useMemo(
     () =>
