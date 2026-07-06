@@ -8,7 +8,7 @@ if (!class_exists('Savol_Painel_Comercial')) :
 final class Savol_Painel_Comercial {
     private const ROLE = 'gestor_savol';
     private const ROLE_LABEL = 'Gestor Savol';
-    private const VERSION = '0.5.9';
+    private const VERSION = '0.6.0';
     private const OPTION_VERSION = 'savol_painel_comercial_version';
     private const ANALYTICS_TABLE = 'savol_painel_analytics';
     private const DASHBOARD_SLUG = 'savol-painel-comercial';
@@ -692,6 +692,7 @@ JS;
         }
 
         $dashboard = self::get_dashboard_kpis();
+        $visuals = self::get_dashboard_visuals();
         $lead_count = self::count_posts_by_type(self::SELL_LEAD_POST_TYPE);
         $recent_leads = get_posts([
             'post_type' => self::SELL_LEAD_POST_TYPE,
@@ -707,13 +708,15 @@ JS;
                     <div class="savol-brand-mark">S</div>
                     <p class="savol-kicker">Savol Seminovos</p>
                     <h1>Painel do gestor</h1>
-                    <p class="savol-dashboard-version">50 KPIs comerciais - v<?php echo esc_html(self::VERSION); ?></p>
+                    <p class="savol-dashboard-version">Painel comercial visual - v<?php echo esc_html(self::VERSION); ?></p>
                 </div>
                 <div class="savol-gestor-actions">
                     <a class="button button-primary" href="<?php echo esc_url(admin_url('edit.php?post_type=' . self::VEHICLE_POST_TYPE)); ?>">Seminovos</a>
                     <a class="button" href="<?php echo esc_url(admin_url('edit.php?post_type=' . self::SELL_LEAD_POST_TYPE)); ?>">Leads de venda</a>
                 </div>
             </div>
+
+            <?php self::render_dashboard_visuals($visuals); ?>
 
             <?php foreach ($dashboard as $section) : ?>
                 <section class="savol-kpi-section">
@@ -765,6 +768,202 @@ JS;
             </div>
         </div>
         <?php
+    }
+
+    private static function render_dashboard_visuals(array $visuals): void {
+        ?>
+        <section class="savol-visual-dashboard" aria-label="Resumo visual do painel">
+            <div class="savol-visual-summary">
+                <?php foreach ($visuals['summary'] as $item) : ?>
+                    <div class="savol-summary-card">
+                        <span><?php echo esc_html($item['label']); ?></span>
+                        <strong><?php echo esc_html((string) $item['value']); ?></strong>
+                        <small><?php echo esc_html($item['note']); ?></small>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+
+            <div class="savol-insight-grid">
+                <article class="savol-chart-card">
+                    <div class="savol-chart-head">
+                        <h2>Estoque agora</h2>
+                        <span><?php echo esc_html(self::format_int((int) $visuals['stock']['total'])); ?> veiculos</span>
+                    </div>
+                    <div class="savol-donut-wrap">
+                        <div class="savol-donut" style="--available: <?php echo esc_attr((string) $visuals['stock']['available_percent']); ?>%;">
+                            <span><?php echo esc_html((string) $visuals['stock']['available_percent']); ?>%</span>
+                            <small>disponivel</small>
+                        </div>
+                        <div class="savol-donut-legend">
+                            <div><i class="is-blue"></i><span>Disponiveis</span><strong><?php echo esc_html(self::format_int((int) $visuals['stock']['available'])); ?></strong></div>
+                            <div><i class="is-red"></i><span>Indisponiveis</span><strong><?php echo esc_html(self::format_int((int) $visuals['stock']['unavailable'])); ?></strong></div>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="savol-chart-card savol-chart-card-wide">
+                    <div class="savol-chart-head">
+                        <h2>Fluxo comercial</h2>
+                        <span>Ultimos 30 dias</span>
+                    </div>
+                    <?php self::render_bar_rows($visuals['funnel']); ?>
+                </article>
+
+                <article class="savol-chart-card">
+                    <div class="savol-chart-head">
+                        <h2>Leads por tipo</h2>
+                        <span><?php echo esc_html(self::format_int((int) $visuals['lead_mix']['total'])); ?> no total</span>
+                    </div>
+                    <div class="savol-stack" aria-hidden="true">
+                        <span class="is-sell" style="width: <?php echo esc_attr((string) $visuals['lead_mix']['sell_percent']); ?>%;"></span>
+                        <span class="is-finance" style="width: <?php echo esc_attr((string) $visuals['lead_mix']['finance_percent']); ?>%;"></span>
+                    </div>
+                    <div class="savol-donut-legend is-flat">
+                        <div><i class="is-green"></i><span>Venda seu carro</span><strong><?php echo esc_html(self::format_int((int) $visuals['lead_mix']['sell'])); ?></strong></div>
+                        <div><i class="is-yellow"></i><span>Financiamento</span><strong><?php echo esc_html(self::format_int((int) $visuals['lead_mix']['finance'])); ?></strong></div>
+                    </div>
+                </article>
+
+                <article class="savol-chart-card savol-chart-card-wide">
+                    <div class="savol-chart-head">
+                        <h2>Qualidade do estoque</h2>
+                        <span>Campos essenciais preenchidos</span>
+                    </div>
+                    <?php self::render_percent_rows($visuals['quality']); ?>
+                </article>
+
+                <article class="savol-chart-card">
+                    <div class="savol-chart-head">
+                        <h2>Top marcas</h2>
+                        <span>Distribuicao do estoque</span>
+                    </div>
+                    <?php self::render_bar_rows($visuals['top_brands']); ?>
+                </article>
+
+                <article class="savol-chart-card">
+                    <div class="savol-chart-head">
+                        <h2>Sinais de demanda</h2>
+                        <span>O que merece atencao</span>
+                    </div>
+                    <div class="savol-signal-list">
+                        <?php foreach ($visuals['signals'] as $signal) : ?>
+                            <div>
+                                <span><?php echo esc_html($signal['label']); ?></span>
+                                <strong><?php echo esc_html((string) $signal['value']); ?></strong>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </article>
+            </div>
+        </section>
+        <?php
+    }
+
+    private static function render_bar_rows(array $rows): void {
+        $max = 0;
+        foreach ($rows as $row) {
+            $max = max($max, (float) ($row['value'] ?? 0));
+        }
+        ?>
+        <div class="savol-bars">
+            <?php foreach ($rows as $row) : ?>
+                <?php
+                $value = (float) ($row['value'] ?? 0);
+                $width = $max > 0 ? max(3, min(100, (int) round(($value / $max) * 100))) : 0;
+                ?>
+                <div class="savol-bar-row">
+                    <div class="savol-bar-meta">
+                        <span><?php echo esc_html((string) ($row['label'] ?? '')); ?></span>
+                        <strong><?php echo esc_html(self::format_int((int) $value)); ?></strong>
+                    </div>
+                    <div class="savol-bar-track"><i style="width: <?php echo esc_attr((string) $width); ?>%;"></i></div>
+                </div>
+            <?php endforeach; ?>
+        </div>
+        <?php
+    }
+
+    private static function render_percent_rows(array $rows): void {
+        ?>
+        <div class="savol-bars">
+            <?php foreach ($rows as $row) : ?>
+                <?php $value = max(0, min(100, (float) ($row['value'] ?? 0))); ?>
+                <div class="savol-bar-row">
+                    <div class="savol-bar-meta">
+                        <span><?php echo esc_html((string) ($row['label'] ?? '')); ?></span>
+                        <strong><?php echo esc_html(self::format_percent($value)); ?></strong>
+                    </div>
+                    <div class="savol-bar-track"><i style="width: <?php echo esc_attr((string) round($value)); ?>%;"></i></div>
+                </div>
+            <?php endforeach; ?>
+        </div>
+        <?php
+    }
+
+    private static function get_dashboard_visuals(): array {
+        $vehicle_ids = self::get_post_ids(self::VEHICLE_POST_TYPE);
+        $sell_lead_ids = self::get_post_ids(self::SELL_LEAD_POST_TYPE);
+        $finance_lead_ids = post_type_exists(self::FINANCE_LEAD_POST_TYPE) ? self::get_post_ids(self::FINANCE_LEAD_POST_TYPE) : [];
+        $all_lead_ids = array_merge($sell_lead_ids, $finance_lead_ids);
+
+        $vehicle_total = count($vehicle_ids);
+        $unavailable = self::count_unavailable_vehicles($vehicle_ids);
+        $available = max(0, $vehicle_total - $unavailable);
+        $sell_leads = count($sell_lead_ids);
+        $finance_leads = count($finance_lead_ids);
+        $total_leads = count($all_lead_ids);
+        $leads_30 = self::count_posts_since($all_lead_ids, '-30 days', 'post_date');
+        $analytics = self::get_analytics_stats($total_leads, $leads_30);
+        $since_30 = date('Y-m-d H:i:s', strtotime('-30 days', current_time('timestamp')));
+        $vehicle_views_30 = self::analytics_table_exists() ? self::count_analytics_since('vehicle_view', $since_30) : 0;
+
+        $missing_photo = self::count_empty_meta($vehicle_ids, 'galeria_fotos');
+        $missing_price = self::count_zero_meta($vehicle_ids, 'preco');
+        $missing_km = self::count_zero_meta($vehicle_ids, 'km');
+        $missing_unit = self::count_without_terms($vehicle_ids, 'veiculo_unidade');
+        $complete_rate = self::complete_vehicle_rate($vehicle_ids);
+
+        return [
+            'summary' => [
+                ['label' => 'Estoque publicado', 'value' => self::format_int($vehicle_total), 'note' => self::format_int($available) . ' disponiveis'],
+                ['label' => 'Leads em 30 dias', 'value' => self::format_int($leads_30), 'note' => self::format_decimal($leads_30 / 30) . ' por dia'],
+                ['label' => 'Visitantes em 30 dias', 'value' => self::format_int((int) $analytics['visitors_30']), 'note' => 'Usuarios unicos'],
+                ['label' => 'Conversao', 'value' => (string) $analytics['view_to_lead'], 'note' => 'Views para lead'],
+            ],
+            'stock' => [
+                'total' => $vehicle_total,
+                'available' => $available,
+                'unavailable' => $unavailable,
+                'available_percent' => $vehicle_total > 0 ? (int) round(($available / $vehicle_total) * 100) : 0,
+            ],
+            'funnel' => [
+                ['label' => 'Visitantes', 'value' => (int) $analytics['visitors_30']],
+                ['label' => 'Visualizacoes de veiculos', 'value' => $vehicle_views_30],
+                ['label' => 'Cliques no WhatsApp', 'value' => (int) $analytics['whatsapp_clicks_30']],
+                ['label' => 'Leads recebidos', 'value' => $leads_30],
+            ],
+            'lead_mix' => [
+                'sell' => $sell_leads,
+                'finance' => $finance_leads,
+                'total' => $total_leads,
+                'sell_percent' => $total_leads > 0 ? round(($sell_leads / $total_leads) * 100, 1) : 0,
+                'finance_percent' => $total_leads > 0 ? round(($finance_leads / $total_leads) * 100, 1) : 0,
+            ],
+            'quality' => [
+                ['label' => 'Com foto', 'value' => self::completion_percent($vehicle_total, $missing_photo)],
+                ['label' => 'Com preco', 'value' => self::completion_percent($vehicle_total, $missing_price)],
+                ['label' => 'Com KM', 'value' => self::completion_percent($vehicle_total, $missing_km)],
+                ['label' => 'Com unidade', 'value' => self::completion_percent($vehicle_total, $missing_unit)],
+                ['label' => 'Cadastro completo', 'value' => $complete_rate],
+            ],
+            'top_brands' => self::top_taxonomy_rows($vehicle_ids, 'veiculo_marca', 5),
+            'signals' => [
+                ['label' => 'Veiculo mais visto', 'value' => $analytics['top_vehicle']],
+                ['label' => 'Mais leads', 'value' => self::top_sell_lead_vehicle($sell_lead_ids)],
+                ['label' => 'Principal origem', 'value' => $analytics['top_source']],
+                ['label' => 'Filtro mais usado', 'value' => $analytics['top_filter']],
+            ],
+        ];
     }
 
     private static function get_dashboard_kpis(): array {
@@ -1197,6 +1396,32 @@ JS;
         return $name . ' (' . self::format_int((int) $counts[$name]) . ')';
     }
 
+    private static function top_taxonomy_rows(array $post_ids, string $taxonomy, int $limit): array {
+        $counts = [];
+        foreach ($post_ids as $post_id) {
+            $terms = get_the_terms($post_id, $taxonomy);
+            if (empty($terms) || is_wp_error($terms)) {
+                continue;
+            }
+            foreach ($terms as $term) {
+                $name = (string) $term->name;
+                $counts[$name] = ($counts[$name] ?? 0) + 1;
+            }
+        }
+
+        if (empty($counts)) {
+            return [['label' => 'Sem dados', 'value' => 0]];
+        }
+
+        arsort($counts);
+        $rows = [];
+        foreach (array_slice($counts, 0, max(1, $limit), true) as $label => $total) {
+            $rows[] = ['label' => (string) $label, 'value' => (int) $total];
+        }
+
+        return $rows;
+    }
+
     private static function complete_vehicle_rate(array $post_ids): float {
         if (empty($post_ids)) {
             return 0;
@@ -1216,6 +1441,14 @@ JS;
         }
 
         return ($complete / count($post_ids)) * 100;
+    }
+
+    private static function completion_percent(int $total, int $missing): float {
+        if ($total <= 0) {
+            return 0;
+        }
+
+        return (max(0, $total - $missing) / $total) * 100;
     }
 
     private static function post_has_no_terms(int $post_id, string $taxonomy): bool {
@@ -1543,6 +1776,221 @@ body.savol-gestor-role .wrap {
     gap: 16px;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     margin-bottom: 18px;
+}
+.savol-visual-dashboard {
+    margin: 0 0 24px;
+}
+.savol-visual-summary {
+    display: grid;
+    gap: 14px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin: 0 0 14px;
+}
+.savol-summary-card,
+.savol-chart-card {
+    background: var(--savol-panel);
+    border: 1px solid var(--savol-line);
+    border-radius: 8px;
+    box-shadow: 0 14px 32px rgba(15, 23, 42, .06);
+    box-sizing: border-box;
+}
+.savol-summary-card {
+    min-height: 118px;
+    padding: 18px;
+}
+.savol-summary-card span,
+.savol-chart-head span,
+.savol-donut-legend span,
+.savol-signal-list span {
+    color: var(--savol-muted);
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1.35;
+    text-transform: uppercase;
+}
+.savol-summary-card strong {
+    color: var(--savol-text);
+    display: block;
+    font-size: 30px;
+    font-weight: 950;
+    line-height: 1.1;
+    margin: 12px 0 6px;
+}
+.savol-summary-card small {
+    color: #64748b;
+    font-size: 12px;
+}
+.savol-insight-grid {
+    display: grid;
+    gap: 14px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.savol-chart-card {
+    min-height: 270px;
+    padding: 18px;
+}
+.savol-chart-card-wide {
+    grid-column: span 2;
+}
+.savol-chart-head {
+    align-items: flex-start;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 0 0 18px;
+}
+.savol-chart-head h2 {
+    color: var(--savol-text);
+    font-size: 17px;
+    font-weight: 900;
+    line-height: 1.2;
+    margin: 0;
+}
+.savol-donut-wrap {
+    align-items: center;
+    display: grid;
+    gap: 18px;
+    grid-template-columns: 154px minmax(0, 1fr);
+}
+.savol-donut {
+    --available: 0%;
+    align-items: center;
+    aspect-ratio: 1;
+    background: conic-gradient(var(--savol-blue) var(--available), #ef4444 0);
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    position: relative;
+}
+.savol-donut:after {
+    background: #ffffff;
+    border-radius: 50%;
+    content: "";
+    inset: 22px;
+    position: absolute;
+}
+.savol-donut span,
+.savol-donut small {
+    position: relative;
+    z-index: 1;
+}
+.savol-donut span {
+    color: var(--savol-text);
+    font-size: 30px;
+    font-weight: 950;
+    line-height: 1;
+}
+.savol-donut small {
+    color: var(--savol-muted);
+    font-size: 11px;
+    font-weight: 800;
+    margin-top: 6px;
+    text-transform: uppercase;
+}
+.savol-donut-legend {
+    display: grid;
+    gap: 12px;
+}
+.savol-donut-legend.is-flat {
+    margin-top: 18px;
+}
+.savol-donut-legend div {
+    align-items: center;
+    display: grid;
+    gap: 8px;
+    grid-template-columns: 10px minmax(0, 1fr) auto;
+}
+.savol-donut-legend i {
+    border-radius: 99px;
+    display: block;
+    height: 10px;
+    width: 10px;
+}
+.savol-donut-legend strong {
+    color: var(--savol-text);
+    font-size: 18px;
+    font-weight: 900;
+}
+.savol-donut-legend .is-blue { background: var(--savol-blue); }
+.savol-donut-legend .is-red { background: #ef4444; }
+.savol-donut-legend .is-green { background: #10b981; }
+.savol-donut-legend .is-yellow { background: #f59e0b; }
+.savol-bars {
+    display: grid;
+    gap: 14px;
+}
+.savol-bar-meta {
+    align-items: center;
+    display: flex;
+    gap: 12px;
+    justify-content: space-between;
+    margin-bottom: 7px;
+}
+.savol-bar-meta span {
+    color: #334155;
+    font-size: 13px;
+    font-weight: 800;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.savol-bar-meta strong {
+    color: var(--savol-text);
+    font-size: 13px;
+    font-weight: 950;
+    white-space: nowrap;
+}
+.savol-bar-track {
+    background: #e8eef7;
+    border-radius: 99px;
+    height: 10px;
+    overflow: hidden;
+}
+.savol-bar-track i {
+    background: linear-gradient(90deg, #0f3a8a, var(--savol-blue));
+    border-radius: inherit;
+    display: block;
+    height: 100%;
+    min-width: 0;
+}
+.savol-stack {
+    background: #e8eef7;
+    border-radius: 99px;
+    display: flex;
+    height: 18px;
+    overflow: hidden;
+}
+.savol-stack span {
+    display: block;
+    min-width: 0;
+}
+.savol-stack .is-sell {
+    background: #10b981;
+}
+.savol-stack .is-finance {
+    background: #f59e0b;
+}
+.savol-signal-list {
+    display: grid;
+    gap: 12px;
+}
+.savol-signal-list div {
+    border-bottom: 1px solid var(--savol-line);
+    padding-bottom: 12px;
+}
+.savol-signal-list div:last-child {
+    border-bottom: 0;
+    padding-bottom: 0;
+}
+.savol-signal-list strong {
+    color: var(--savol-text);
+    display: block;
+    font-size: 15px;
+    font-weight: 900;
+    line-height: 1.25;
+    margin-top: 6px;
+    overflow-wrap: anywhere;
 }
 .savol-kpi-section {
     margin: 0 0 22px;
@@ -1910,21 +2358,48 @@ body.savol-gestor-role .tablenav .one-page .pagination-links {
     .savol-stats-grid {
         grid-template-columns: 1fr;
     }
+    .savol-visual-summary,
+    .savol-insight-grid {
+        grid-template-columns: 1fr;
+    }
+    .savol-chart-card-wide {
+        grid-column: auto;
+    }
+    .savol-donut-wrap {
+        grid-template-columns: 1fr;
+    }
+    .savol-donut {
+        margin: 0 auto;
+        max-width: 180px;
+        width: 100%;
+    }
     .savol-kpi-grid {
         grid-template-columns: 1fr;
     }
 }
 @media (min-width: 783px) and (max-width: 1400px) {
+    .savol-insight-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
     .savol-kpi-grid {
         grid-template-columns: repeat(4, minmax(0, 1fr));
     }
 }
 @media (min-width: 783px) and (max-width: 1180px) {
+    .savol-visual-summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
     .savol-kpi-grid {
         grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 }
 @media (min-width: 783px) and (max-width: 980px) {
+    .savol-insight-grid {
+        grid-template-columns: 1fr;
+    }
+    .savol-chart-card-wide {
+        grid-column: auto;
+    }
     .savol-kpi-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
