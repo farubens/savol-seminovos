@@ -313,6 +313,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
 
   const thumbsRef = useRef<HTMLDivElement | null>(null);
   const vwfsCloseWatcherRef = useRef<(() => void) | null>(null);
+  const financeFollowUpOpenedRef = useRef(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -570,14 +571,20 @@ export function VehicleDetailsPageClient({ slug }: Props) {
     [vehicle, storeTitle]
   );
 
-  const armVwfsCloseWatcher = () => {
+  const openFinanceFollowUp = () => {
+    if (financeFollowUpOpenedRef.current) return;
+    financeFollowUpOpenedRef.current = true;
+    setIsFinanceFollowUpOpen(true);
+  };
+
+  const armVwfsCloseWatcher = (assumeOpened = false) => {
     if (vwfsCloseWatcherRef.current) {
       vwfsCloseWatcherRef.current();
     }
     vwfsCloseWatcherRef.current = watchVwfsSimulatorClose(() => {
       vwfsCloseWatcherRef.current = null;
-      setIsFinanceFollowUpOpen(true);
-    });
+      openFinanceFollowUp();
+    }, { assumeOpened });
   };
 
   const openFinanceSimulator = () => {
@@ -632,7 +639,8 @@ export function VehicleDetailsPageClient({ slug }: Props) {
 
       try {
         armVwfsCloseWatcher();
-        window.bvfs.simulator(payload);
+        financeFollowUpOpenedRef.current = false;
+        window.bvfs.simulator(payload, () => armVwfsCloseWatcher(true));
       } catch {
         if (vwfsCloseWatcherRef.current) {
           vwfsCloseWatcherRef.current();
@@ -1225,7 +1233,10 @@ export function VehicleDetailsPageClient({ slug }: Props) {
 
       <FinanceFollowUpModal
         open={isFinanceFollowUpOpen}
-        onClose={() => setIsFinanceFollowUpOpen(false)}
+        onClose={() => {
+          financeFollowUpOpenedRef.current = false;
+          setIsFinanceFollowUpOpen(false);
+        }}
         context={{
           form: "financiamento-single",
           subject: "Financiamento",

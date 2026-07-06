@@ -1,6 +1,14 @@
-const VWFS_SURFACE_SELECTOR = "#bvfs-yield .BvfsSimulationContainer, #bvfs-yield .BvfsLightbox, #bvfs-yield .Loading--overlay";
+const VWFS_SURFACE_SELECTOR = [
+  "#bvfs-yield .BvfsSimulationContainer",
+  "#bvfs-yield .BvfsLightbox",
+  "#bvfs-yield .Loading--overlay",
+  "#bvfs-yield [class*='BvfsSimulationContainer']",
+  "#bvfs-yield [class*='BvfsLightbox']",
+  "#bvfs-yield [class*='Guide__']",
+  "#bvfs-yield [class*='TourPopup']"
+].join(", ");
 const CLOSE_SETTLE_MS = 900;
-const WATCH_TIMEOUT_MS = 120000;
+const OPEN_TIMEOUT_MS = 120000;
 
 function isVisibleElement(element: Element): boolean {
   if (!(element instanceof HTMLElement)) return false;
@@ -17,12 +25,17 @@ function hasVisibleVwfsSurface(): boolean {
   return Array.from(document.querySelectorAll(VWFS_SURFACE_SELECTOR)).some(isVisibleElement);
 }
 
-export function watchVwfsSimulatorClose(onClose: () => void): () => void {
+type WatchVwfsSimulatorCloseOptions = {
+  assumeOpened?: boolean;
+};
+
+export function watchVwfsSimulatorClose(onClose: () => void, options: WatchVwfsSimulatorCloseOptions = {}): () => void {
   if (typeof document === "undefined" || typeof window === "undefined") return () => {};
 
-  let hasOpened = false;
+  let hasOpened = Boolean(options.assumeOpened);
   let didClose = false;
   let closeTimer: number | null = null;
+  let openTimeoutId: number | null = null;
 
   const clearCloseTimer = () => {
     if (closeTimer === null) return;
@@ -32,7 +45,10 @@ export function watchVwfsSimulatorClose(onClose: () => void): () => void {
 
   const cleanup = () => {
     clearCloseTimer();
-    window.clearTimeout(timeoutId);
+    if (openTimeoutId !== null) {
+      window.clearTimeout(openTimeoutId);
+      openTimeoutId = null;
+    }
     observer.disconnect();
   };
 
@@ -48,6 +64,10 @@ export function watchVwfsSimulatorClose(onClose: () => void): () => void {
 
     if (hasSurface) {
       hasOpened = true;
+      if (openTimeoutId !== null) {
+        window.clearTimeout(openTimeoutId);
+        openTimeoutId = null;
+      }
       clearCloseTimer();
       return;
     }
@@ -61,7 +81,12 @@ export function watchVwfsSimulatorClose(onClose: () => void): () => void {
   };
 
   const observer = new MutationObserver(check);
-  const timeoutId = window.setTimeout(cleanup, WATCH_TIMEOUT_MS);
+  if (!hasOpened) {
+    openTimeoutId = window.setTimeout(() => {
+      openTimeoutId = null;
+      if (!hasOpened) cleanup();
+    }, OPEN_TIMEOUT_MS);
+  }
 
   observer.observe(document.body, {
     attributes: true,

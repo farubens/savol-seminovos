@@ -350,6 +350,7 @@ export function VehicleOfferCard({
   const calculationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const galleryLoadingGuardRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const vwfsCloseWatcherRef = useRef<(() => void) | null>(null);
+  const financeFollowUpOpenedRef = useRef(false);
   const isMountedRef = useRef(true);
   const resolvedSecondaryHighlights = useMemo(
     () => {
@@ -556,21 +557,22 @@ export function VehicleOfferCard({
   };
 
   const openFinanceFollowUp = () => {
-    if (!isMountedRef.current) return;
+    if (!isMountedRef.current || financeFollowUpOpenedRef.current) return;
+    financeFollowUpOpenedRef.current = true;
     setIsFinanceModalOpen(false);
     setShowProposalForm(false);
     setProposalSent(false);
     setIsFinanceFollowUpOpen(true);
   };
 
-  const armVwfsCloseWatcher = () => {
+  const armVwfsCloseWatcher = (assumeOpened = false) => {
     if (vwfsCloseWatcherRef.current) {
       vwfsCloseWatcherRef.current();
     }
     vwfsCloseWatcherRef.current = watchVwfsSimulatorClose(() => {
       vwfsCloseWatcherRef.current = null;
       openFinanceFollowUp();
-    });
+    }, { assumeOpened });
   };
 
   const openVwfsSimulator = () => {
@@ -600,7 +602,8 @@ export function VehicleOfferCard({
       }
       try {
         armVwfsCloseWatcher();
-        window.bvfs.simulator(payload);
+        financeFollowUpOpenedRef.current = false;
+        window.bvfs.simulator(payload, () => armVwfsCloseWatcher(true));
       } catch {
         if (vwfsCloseWatcherRef.current) {
           vwfsCloseWatcherRef.current();
@@ -677,7 +680,8 @@ export function VehicleOfferCard({
         }
         try {
           armVwfsCloseWatcher();
-          window.bvfs.simulator(payload);
+          financeFollowUpOpenedRef.current = false;
+          window.bvfs.simulator(payload, () => armVwfsCloseWatcher(true));
         } catch {
           if (vwfsCloseWatcherRef.current) {
             vwfsCloseWatcherRef.current();
@@ -1206,7 +1210,10 @@ export function VehicleOfferCard({
 
       <FinanceFollowUpModal
         open={isFinanceFollowUpOpen}
-        onClose={() => setIsFinanceFollowUpOpen(false)}
+        onClose={() => {
+          financeFollowUpOpenedRef.current = false;
+          setIsFinanceFollowUpOpen(false);
+        }}
         context={{
           form: "financiamento-card",
           subject: "Financiamento",
