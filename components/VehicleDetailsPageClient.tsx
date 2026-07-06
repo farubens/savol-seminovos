@@ -11,6 +11,7 @@ import { logLeadmobResponse, logLeadPayload } from "@/lib/leadDebug";
 import { getLeadTrackingPayload } from "@/lib/leadTracking";
 import { resolveSavolTechnicalStoreIdFromParts } from "@/lib/savolStores";
 import { resolveSavolWhatsAppPhoneFromParts } from "@/lib/savolWhatsApp";
+import { parseCurrencyToInteger } from "@/utils/pricing";
 import { watchVwfsSimulatorClose } from "@/utils/vwfsModalWatcher";
 import {
   BadgeCheck,
@@ -117,18 +118,7 @@ function resolveHighlightIcon(value: string) {
 }
 
 function parseMoney(value: string): number | null {
-  if (!value) return null;
-  let cleaned = value.replace(/[^\d,.-]/g, "");
-  if (!cleaned) return null;
-
-  if (cleaned.includes(",")) {
-    cleaned = cleaned.replace(/\./g, "").replace(",", ".");
-  } else {
-    cleaned = cleaned.replace(/\./g, "");
-  }
-
-  const parsed = Number(cleaned);
-  return Number.isFinite(parsed) ? parsed : null;
+  return parseCurrencyToInteger(value);
 }
 
 function toVwfsMoney(value: string): string {

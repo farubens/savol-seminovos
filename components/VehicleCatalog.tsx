@@ -8,6 +8,7 @@ import { useHomeSessionData } from "@/components/HomeSessionDataProvider";
 import { SellYourCarCta } from "@/components/SellYourCarCta";
 import { VehicleOfferCard } from "@/components/VehicleOfferCard";
 import { getBodyInfo as getClassifiedBodyInfo, getCategoryInfo as getClassifiedCategoryInfo, isElectrifiedVehicle, isElectricVehicle, isHybridVehicle } from "@/lib/vehicleClassification";
+import { parseCurrencyToInteger } from "@/utils/pricing";
 
 const DEFAULT_SORT = "destaques";
 const PAGE_SIZE = 20;
@@ -49,16 +50,7 @@ function parseListParam(value: string | null): string[] {
 }
 
 function parsePriceValue(value: string): number | null {
-  if (!value) return null;
-  let cleaned = value.replace(/[^\d,.-]/g, "");
-  if (!cleaned) return null;
-  if (cleaned.includes(",")) {
-    cleaned = cleaned.replace(/\./g, "").replace(",", ".");
-  } else {
-    cleaned = cleaned.replace(/\./g, "");
-  }
-  const parsed = Number(cleaned);
-  return Number.isFinite(parsed) ? parsed : null;
+  return parseCurrencyToInteger(value);
 }
 
 function parseKmValue(value: string): number | null {

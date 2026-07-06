@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useHomeSessionData } from "@/components/HomeSessionDataProvider";
 import { VehicleOfferCard } from "@/components/VehicleOfferCard";
 import { getBodyInfo, isElectrifiedVehicle } from "@/lib/vehicleClassification";
+import { parseCurrencyToInteger } from "@/utils/pricing";
 import type { ApiVehicle } from "@/types/home";
 
 type TabKey = "marca" | "categoria" | "eletricos" | "descrever";
@@ -87,18 +88,8 @@ function normalizeText(value: string): string {
 }
 
 function parsePriceValue(value: string): number | null {
-  if (!value) return null;
-  let cleaned = value.replace(/[^\d,.-]/g, "");
-  if (!cleaned) return null;
-
-  if (cleaned.includes(",")) {
-    cleaned = cleaned.replace(/\./g, "").replace(",", ".");
-  } else {
-    cleaned = cleaned.replace(/\./g, "");
-  }
-
-  const parsed = Number(cleaned);
-  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  const parsed = parseCurrencyToInteger(value);
+  if (!parsed || parsed <= 0) return null;
   return parsed;
 }
 

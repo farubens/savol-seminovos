@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveSavolTechnicalStoreIdFromParts } from "@/lib/savolStores";
-import { buildOldPriceLabelFromOfficialPrice } from "@/utils/pricing";
+import { buildOldPriceLabelFromOfficialPrice, formatCurrencyBRL, parseCurrencyToInteger } from "@/utils/pricing";
 
 const DEFAULT_WP_BASE_URL =
   process.env.NODE_ENV === "production" ? "https://palevioletred-lark-270684.hostingersite.com" : "http://localhost/savol-seminovos-local";
@@ -349,15 +349,9 @@ function formatKm(content: string, metaKm: string): string {
 }
 
 function toCurrencyValue(raw: string): string {
-  const normalized = raw.replace(/[^\d,.-]/g, "").replace(/\./g, "").replace(",", ".");
-  const numeric = Number(normalized);
-  if (!Number.isFinite(numeric)) return "";
-
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-    maximumFractionDigits: 0
-  }).format(numeric);
+  const numeric = parseCurrencyToInteger(raw);
+  if (!numeric || numeric <= 0) return "";
+  return formatCurrencyBRL(numeric);
 }
 
 function extractPriceData(content: string, metaPrice: string): { oldPrice: string; price: string } {

@@ -1,10 +1,33 @@
 export function parseCurrencyToNumber(value: string): number | null {
   if (!value) return null;
-  const digits = value.replace(/[^\d]/g, "");
-  if (!digits) return null;
-  const parsed = Number(digits);
-  if (!Number.isFinite(parsed) || parsed <= 0) return null;
-  return parsed;
+  const parsed = parseCurrencyToInteger(value);
+  return parsed && parsed > 0 ? parsed : null;
+}
+
+export function parseCurrencyToInteger(value: string): number | null {
+  const text = value.replace(/[^\d,.-]/g, "").trim();
+  if (!text) return null;
+
+  let normalized = text;
+  const hasComma = normalized.includes(",");
+  const hasDot = normalized.includes(".");
+  if (hasComma && hasDot) {
+    const lastComma = normalized.lastIndexOf(",");
+    const lastDot = normalized.lastIndexOf(".");
+    if (lastComma > lastDot) {
+      normalized = normalized.replace(/\./g, "").replace(",", ".");
+    } else {
+      normalized = normalized.replace(/,/g, "");
+    }
+  } else if (hasComma) {
+    normalized = normalized.replace(/\./g, "").replace(",", ".");
+  } else if (/^\d{1,3}(\.\d{3})+(\.\d+)?$/.test(normalized)) {
+    normalized = normalized.replace(/\./g, "");
+  }
+
+  const parsed = Number(normalized);
+  if (!Number.isFinite(parsed)) return null;
+  return Math.trunc(parsed);
 }
 
 export function formatCurrencyBRL(value: number): string {

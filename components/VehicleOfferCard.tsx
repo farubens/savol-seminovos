@@ -31,7 +31,7 @@ import { type SavedVehicle, useSavolAccount } from "@/components/SavolAccountPro
 import { logLeadmobResponse, logLeadPayload } from "@/lib/leadDebug";
 import { getLeadTrackingPayload } from "@/lib/leadTracking";
 import { resolveSavolTechnicalStoreIdFromParts } from "@/lib/savolStores";
-import { buildOldPriceLabelFromOfficialPrice } from "@/utils/pricing";
+import { buildOldPriceLabelFromOfficialPrice, parseCurrencyToInteger } from "@/utils/pricing";
 import { watchVwfsSimulatorClose } from "@/utils/vwfsModalWatcher";
 
 type Props = {
@@ -117,19 +117,7 @@ function resolveHighlightIcon(value: string) {
 }
 
 function parseMoney(value: string): number | null {
-  if (!value) return null;
-  let cleaned = value.replace(/[^\d,.-]/g, "");
-  if (!cleaned) return null;
-
-  if (cleaned.includes(",")) {
-    cleaned = cleaned.replace(/\./g, "").replace(",", ".");
-  } else {
-    cleaned = cleaned.replace(/\./g, "");
-  }
-
-  const parsed = Number(cleaned);
-  if (!Number.isFinite(parsed)) return null;
-  return parsed;
+  return parseCurrencyToInteger(value);
 }
 
 function formatMoney(value: number, minimumFractionDigits = 0, maximumFractionDigits = 0): string {
