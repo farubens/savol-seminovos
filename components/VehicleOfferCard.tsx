@@ -58,7 +58,7 @@ type Props = {
   plate?: string;
 };
 
-const FALLBACK_HIGHLIGHT = "OPORTUNIDADE";
+const FALLBACK_HIGHLIGHT = "Oportunidade";
 
 declare global {
   interface Window {

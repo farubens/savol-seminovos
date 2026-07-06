@@ -80,7 +80,7 @@ const VWFS_DEFAULT_SCRIPT = "https://seller.vwfsbrasil.com.br/partners/simulator
 const VWFS_DEFAULT_CLIENT_KEY = "A7a4bq5l8zEVvP0wNR9wvkMmxrYWJZ6d1OjXDnBy";
 const VWFS_DEFAULT_CLIENT_TOKEN = "73697e9cda39da51b4fe07dfd94d5389a630670759a3dced21444ad8bfb25fab";
 const VWFS_DEFAULT_STORE_ID = 123454;
-const FALLBACK_HIGHLIGHT = "OPORTUNIDADE";
+const FALLBACK_HIGHLIGHT = "Oportunidade";
 
 let vwfsScriptPromise: Promise<boolean> | null = null;
 
