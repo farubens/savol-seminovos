@@ -2615,6 +2615,8 @@ JS;
                 'empresa' => preg_replace('/\D+/', '', (string) ($row['empresa'] ?? '')),
                 'situacao' => strtoupper(trim((string) ($row['situacao'] ?? ''))),
                 'val_compra' => self::parse_money_value($row['val_compra'] ?? null),
+                'nome_fantasia' => trim((string) ($row['nome_fantasia'] ?? '')),
+                'cnpj' => preg_replace('/\D+/', '', (string) ($row['cnpj'] ?? '')),
                 'placa' => self::normalize_plate((string) ($row['placa'] ?? '')),
                 'chassi' => self::normalize_vehicle_lookup_key((string) ($row['chassi'] ?? '')),
                 'veiculo' => trim((string) ($row['veiculo'] ?? '')),
@@ -2780,6 +2782,8 @@ JS;
         update_post_meta($post_id, 'apolo_empresa', (string) ($apolo_reconciliation['apolo']['empresa'] ?? ''));
         update_post_meta($post_id, 'apolo_situacao', (string) ($apolo_reconciliation['apolo']['situacao'] ?? ''));
         update_post_meta($post_id, 'apolo_val_compra', self::parse_money_value($apolo_reconciliation['apolo']['val_compra'] ?? null));
+        update_post_meta($post_id, 'apolo_nome_fantasia', (string) ($apolo_reconciliation['apolo']['nome_fantasia'] ?? ''));
+        update_post_meta($post_id, 'apolo_cnpj', (string) ($apolo_reconciliation['apolo']['cnpj'] ?? ''));
         update_post_meta($post_id, 'apolo_reconciliacao_motivo', (string) $apolo_reconciliation['reason']);
         update_post_meta($post_id, 'combustivel', (string) ($vehicle['fuelName'] ?? ''));
         update_post_meta($post_id, 'cambio', (string) ($vehicle['transmissionName'] ?? ''));
@@ -2801,9 +2805,10 @@ JS;
         self::set_term_if_value($post_id, 'veiculo_modelo', (string) ($vehicle['modelName'] ?? ''));
         self::set_term_if_value($post_id, 'veiculo_versao', (string) ($vehicle['versionName'] ?? ''));
         self::set_term_if_value($post_id, 'veiculo_cor', (string) ($vehicle['colorName'] ?? ''));
-        self::set_term_if_value($post_id, 'veiculo_cidade', self::extract_city((string) ($vehicle['entityName'] ?? '')));
+        $official_unit_name = self::resolve_official_unidade_name($apolo_reconciliation['apolo'] ?? [], (string) ($vehicle['entityName'] ?? ''));
+        self::set_term_if_value($post_id, 'veiculo_cidade', self::extract_city_from_unidade($official_unit_name));
         self::set_term_if_value($post_id, 'veiculo_uf', 'SP');
-        self::assign_unidade_term_with_contacts($post_id, (string) ($vehicle['entityName'] ?? ''));
+        self::assign_unidade_term_with_contacts($post_id, $official_unit_name);
         self::assign_informacao_destaque_terms($post_id, $vehicle);
         self::assign_destaque_secundario_terms($post_id, $vehicle);
 
@@ -3128,6 +3133,36 @@ JS;
         wp_set_object_terms($post_id, [$value], $taxonomy, false);
     }
 
+    private static function resolve_official_unidade_name(array $apolo_item, string $fallback_entity_name): string {
+        $cnpj = preg_replace('/\D+/', '', (string) ($apolo_item['cnpj'] ?? ''));
+        $fantasy_name = trim((string) ($apolo_item['nome_fantasia'] ?? ''));
+        $normalized = self::canonicalize_text($fantasy_name . ' ' . $fallback_entity_name);
+
+        if (str_contains($normalized, 'mg') || str_contains($normalized, 'motor')) {
+            if (str_contains($normalized, 'analia')) {
+                return 'Unidade Savol MG Motor Anália Franco';
+            }
+            return 'Unidade Savol MG Motor São Caetano';
+        }
+
+        if (str_contains($normalized, 'jetour')) {
+            if (str_contains($normalized, 'sao caetano') || str_contains($normalized, 'scs')) {
+                return 'Unidade Savol JETOUR São Caetano do Sul';
+            }
+            return 'Unidade Savol JETOUR Santo André';
+        }
+
+        $by_cnpj = [
+            '62870730000109' => 'Unidade Savol MG Motor São Caetano',
+            '65214691000171' => 'Unidade Savol JETOUR Santo André',
+        ];
+        if ($cnpj !== '' && isset($by_cnpj[$cnpj])) {
+            return $by_cnpj[$cnpj];
+        }
+
+        return trim($fallback_entity_name);
+    }
+
     private static function assign_unidade_term_with_contacts(int $post_id, string $entity_name): void {
         $entity_name = trim($entity_name);
         if ($entity_name === '') {
@@ -3185,6 +3220,30 @@ JS;
         }
 
         return [];
+    }
+
+    private static function extract_city_from_unidade(string $unit_name): string {
+        $normalized = self::canonicalize_text($unit_name);
+        if (str_contains($normalized, 'sao caetano')) {
+            return 'São Caetano do Sul';
+        }
+        if (str_contains($normalized, 'santo andre')) {
+            return 'Santo André';
+        }
+        if (str_contains($normalized, 'sao bernardo')) {
+            return 'São Bernardo do Campo';
+        }
+        if (str_contains($normalized, 'sao paulo') || str_contains($normalized, 'analia franco') || str_contains($normalized, 'ipiranga')) {
+            return 'São Paulo';
+        }
+        if (str_contains($normalized, 'maua')) {
+            return 'Mauá';
+        }
+        if (str_contains($normalized, 'praia grande')) {
+            return 'Praia Grande';
+        }
+
+        return self::extract_city($unit_name);
     }
 
     private static function normalize_text(string $value): string {

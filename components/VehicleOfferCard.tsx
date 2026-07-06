@@ -58,6 +58,8 @@ type Props = {
   plate?: string;
 };
 
+const FALLBACK_HIGHLIGHT = "OPORTUNIDADE";
+
 declare global {
   interface Window {
     bvfs?: {
@@ -364,7 +366,7 @@ export function VehicleOfferCard({
   const resolvedSecondaryHighlights = useMemo(
     () => {
       const seen = new Set<string>();
-      return [qualityTag, ...secondaryHighlights]
+      const highlights = [qualityTag, ...secondaryHighlights]
         .map((highlight) => highlight.trim())
         .filter(shouldShowCardHighlight)
         .filter((highlight) => {
@@ -374,6 +376,7 @@ export function VehicleOfferCard({
           return true;
         })
         .slice(0, 4);
+      return highlights.length ? highlights : [FALLBACK_HIGHLIGHT];
     },
     [qualityTag, secondaryHighlights]
   );
