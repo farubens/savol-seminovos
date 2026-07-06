@@ -557,6 +557,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
       })
     );
   }, [leadVehicleContext, storePhone, storeTitle, vehicle]);
+  const displayQualityTag = vehicle ? (vehicle.qualityTag?.trim() || FALLBACK_HIGHLIGHT) : "";
   const secondaryHighlights = vehicle ? (vehicle.secondaryHighlights?.length ? vehicle.secondaryHighlights : [FALLBACK_HIGHLIGHT]) : [];
   const vwfsClientKey = process.env.NEXT_PUBLIC_VWFS_CLIENT_KEY?.trim() || VWFS_DEFAULT_CLIENT_KEY;
   const vwfsClientToken = process.env.NEXT_PUBLIC_VWFS_CLIENT_TOKEN?.trim() || VWFS_DEFAULT_CLIENT_TOKEN;
@@ -829,8 +830,8 @@ export function VehicleDetailsPageClient({ slug }: Props) {
       <div className="vehicle-details-layout">
         <div className="vehicle-details-gallery-col">
           <article className="vehicle-media-card">
-            {!isPreparationFallback && vehicle.qualityTag ? (
-              <span className={`vehicle-media-badge vehicle-media-badge--${resolveHighlightTone(vehicle.qualityTag)}`}>{vehicle.qualityTag}</span>
+            {!isPreparationFallback && displayQualityTag ? (
+              <span className={`vehicle-media-badge vehicle-media-badge--${resolveHighlightTone(displayQualityTag)}`}>{displayQualityTag}</span>
             ) : null}
 
             {!isPreparationFallback && (
