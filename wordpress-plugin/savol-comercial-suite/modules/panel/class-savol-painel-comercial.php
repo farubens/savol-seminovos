@@ -8,7 +8,7 @@ if (!class_exists('Savol_Painel_Comercial')) :
 final class Savol_Painel_Comercial {
     private const ROLE = 'gestor_savol';
     private const ROLE_LABEL = 'Gestor Savol';
-    private const VERSION = '0.6.0';
+    private const VERSION = '0.6.1';
     private const OPTION_VERSION = 'savol_painel_comercial_version';
     private const ANALYTICS_TABLE = 'savol_painel_analytics';
     private const DASHBOARD_SLUG = 'savol-painel-comercial';
@@ -719,20 +719,14 @@ JS;
             <?php self::render_dashboard_visuals($visuals); ?>
 
             <?php foreach ($dashboard as $section) : ?>
+                <?php $section_max = self::kpi_section_max($section['items']); ?>
                 <section class="savol-kpi-section">
                     <div class="savol-kpi-section-head">
                         <h2><?php echo esc_html($section['title']); ?></h2>
                     </div>
                     <div class="savol-kpi-grid">
                         <?php foreach ($section['items'] as $item) : ?>
-                            <?php $is_missing = !empty($item['missing']); ?>
-                            <div class="savol-kpi-card<?php echo $is_missing ? ' is-missing' : ''; ?>">
-                                <span><?php echo esc_html($item['label']); ?></span>
-                                <strong><?php echo esc_html((string) $item['value']); ?></strong>
-                                <?php if (!empty($item['note'])) : ?>
-                                    <small><?php echo esc_html($item['note']); ?></small>
-                                <?php endif; ?>
-                            </div>
+                            <?php self::render_kpi_card($item, $section_max); ?>
                         <?php endforeach; ?>
                     </div>
                 </section>
@@ -898,6 +892,205 @@ JS;
             <?php endforeach; ?>
         </div>
         <?php
+    }
+
+    private static function render_kpi_card(array $item, float $section_max): void {
+        $is_missing = !empty($item['missing']);
+        $visual = self::kpi_visual_data($item, $section_max);
+        ?>
+        <div class="savol-kpi-card<?php echo $is_missing ? ' is-missing' : ''; ?> is-<?php echo esc_attr($visual['type']); ?>">
+            <span><?php echo esc_html((string) $item['label']); ?></span>
+            <strong><?php echo esc_html((string) $item['value']); ?></strong>
+            <?php self::render_kpi_visual($visual); ?>
+            <?php if (!empty($item['note'])) : ?>
+                <small><?php echo esc_html((string) $item['note']); ?></small>
+            <?php endif; ?>
+        </div>
+        <?php
+    }
+
+    private static function render_kpi_visual(array $visual): void {
+        if ($visual['type'] === 'split') {
+            ?>
+            <div class="savol-kpi-visual is-split">
+                <div class="savol-kpi-stack">
+                    <i class="is-first" style="width: <?php echo esc_attr((string) $visual['first_percent']); ?>%;"></i>
+                    <i class="is-second" style="width: <?php echo esc_attr((string) $visual['second_percent']); ?>%;"></i>
+                </div>
+                <div class="savol-kpi-split-labels">
+                    <em><?php echo esc_html($visual['first_label']); ?></em>
+                    <em><?php echo esc_html($visual['second_label']); ?></em>
+                </div>
+            </div>
+            <?php
+            return;
+        }
+
+        if ($visual['type'] === 'meter' || $visual['type'] === 'percent') {
+            ?>
+            <div class="savol-kpi-visual is-meter">
+                <div class="savol-kpi-meter"><i style="width: <?php echo esc_attr((string) $visual['percent']); ?>%;"></i></div>
+                <em><?php echo esc_html($visual['caption']); ?></em>
+            </div>
+            <?php
+            return;
+        }
+
+        if ($visual['type'] === 'highlight') {
+            ?>
+            <div class="savol-kpi-visual is-highlight">
+                <i><?php echo esc_html($visual['badge']); ?></i>
+                <em><?php echo esc_html($visual['caption']); ?></em>
+            </div>
+            <?php
+            return;
+        }
+
+        ?>
+        <div class="savol-kpi-visual is-empty">
+            <i></i>
+            <em><?php echo esc_html($visual['caption']); ?></em>
+        </div>
+        <?php
+    }
+
+    private static function kpi_visual_data(array $item, float $section_max): array {
+        $value = (string) ($item['value'] ?? '');
+        $label = (string) ($item['label'] ?? '');
+
+        if (!empty($item['missing']) || preg_match('/^(N\/D|Sem dados)$/i', trim($value))) {
+            return [
+                'type' => 'empty',
+                'caption' => 'Aguardando dados',
+            ];
+        }
+
+        if (preg_match('/Venda\s+([\d.,]+)\s*\/\s*Fin\.?\s*([\d.,]+)/i', $value, $matches)) {
+            $sell = self::parse_kpi_number($matches[1]);
+            $finance = self::parse_kpi_number($matches[2]);
+            $total = max(0.0, $sell + $finance);
+            return [
+                'type' => 'split',
+                'first_percent' => $total > 0 ? round(($sell / $total) * 100, 1) : 0,
+                'second_percent' => $total > 0 ? round(($finance / $total) * 100, 1) : 0,
+                'first_label' => 'Venda ' . self::format_int((int) $sell),
+                'second_label' => 'Fin. ' . self::format_int((int) $finance),
+            ];
+        }
+
+        if (str_contains($value, '%')) {
+            $percent = max(0, min(100, self::parse_kpi_number($value)));
+            return [
+                'type' => 'percent',
+                'percent' => round($percent, 1),
+                'caption' => self::format_percent($percent),
+            ];
+        }
+
+        $number = self::kpi_representative_number($value);
+        if ($number > 0) {
+            $percent = $section_max > 0 ? max(4, min(100, round(($number / $section_max) * 100, 1))) : 0;
+            $caption = str_contains($value, 'R$') ? 'escala de valor' : 'comparativo da secao';
+            if (preg_match('/dias/i', $value)) {
+                $caption = 'tempo relativo';
+            } elseif (preg_match('/\(\s*[\d.,]+\s*\)/', $value)) {
+                $caption = 'volume identificado';
+            }
+
+            return [
+                'type' => 'meter',
+                'percent' => $percent,
+                'caption' => $caption,
+            ];
+        }
+
+        if (trim($value) !== '' && trim($value) !== '0') {
+            return [
+                'type' => 'highlight',
+                'badge' => self::kpi_badge_from_label($label),
+                'caption' => 'destaque operacional',
+            ];
+        }
+
+        return [
+            'type' => 'empty',
+            'caption' => 'Sem ocorrencias',
+        ];
+    }
+
+    private static function kpi_section_max(array $items): float {
+        $max = 0.0;
+        foreach ($items as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $value = (string) ($item['value'] ?? '');
+            if (str_contains($value, '%') || preg_match('/Venda\s+[\d.,]+\s*\/\s*Fin\.?\s*[\d.,]+/i', $value)) {
+                continue;
+            }
+            $max = max($max, self::kpi_representative_number($value));
+        }
+
+        return $max;
+    }
+
+    private static function kpi_representative_number(string $value): float {
+        if (preg_match('/\(([\d.,]+)\)/', $value, $matches)) {
+            return self::parse_kpi_number($matches[1]);
+        }
+
+        return self::parse_kpi_number($value);
+    }
+
+    private static function parse_kpi_number(string $value): float {
+        $text = trim($value);
+        if ($text === '') {
+            return 0.0;
+        }
+
+        if (preg_match('/-?\d+(?:[.,]\d+)*(?:[.,]\d+)?/', $text, $matches)) {
+            $number = $matches[0];
+            $last_comma = strrpos($number, ',');
+            $last_dot = strrpos($number, '.');
+            if ($last_comma !== false && $last_dot !== false) {
+                if ($last_comma > $last_dot) {
+                    $number = str_replace('.', '', $number);
+                    $number = str_replace(',', '.', $number);
+                } else {
+                    $number = str_replace(',', '', $number);
+                }
+            } elseif ($last_comma !== false) {
+                $number = str_replace('.', '', $number);
+                $number = str_replace(',', '.', $number);
+            } elseif (preg_match('/^\d{1,3}(\.\d{3})+$/', $number)) {
+                $number = str_replace('.', '', $number);
+            }
+
+            return is_numeric($number) ? (float) $number : 0.0;
+        }
+
+        return 0.0;
+    }
+
+    private static function kpi_badge_from_label(string $label): string {
+        $clean = trim((string) preg_replace('/[^A-Za-z0-9]+/', ' ', self::remove_accents_safe($label)));
+        if ($clean === '') {
+            return 'KPI';
+        }
+
+        $parts = preg_split('/\s+/', $clean);
+        $badge = '';
+        foreach ((array) $parts as $part) {
+            if ($part === '') {
+                continue;
+            }
+            $badge .= strtoupper(substr($part, 0, 1));
+            if (strlen($badge) >= 3) {
+                break;
+            }
+        }
+
+        return $badge !== '' ? $badge : 'KPI';
     }
 
     private static function get_dashboard_visuals(): array {
@@ -2018,7 +2211,7 @@ body.savol-gestor-role .wrap {
     border-radius: 8px;
     box-shadow: 0 12px 28px rgba(15, 23, 42, .05);
     box-sizing: border-box;
-    min-height: 124px;
+    min-height: 176px;
     padding: 16px;
 }
 .savol-kpi-card span {
@@ -2036,7 +2229,7 @@ body.savol-gestor-role .wrap {
     font-size: 24px;
     font-weight: 900;
     line-height: 1.15;
-    margin: 8px 0 6px;
+    margin: 8px 0 12px;
     overflow-wrap: anywhere;
 }
 .savol-kpi-card small {
@@ -2044,12 +2237,105 @@ body.savol-gestor-role .wrap {
     display: block;
     font-size: 12px;
     line-height: 1.35;
+    margin-top: 10px;
+}
+.savol-kpi-visual {
+    min-height: 42px;
+}
+.savol-kpi-meter {
+    background: #e8eef7;
+    border-radius: 99px;
+    height: 10px;
+    overflow: hidden;
+}
+.savol-kpi-meter i {
+    background: linear-gradient(90deg, #0f3a8a, var(--savol-blue));
+    border-radius: inherit;
+    display: block;
+    height: 100%;
+}
+.savol-kpi-visual em,
+.savol-kpi-split-labels em {
+    color: var(--savol-muted);
+    display: block;
+    font-size: 11px;
+    font-style: normal;
+    font-weight: 800;
+    line-height: 1.3;
+    margin-top: 7px;
+    text-transform: uppercase;
+}
+.savol-kpi-stack {
+    background: #e8eef7;
+    border-radius: 99px;
+    display: flex;
+    height: 12px;
+    overflow: hidden;
+}
+.savol-kpi-stack i {
+    display: block;
+    min-width: 0;
+}
+.savol-kpi-stack .is-first {
+    background: #10b981;
+}
+.savol-kpi-stack .is-second {
+    background: #f59e0b;
+}
+.savol-kpi-split-labels {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+}
+.savol-kpi-visual.is-highlight {
+    align-items: center;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    display: flex;
+    gap: 10px;
+    padding: 10px;
+}
+.savol-kpi-visual.is-highlight i {
+    align-items: center;
+    background: #0f172a;
+    border-radius: 8px;
+    color: #ffffff;
+    display: inline-flex;
+    flex: 0 0 36px;
+    font-size: 11px;
+    font-style: normal;
+    font-weight: 950;
+    height: 36px;
+    justify-content: center;
+}
+.savol-kpi-visual.is-highlight em {
+    margin-top: 0;
+}
+.savol-kpi-visual.is-empty {
+    align-items: center;
+    display: flex;
+    gap: 10px;
+}
+.savol-kpi-visual.is-empty i {
+    background: repeating-linear-gradient(90deg, #cbd5e1 0, #cbd5e1 6px, transparent 6px, transparent 12px);
+    border-radius: 99px;
+    display: block;
+    height: 10px;
+    width: 100%;
+}
+.savol-kpi-visual.is-empty em {
+    flex: 0 0 auto;
+    margin-top: 0;
 }
 .savol-kpi-card.is-missing {
     background: #f8fafc;
     border-style: dashed;
 }
 .savol-kpi-card.is-missing strong {
+    color: #94a3b8;
+}
+.savol-kpi-card.is-empty strong {
     color: #94a3b8;
 }
 .savol-stat-card,
