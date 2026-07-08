@@ -1093,7 +1093,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
             {detailsTab === "sobre" && (
               <div className="vehicle-extra-panel">
                 <h3>Sobre este veículo</h3>
-                <div className="vehicle-tab-specs">
+                <div className="vehicle-tab-specs vehicle-tab-specs--five">
                   <span>
                     <CalendarDays size={16} /> {vehicle.year}
                   </span>

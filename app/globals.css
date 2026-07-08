@@ -4444,6 +4444,10 @@ h2 {
   gap: 0;
 }
 
+.vehicle-tab-specs--five {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
 .vehicle-tab-specs span {
   min-height: 50px;
   color: var(--blue-dark);
