@@ -177,17 +177,17 @@ final class Savol_Veiculos_CPT {
         ],
         'unidade savol mg motor' => [
             'telefone' => '(11) 3809-1010',
-            'whatsapp' => '',
+            'whatsapp' => '(11) 3809-1010',
             'endereco' => 'Av. Goias, 3048 - Santo Antonio, Sao Caetano do Sul - SP, 09521-310',
         ],
         'unidade savol jetour' => [
             'telefone' => '(11) 3319-1010',
-            'whatsapp' => '',
+            'whatsapp' => '(11) 3319-1010',
             'endereco' => 'Av. D. Pedro II, 2550 - Bairro Campestre - Santo Andre - SP',
         ],
         'unidade savol jetour sao caetano do sul' => [
             'telefone' => '(11) 3319-1010',
-            'whatsapp' => '',
+            'whatsapp' => '(11) 3319-1010',
             'endereco' => 'Alameda Terracota, 545 - Piso 1 (Terreo) - Ceramica, Sao Caetano do Sul - SP, 09531-190',
         ],
     ];
