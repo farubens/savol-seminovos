@@ -11,6 +11,13 @@ const BRAND_WHATSAPP_PHONES: Array<{ aliases: string[]; phone: string }> = [
   { aliases: ["jetour"], phone: "(11) 3319-1010" }
 ];
 
+function findSavolWhatsAppPhone(value: string): string | null {
+  const normalized = normalizeSavolContactText(value);
+  const match = BRAND_WHATSAPP_PHONES.find((item) => item.aliases.some((alias) => normalized.includes(alias)));
+
+  return match?.phone ?? null;
+}
+
 export function normalizeSavolContactText(value: string): string {
   return value
     .toLowerCase()
@@ -21,12 +28,14 @@ export function normalizeSavolContactText(value: string): string {
 }
 
 export function resolveSavolWhatsAppPhone(value: string): string {
-  const normalized = normalizeSavolContactText(value);
-  const match = BRAND_WHATSAPP_PHONES.find((item) => item.aliases.some((alias) => normalized.includes(alias)));
-
-  return match?.phone ?? DEFAULT_WHATSAPP_PHONE;
+  return findSavolWhatsAppPhone(value) ?? DEFAULT_WHATSAPP_PHONE;
 }
 
 export function resolveSavolWhatsAppPhoneFromParts(parts: Array<string | null | undefined>): string {
-  return resolveSavolWhatsAppPhone(parts.filter(Boolean).join(" "));
+  for (const part of parts) {
+    const phone = findSavolWhatsAppPhone(part ?? "");
+    if (phone) return phone;
+  }
+
+  return DEFAULT_WHATSAPP_PHONE;
 }

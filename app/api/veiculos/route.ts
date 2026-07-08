@@ -418,7 +418,7 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
   const uf = getEmbeddedTerm(vehicle, "veiculo_uf");
   const store = getEmbeddedTerm(vehicle, "veiculo_unidade");
   const storeLabel = buildStoreLabel(store);
-  const storeId = resolveSavolTechnicalStoreIdFromParts([storeLabel, brand, city, uf]);
+  const storeId = resolveSavolTechnicalStoreIdFromParts([storeLabel]);
   const primaryHighlight = getEmbeddedTerm(vehicle, "veiculo_informacao_destaque");
   const secondaryHighlights = getEmbeddedTerms(vehicle, "veiculo_destaque_secundario");
 

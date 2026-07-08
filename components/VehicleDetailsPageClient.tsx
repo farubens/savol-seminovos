@@ -93,6 +93,10 @@ function normalize(value: string): string {
     .trim();
 }
 
+function normalizeStoreMatchText(value: string): string {
+  return normalize(value).replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
+}
+
 function resolveHighlightTone(value: string): "repasse" | "garantia" | "unico-dono" | "baixa-km" | "fipe" | "impecavel" | "completo" | "default" {
   const normalized = normalize(value);
   if (normalized.includes("repasse")) return "repasse";
@@ -191,23 +195,21 @@ function removeStorePrefix(value: string): string {
 }
 
 function getStoreMatch(storeName: string, stores: StoreItem[], vehicle?: ApiVehicle | null): StoreItem | null {
-  const normalizedVehicleStore = normalize(removeStorePrefix(storeName));
+  const normalizedVehicleStore = normalizeStoreMatchText(removeStorePrefix(storeName));
   if (!normalizedVehicleStore) return null;
 
-  const vehicleBrand = normalize(vehicle?.brand ?? "");
-  const vehicleCity = normalize(vehicle?.city ?? "");
+  const vehicleCity = normalizeStoreMatchText(vehicle?.city ?? "");
 
   const exactMatch = stores.find((store) => {
-    const normalizedStore = normalize(removeStorePrefix(store.name));
+    const normalizedStore = normalizeStoreMatchText(removeStorePrefix(store.name));
     return normalizedStore === normalizedVehicleStore || normalizedStore.includes(normalizedVehicleStore) || normalizedVehicleStore.includes(normalizedStore);
   });
   if (exactMatch) return exactMatch;
 
   const scoredMatches = stores
     .map((store) => {
-      const normalizedStore = normalize(`${store.brand} ${store.name} ${store.address}`);
+      const normalizedStore = normalizeStoreMatchText(`${store.brand} ${store.name} ${store.address}`);
       let score = 0;
-      if (vehicleBrand && normalizedStore.includes(vehicleBrand)) score += 4;
       if (vehicleCity && normalizedStore.includes(vehicleCity)) score += 4;
       for (const token of normalizedVehicleStore.split(" ").filter((item) => item.length > 2)) {
         if (normalizedStore.includes(token)) score += 1;
@@ -221,7 +223,7 @@ function getStoreMatch(storeName: string, stores: StoreItem[], vehicle?: ApiVehi
 }
 
 function resolveFallbackStorePhone(vehicle?: ApiVehicle | null): string {
-  return resolveSavolWhatsAppPhoneFromParts([vehicle?.store, vehicle?.brand, vehicle?.city]);
+  return resolveSavolWhatsAppPhoneFromParts([vehicle?.store]);
 }
 
 function inferCategoryLabel(vehicle: ApiVehicle): string {
@@ -505,7 +507,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
   const breadcrumbCategory = vehicle ? inferCategoryLabel(vehicle) : "";
   const storeTitle = removeStorePrefix(vehicle?.store ?? "Unidade Savol");
   const resolvedStoreId =
-    vehicle?.storeId || resolveSavolTechnicalStoreIdFromParts([storeTitle, vehicle?.brand, vehicle?.city, vehicle?.uf]) || Number(process.env.NEXT_PUBLIC_VWFS_STORE_ID ?? String(VWFS_DEFAULT_STORE_ID));
+    vehicle?.storeId || resolveSavolTechnicalStoreIdFromParts([storeTitle]) || Number(process.env.NEXT_PUBLIC_VWFS_STORE_ID ?? String(VWFS_DEFAULT_STORE_ID));
   const storeAddress = storeItem?.address || (!isUnknownValue(vehicle?.city ?? "") ? `${vehicle?.city} - ${vehicle?.uf}` : "Endereço sob consulta");
   const storePhone = storeItem?.phone || resolveFallbackStorePhone(vehicle);
   const leadVehicleContext = useMemo(

@@ -377,8 +377,8 @@ export function VehicleOfferCard({
   const vwfsClientToken = process.env.NEXT_PUBLIC_VWFS_CLIENT_TOKEN?.trim() || VWFS_DEFAULT_CLIENT_TOKEN;
   const vwfsStoreId = Number(process.env.NEXT_PUBLIC_VWFS_STORE_ID ?? String(VWFS_DEFAULT_STORE_ID));
   const resolvedVwfsStoreId = useMemo(
-    () => storeId || resolveSavolTechnicalStoreIdFromParts([store, name, subtitle]) || vwfsStoreId,
-    [name, store, storeId, subtitle, vwfsStoreId]
+    () => storeId || resolveSavolTechnicalStoreIdFromParts([store]) || vwfsStoreId,
+    [store, storeId, vwfsStoreId]
   );
   const vwfsScriptSrc = process.env.NEXT_PUBLIC_VWFS_SCRIPT_SRC?.trim() || VWFS_DEFAULT_SCRIPT;
   const [isFinanceModalOpen, setIsFinanceModalOpen] = useState(false);

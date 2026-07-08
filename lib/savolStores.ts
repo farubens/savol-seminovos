@@ -39,11 +39,22 @@ function matchesAlias(normalized: string, alias: string): boolean {
 }
 
 export function resolveSavolTechnicalStoreIdFromParts(parts: Array<string | null | undefined>): number | null {
-  const normalized = normalizeSavolContactText(parts.filter(Boolean).join(" "));
-  if (!normalized) return null;
+  const normalizedParts = parts.map((part) => normalizeSavolContactText(part ?? "")).filter(Boolean);
+  if (!normalizedParts.length) return null;
 
+  for (const normalizedPart of normalizedParts) {
+    const exactStore = SAVOL_TECHNICAL_STORE_RULES.find((rule) => rule.aliases.some((alias) => matchesAlias(normalizedPart, alias)));
+    if (exactStore) return exactStore.id;
+  }
+
+  const normalized = normalizedParts.join(" ");
   const exactStore = SAVOL_TECHNICAL_STORE_RULES.find((rule) => rule.aliases.some((alias) => matchesAlias(normalized, alias)));
   if (exactStore) return exactStore.id;
+
+  for (const normalizedPart of normalizedParts) {
+    const brandFallback = SAVOL_TECHNICAL_BRAND_FALLBACKS.find((rule) => rule.aliases.some((alias) => matchesAlias(normalizedPart, alias)));
+    if (brandFallback) return brandFallback.id;
+  }
 
   const brandFallback = SAVOL_TECHNICAL_BRAND_FALLBACKS.find((rule) => rule.aliases.some((alias) => matchesAlias(normalized, alias)));
   return brandFallback?.id ?? null;
