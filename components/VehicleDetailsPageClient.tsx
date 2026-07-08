@@ -176,6 +176,11 @@ function normalizePlateValue(value: string): string {
   return value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 7);
 }
 
+function getPlateEndingDigit(value: string | null | undefined): string {
+  const matches = (value ?? "").match(/\d/g);
+  return matches?.at(-1) ?? "";
+}
+
 function ensureVwfsYieldContainer() {
   if (typeof document === "undefined") return;
   if (document.getElementById("bvfs-yield")) return;
@@ -539,6 +544,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
     vehicle?.storeId || resolveSavolTechnicalStoreIdFromParts([storeTitle]) || Number(process.env.NEXT_PUBLIC_VWFS_STORE_ID ?? String(VWFS_DEFAULT_STORE_ID));
   const storeAddress = storeItem?.address || (!isUnknownValue(vehicle?.city ?? "") ? `${vehicle?.city} - ${vehicle?.uf}` : "Endereço sob consulta");
   const storePhone = storeItem?.phone || resolveFallbackStorePhone(vehicle);
+  const plateEndingDigit = getPlateEndingDigit(vehicle?.plate);
   const leadVehicleContext = useMemo(
     () => ({
       id: vehicle?.id,
@@ -1100,6 +1106,11 @@ export function VehicleDetailsPageClient({ slug }: Props) {
                   <span>
                     <Gauge size={16} /> {vehicle.km}
                   </span>
+                  {plateEndingDigit ? (
+                    <span>
+                      <Tag size={16} /> Final de placa: {plateEndingDigit}
+                    </span>
+                  ) : null}
                 </div>
                 <p>
                   {vehicle.name} {vehicle.subtitle}. Veículo com {vehicle.transmission.toLowerCase()} e {vehicle.fuel.toLowerCase()}, pronto para uso diário com conforto,
