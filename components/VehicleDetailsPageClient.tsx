@@ -63,6 +63,17 @@ type StoreApiResponse = {
   items?: StoreItem[];
 };
 
+const STORE_UNIT_ALIAS_GROUPS = [
+  ["mg motor", "mg"],
+  ["jetour"],
+  ["fiat"],
+  ["peugeot"],
+  ["citroen", "citro"],
+  ["kia"],
+  ["toyota"],
+  ["volkswagen", "volks", "vw"]
+];
+
 type LeadForm = {
   name: string;
   interest: string;
@@ -95,6 +106,16 @@ function normalize(value: string): string {
 
 function normalizeStoreMatchText(value: string): string {
   return normalize(value).replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function getStoreUnitAliases(value: string): string[] {
+  const normalized = normalizeStoreMatchText(value);
+  return STORE_UNIT_ALIAS_GROUPS.find((aliases) => aliases.some((alias) => normalized.includes(alias))) ?? [];
+}
+
+function matchesStoreUnitAliases(value: string, aliases: string[]): boolean {
+  const normalized = normalizeStoreMatchText(value);
+  return aliases.some((alias) => normalized.includes(normalizeStoreMatchText(alias)));
 }
 
 function resolveHighlightTone(value: string): "repasse" | "garantia" | "unico-dono" | "baixa-km" | "fipe" | "impecavel" | "completo" | "default" {
@@ -198,6 +219,7 @@ function getStoreMatch(storeName: string, stores: StoreItem[], vehicle?: ApiVehi
   const normalizedVehicleStore = normalizeStoreMatchText(removeStorePrefix(storeName));
   if (!normalizedVehicleStore) return null;
 
+  const storeUnitAliases = getStoreUnitAliases(storeName);
   const vehicleCity = normalizeStoreMatchText(vehicle?.city ?? "");
 
   const exactMatch = stores.find((store) => {
@@ -208,8 +230,15 @@ function getStoreMatch(storeName: string, stores: StoreItem[], vehicle?: ApiVehi
 
   const scoredMatches = stores
     .map((store) => {
+      const normalizedStoreIdentity = normalizeStoreMatchText(`${store.brand} ${store.name}`);
       const normalizedStore = normalizeStoreMatchText(`${store.brand} ${store.name} ${store.address}`);
       let score = 0;
+      if (storeUnitAliases.length) {
+        if (!matchesStoreUnitAliases(normalizedStoreIdentity, storeUnitAliases)) {
+          return { store, score: -1 };
+        }
+        score += 20;
+      }
       if (vehicleCity && normalizedStore.includes(vehicleCity)) score += 4;
       for (const token of normalizedVehicleStore.split(" ").filter((item) => item.length > 2)) {
         if (normalizedStore.includes(token)) score += 1;
