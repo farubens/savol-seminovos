@@ -370,6 +370,7 @@ export function VehicleOfferCard({
     [qualityTag, secondaryHighlights]
   );
   const resolvedOldPrice = resolveOldPrice(oldPrice, price);
+  const displayStore = store.toLocaleUpperCase("pt-BR");
   const priceValue = parseMoney(price) ?? 0;
   const minEntryValue = useMemo(() => Math.round(priceValue * 0.4), [priceValue]);
   const monthlyInterestRate = 0.0165;
@@ -919,7 +920,7 @@ export function VehicleOfferCard({
               </p>
               <p className="offer-mobile-store">
                 <MapPin size={13} />
-                <span>Loja: {store}</span>
+                <span>Loja: {displayStore}</span>
               </p>
             </div>
 
@@ -947,7 +948,7 @@ export function VehicleOfferCard({
             <div className="offer-store-wrap">
               <p className="offer-store">
                 <MapPin size={16} />
-                <span className="offer-store-name">Loja: {store}</span>
+                <span className="offer-store-name">Loja: {displayStore}</span>
               </p>
               <button type="button" className="offer-store-link" onClick={() => setIsDirectionsOpen(true)}>
                 Como chegar
@@ -1086,7 +1087,7 @@ export function VehicleOfferCard({
                           Por <strong>{price}</strong>
                         </p>
                         <p className="finance-modal-store">
-                          <MapPin size={16} /> Loja: {store}
+                          <MapPin size={16} /> Loja: {displayStore}
                         </p>
                       </div>
                     )}
@@ -1099,7 +1100,7 @@ export function VehicleOfferCard({
                             Por <strong>{price}</strong>
                           </p>
                           <p className="finance-modal-store">
-                            <MapPin size={16} /> Loja: {store}
+                            <MapPin size={16} /> Loja: {displayStore}
                           </p>
                         </div>
 
