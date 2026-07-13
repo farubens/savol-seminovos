@@ -13,7 +13,7 @@ import { resolveLeadmobCompanyId } from "@/lib/leadmobRules";
 import { resolveSavolTechnicalStoreIdFromParts } from "@/lib/savolStores";
 import { resolveSavolWhatsAppPhoneFromParts } from "@/lib/savolWhatsApp";
 import { parseCurrencyToInteger } from "@/utils/pricing";
-import { watchVwfsSimulatorClose } from "@/utils/vwfsModalWatcher";
+import { hasVisibleVwfsSurface, watchVwfsSimulatorClose } from "@/utils/vwfsModalWatcher";
 import { createBancoVolksLeadPayload } from "@/utils/vwfsLeadPayload";
 import {
   BadgeCheck,
@@ -93,6 +93,8 @@ const VWFS_DEFAULT_SCRIPT = "https://seller.vwfsbrasil.com.br/partners/simulator
 const VWFS_DEFAULT_CLIENT_KEY = "A7a4bq5l8zEVvP0wNR9wvkMmxrYWJZ6d1OjXDnBy";
 const VWFS_DEFAULT_CLIENT_TOKEN = "73697e9cda39da51b4fe07dfd94d5389a630670759a3dced21444ad8bfb25fab";
 const VWFS_DEFAULT_STORE_ID = 123454;
+const VWFS_PRELOAD_DELAY_MS = 1200;
+const VWFS_LOAD_FALLBACK_MS = 7000;
 const FALLBACK_HIGHLIGHT = "Oportunidade";
 
 let vwfsScriptPromise: Promise<boolean> | null = null;
@@ -352,6 +354,8 @@ export function VehicleDetailsPageClient({ slug }: Props) {
   const thumbsRef = useRef<HTMLDivElement | null>(null);
   const vwfsCloseWatcherRef = useRef<(() => void) | null>(null);
   const financeFollowUpOpenedRef = useRef(false);
+  const vwfsLoadFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const vwfsOpenAttemptRef = useRef(0);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -509,6 +513,10 @@ export function VehicleDetailsPageClient({ slug }: Props) {
         vwfsCloseWatcherRef.current();
         vwfsCloseWatcherRef.current = null;
       }
+      if (vwfsLoadFallbackTimerRef.current) {
+        clearTimeout(vwfsLoadFallbackTimerRef.current);
+        vwfsLoadFallbackTimerRef.current = null;
+      }
     };
   }, []);
 
@@ -593,6 +601,23 @@ export function VehicleDetailsPageClient({ slug }: Props) {
   const vwfsClientToken = process.env.NEXT_PUBLIC_VWFS_CLIENT_TOKEN?.trim() || VWFS_DEFAULT_CLIENT_TOKEN;
   const vwfsScriptSrc = process.env.NEXT_PUBLIC_VWFS_SCRIPT_SRC?.trim() || VWFS_DEFAULT_SCRIPT;
 
+  useEffect(() => {
+    if (!vehicle || typeof window === "undefined") return;
+
+    const normalizedMolicar = normalizeMolicar(vehicle.molicar ?? "");
+    const normalizedPlate = normalizePlateValue(vehicle.plate ?? "");
+    const carValue = toVwfsMoney(vehicle.price);
+
+    if (!vwfsClientKey || !vwfsClientToken || resolvedStoreId <= 0 || (!normalizedMolicar && !normalizedPlate) || !carValue) return;
+
+    const timeoutId = window.setTimeout(() => {
+      ensureVwfsYieldContainer();
+      void loadVwfsScript(vwfsScriptSrc);
+    }, VWFS_PRELOAD_DELAY_MS);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [resolvedStoreId, vehicle, vwfsClientKey, vwfsClientToken, vwfsScriptSrc]);
+
   const technicalRows = useMemo(
     () =>
       vehicle
@@ -668,10 +693,29 @@ export function VehicleDetailsPageClient({ slug }: Props) {
 
   const handleVwfsFinish = (...result: unknown[]) => {
     void submitBancoVolksLead(result.length > 1 ? { result } : result[0]);
+    clearVwfsLoadFallbackTimer();
     if (vwfsCloseWatcherRef.current) {
       vwfsCloseWatcherRef.current();
       vwfsCloseWatcherRef.current = null;
     }
+    openFinanceFollowUp();
+  };
+
+  const clearVwfsLoadFallbackTimer = () => {
+    if (!vwfsLoadFallbackTimerRef.current) return;
+    clearTimeout(vwfsLoadFallbackTimerRef.current);
+    vwfsLoadFallbackTimerRef.current = null;
+  };
+
+  const fallbackToFinanceFollowUp = (attemptId: number) => {
+    if (vwfsOpenAttemptRef.current !== attemptId) return;
+    vwfsOpenAttemptRef.current += 1;
+    clearVwfsLoadFallbackTimer();
+    if (vwfsCloseWatcherRef.current) {
+      vwfsCloseWatcherRef.current();
+      vwfsCloseWatcherRef.current = null;
+    }
+    setIsOpeningFinanceSimulator(false);
     openFinanceFollowUp();
   };
 
@@ -712,29 +756,35 @@ export function VehicleDetailsPageClient({ slug }: Props) {
       vehicleImagem: vehicle.image || FALLBACK_IMAGE
     } satisfies Record<string, unknown>;
 
+    const attemptId = vwfsOpenAttemptRef.current + 1;
+    vwfsOpenAttemptRef.current = attemptId;
+    financeFollowUpOpenedRef.current = false;
+    clearVwfsLoadFallbackTimer();
     setIsOpeningFinanceSimulator(true);
     ensureVwfsYieldContainer();
+    vwfsLoadFallbackTimerRef.current = setTimeout(() => fallbackToFinanceFollowUp(attemptId), VWFS_LOAD_FALLBACK_MS);
+
     void loadVwfsScript(vwfsScriptSrc).then((ok) => {
+      if (vwfsOpenAttemptRef.current !== attemptId) return;
+      clearVwfsLoadFallbackTimer();
       setIsOpeningFinanceSimulator(false);
       if (!ok || !window.bvfs?.simulator) {
-        if (vwfsCloseWatcherRef.current) {
-          vwfsCloseWatcherRef.current();
-          vwfsCloseWatcherRef.current = null;
-        }
-        window.alert("Simulador oficial indisponível no momento. Tente novamente em instantes.");
+        fallbackToFinanceFollowUp(attemptId);
         return;
       }
 
       try {
         armVwfsCloseWatcher();
-        financeFollowUpOpenedRef.current = false;
         window.bvfs.simulator(payload, handleVwfsFinish);
+        vwfsLoadFallbackTimerRef.current = setTimeout(() => {
+          if (hasVisibleVwfsSurface()) {
+            vwfsLoadFallbackTimerRef.current = null;
+            return;
+          }
+          fallbackToFinanceFollowUp(attemptId);
+        }, VWFS_LOAD_FALLBACK_MS);
       } catch {
-        if (vwfsCloseWatcherRef.current) {
-          vwfsCloseWatcherRef.current();
-          vwfsCloseWatcherRef.current = null;
-        }
-        window.alert("Falha ao abrir o simulador oficial. Tente novamente em instantes.");
+        fallbackToFinanceFollowUp(attemptId);
       }
     });
   };
@@ -1034,7 +1084,8 @@ export function VehicleDetailsPageClient({ slug }: Props) {
                 WhatsApp
               </a>
               <button type="button" className="vehicle-quick-btn vehicle-quick-btn--finance" onClick={openFinanceSimulator} disabled={isOpeningFinanceSimulator}>
-                {isOpeningFinanceSimulator ? <LoaderCircle size={16} className="spin" /> : <WalletCards size={16} />} Ver parcelas
+                {isOpeningFinanceSimulator ? <LoaderCircle size={16} className="spin" /> : <WalletCards size={16} />}
+                {isOpeningFinanceSimulator ? "Preparando simulador..." : "Ver parcelas"}
               </button>
               <button type="button" className={`vehicle-quick-btn${isCurrentVehicleFavorite ? " is-favorite" : ""}`} onClick={() => vehicle && toggleFavorite(toSavedVehicle(vehicle))}>
                 <Heart size={16} fill={isCurrentVehicleFavorite ? "currentColor" : "none"} /> {isCurrentVehicleFavorite ? "Favorito" : "Favoritar"}
@@ -1240,7 +1291,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
                 <p>Condições de financiamento com aprovação rápida, entrada facilitada e parcelas ajustadas ao seu perfil.</p>
                 <button type="button" className="vehicle-finance-btn" onClick={openFinanceSimulator} disabled={isOpeningFinanceSimulator}>
                   {isOpeningFinanceSimulator ? <LoaderCircle size={18} className="spin" /> : <WalletCards size={18} />}
-                  {isOpeningFinanceSimulator ? "Abrindo simulador..." : "Simular agora"}
+                  {isOpeningFinanceSimulator ? "Preparando simulador..." : "Simular agora"}
                 </button>
               </div>
             )}

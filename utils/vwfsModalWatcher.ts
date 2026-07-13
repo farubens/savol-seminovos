@@ -20,7 +20,7 @@ function isVisibleElement(element: Element): boolean {
   return rect.width > 0 && rect.height > 0;
 }
 
-function hasVisibleVwfsSurface(): boolean {
+export function hasVisibleVwfsSurface(): boolean {
   if (typeof document === "undefined") return false;
   return Array.from(document.querySelectorAll(VWFS_SURFACE_SELECTOR)).some(isVisibleElement);
 }
