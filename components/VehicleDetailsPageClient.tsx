@@ -110,6 +110,7 @@ function normalizeStoreMatchText(value: string): string {
 
 function getStoreUnitAliases(value: string): string[] {
   const normalized = normalizeStoreMatchText(value);
+  if (normalized.includes("jetour")) return ["mg motor", "mg"];
   return STORE_UNIT_ALIAS_GROUPS.find((aliases) => aliases.some((alias) => normalized.includes(alias))) ?? [];
 }
 

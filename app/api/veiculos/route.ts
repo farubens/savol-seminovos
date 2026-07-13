@@ -379,6 +379,8 @@ function getQualityTag(content: string, condition: string): string {
 
 function buildStoreLabel(value: string): string {
   if (!value) return "Unidade não informada";
+  const normalized = normalizeForMatch(value);
+  if (normalized.includes("jetour")) return "Unidade Savol MG Motor São Caetano";
   return value.replace(/\s*-\s*/g, " - ");
 }
 
