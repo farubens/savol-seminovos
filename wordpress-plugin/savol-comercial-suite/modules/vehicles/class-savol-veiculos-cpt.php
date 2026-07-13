@@ -3146,12 +3146,15 @@ JS;
         }
 
         if (str_contains($normalized, 'jetour')) {
-            return 'Unidade Savol MG Motor São Caetano';
+            if (str_contains($normalized, 'sao caetano') || str_contains($normalized, 'scs')) {
+                return 'Unidade Savol JETOUR São Caetano do Sul';
+            }
+            return 'Unidade Savol JETOUR Santo André';
         }
 
         $by_cnpj = [
             '62870730000109' => 'Unidade Savol MG Motor São Caetano',
-            '65214691000171' => 'Unidade Savol MG Motor São Caetano',
+            '65214691000171' => 'Unidade Savol JETOUR Santo André',
         ];
         if ($cnpj !== '' && isset($by_cnpj[$cnpj])) {
             return $by_cnpj[$cnpj];
