@@ -7,7 +7,8 @@ const DEPARTAMENTO_SEMINOVOS = "2";
 const LEADMOB_COMPANIES_BY_UNIT = [
   { id: 10104, terms: ["savol grupo", "atendimento savol", "sem preferencia", "unidade nao informada"] },
   { id: 10041, terms: ["savol toyota grupo", "toyota grupo"] },
-  { id: 10244, terms: ["savol mg sao caetano", "mg motor sao caetano", "mg sao caetano"] },
+  { id: 10295, terms: ["savol mg sao caetano", "mg motor sao caetano", "mg sao caetano"] },
+  { id: 10300, terms: ["savol mg analia", "savol mg motor analia", "mg motor analia", "mg analia"] },
   { id: 10038, terms: ["toyota santo andre"] },
   { id: 10039, terms: ["toyota praia grande", "toyota pr grande"] },
   { id: 10051, terms: ["toyota maua"] },
@@ -27,6 +28,7 @@ const LEADMOB_COMPANIES_BY_UNIT = [
   { id: 10191, terms: ["kia sao paulo", "kia ipiranga"] },
   { id: 10190, terms: ["kia santo andre"] },
   { id: 10280, terms: ["jetour santo andre", "savol jetour santo andre"] },
+  { id: 10289, terms: ["jetour sao caetano", "savol jetour sao caetano", "jetour scs"] },
   { id: 10218, terms: ["consorcio"] },
   { id: 10224, terms: ["pos vendas", "pos venda"] },
   { id: 10216, terms: ["assinaturas", "assinatura"] }
