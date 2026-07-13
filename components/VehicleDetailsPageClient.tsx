@@ -9,6 +9,7 @@ import { VehicleOfferCard } from "@/components/VehicleOfferCard";
 import { MapDirectionsModal } from "@/components/MapDirectionsModal";
 import { logLeadmobResponse, logLeadPayload } from "@/lib/leadDebug";
 import { getLeadTrackingPayload } from "@/lib/leadTracking";
+import { resolveLeadmobCompanyId } from "@/lib/leadmobRules";
 import { resolveSavolTechnicalStoreIdFromParts } from "@/lib/savolStores";
 import { resolveSavolWhatsAppPhoneFromParts } from "@/lib/savolWhatsApp";
 import { parseCurrencyToInteger } from "@/utils/pricing";
@@ -780,9 +781,18 @@ export function VehicleDetailsPageClient({ slug }: Props) {
     if (!vehicle) return "";
     const digits = normalizePhone(storePhone);
     const phone = digits.length >= 10 ? `55${digits}` : "551144351000";
-    const message = encodeURIComponent(`Olá, tenho interesse no veículo ${vehicle.name}.`);
+    const leadmobCompanyId = resolveLeadmobCompanyId({
+      unitName: storeTitle,
+      vehicle: {
+        brand: vehicle.brand,
+        store: storeTitle,
+        city: vehicle.city,
+        uf: vehicle.uf
+      }
+    });
+    const message = encodeURIComponent(`|${leadmobCompanyId}|2|carro_seminovo||Tenho interesse no veiculo ${vehicle.name}`);
     return `https://wa.me/${phone}?text=${message}`;
-  }, [vehicle, storePhone]);
+  }, [storePhone, storeTitle, vehicle]);
 
   const handleShare = async () => {
     if (!vehicle) return;
