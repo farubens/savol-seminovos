@@ -57,6 +57,7 @@ type Props = {
   variant?: "grid" | "list";
   molicar?: string;
   plate?: string;
+  showFinanceButton?: boolean;
 };
 
 const FALLBACK_HIGHLIGHT = "Oportunidade";
@@ -333,7 +334,8 @@ export function VehicleOfferCard({
   delay = 0,
   variant = "grid",
   molicar = "",
-  plate = ""
+  plate = "",
+  showFinanceButton = true
 }: Props) {
   type ProposalFormState = {
     name: string;
@@ -1004,10 +1006,12 @@ export function VehicleOfferCard({
             </div>
 
             <div className="offer-actions">
-              <button type="button" className="offer-primary" onClick={openVwfsSimulator} disabled={isSimulatingFinance}>
-                {isSimulatingFinance ? <LoaderCircle size={20} className="spin" /> : <WalletCards size={20} />}
-                {isSimulatingFinance ? "Abrindo simulador..." : "Ver parcelas"}
-              </button>
+              {showFinanceButton ? (
+                <button type="button" className="offer-primary" onClick={openVwfsSimulator} disabled={isSimulatingFinance}>
+                  {isSimulatingFinance ? <LoaderCircle size={20} className="spin" /> : <WalletCards size={20} />}
+                  {isSimulatingFinance ? "Abrindo simulador..." : "Ver parcelas"}
+                </button>
+              ) : null}
               {detailUrlIsExternal ? (
                 <a className="offer-secondary" href={resolvedDetailUrl} target="_blank" rel="noopener noreferrer">
                   Saiba mais
@@ -1257,25 +1261,27 @@ export function VehicleOfferCard({
         )}
       </AnimatePresence>
 
-      <FinanceFollowUpModal
-        open={isFinanceFollowUpOpen}
-        onClose={() => {
-          financeFollowUpOpenedRef.current = false;
-          setIsFinanceFollowUpOpen(false);
-        }}
-        context={{
-          form: "financiamento-card",
-          subject: "Financiamento",
-          unitName: store,
-          vehicle: leadVehicleContext,
-          message: `Veículo: ${name}\nPreço: ${price}`,
-          meta: {
-            page_url: leadVehicleContext.url,
-            store_id: resolvedVwfsStoreId,
-            unit_technical_id: resolvedVwfsStoreId
-          }
-        }}
-      />
+      {showFinanceButton ? (
+        <FinanceFollowUpModal
+          open={isFinanceFollowUpOpen}
+          onClose={() => {
+            financeFollowUpOpenedRef.current = false;
+            setIsFinanceFollowUpOpen(false);
+          }}
+          context={{
+            form: "financiamento-card",
+            subject: "Financiamento",
+            unitName: store,
+            vehicle: leadVehicleContext,
+            message: `Veículo: ${name}\nPreço: ${price}`,
+            meta: {
+              page_url: leadVehicleContext.url,
+              store_id: resolvedVwfsStoreId,
+              unit_technical_id: resolvedVwfsStoreId
+            }
+          }}
+        />
+      ) : null}
     </>
   );
 }

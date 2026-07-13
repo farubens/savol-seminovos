@@ -1282,6 +1282,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
                   adUrl={item.absoluteUrl}
                   qualityTag={item.qualityTag}
                   secondaryHighlights={item.secondaryHighlights}
+                  showFinanceButton={false}
                 />
               ))}
           </div>
