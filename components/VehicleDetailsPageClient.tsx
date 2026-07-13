@@ -1116,7 +1116,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
                   {vehicle.name} {vehicle.subtitle}. Veículo com {vehicle.transmission.toLowerCase()} e {vehicle.fuel.toLowerCase()}, pronto para uso diário com conforto,
                   segurança e tecnologia.
                 </p>
-                <p>
+                <p className="vehicle-location-text">
                   Unidade: {storeTitle}. {isUnknownValue(storeAddress) ? "Endereço sob consulta." : storeAddress}
                 </p>
                 {Boolean(secondaryHighlights.length) && (
@@ -1188,8 +1188,8 @@ export function VehicleDetailsPageClient({ slug }: Props) {
             {detailsTab === "loja" && (
               <div className="vehicle-extra-panel">
                 <h3>Informações da loja</h3>
-                <p>{storeTitle}</p>
-                <p>{storeAddress}</p>
+                <p className="vehicle-location-text">{storeTitle}</p>
+                <p className="vehicle-location-text">{storeAddress}</p>
                 <p>{storePhone}</p>
                 <button type="button" className="vehicle-map-link" onClick={() => setIsDirectionsOpen(true)}>
                   Ver rota no mapa
