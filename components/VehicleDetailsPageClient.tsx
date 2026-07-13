@@ -13,6 +13,7 @@ import { resolveSavolTechnicalStoreIdFromParts } from "@/lib/savolStores";
 import { resolveSavolWhatsAppPhoneFromParts } from "@/lib/savolWhatsApp";
 import { parseCurrencyToInteger } from "@/utils/pricing";
 import { watchVwfsSimulatorClose } from "@/utils/vwfsModalWatcher";
+import { createBancoVolksLeadPayload } from "@/utils/vwfsLeadPayload";
 import {
   BadgeCheck,
   CalendarDays,
@@ -539,7 +540,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
   const isCurrentVehicleFavorite = vehicle ? isFavorite(vehicle.id) : false;
 
   const breadcrumbCategory = vehicle ? inferCategoryLabel(vehicle) : "";
-  const storeTitle = removeStorePrefix(vehicle?.store ?? "Unidade Savol");
+  const storeTitle = removeStorePrefix(vehicle?.store ?? "Unidade SAVOL");
   const resolvedStoreId =
     vehicle?.storeId || resolveSavolTechnicalStoreIdFromParts([storeTitle]) || Number(process.env.NEXT_PUBLIC_VWFS_STORE_ID ?? String(VWFS_DEFAULT_STORE_ID));
   const storeAddress = storeItem?.address || (!isUnknownValue(vehicle?.city ?? "") ? `${vehicle?.city} - ${vehicle?.uf}` : "Endereço sob consulta");
@@ -624,6 +625,55 @@ export function VehicleDetailsPageClient({ slug }: Props) {
     }, { assumeOpened });
   };
 
+  const submitBancoVolksLead = async (vwfsResult: unknown) => {
+    if (!vehicle) return;
+
+    const tracking = getLeadTrackingPayload({
+      form: "banco-volks-single",
+      subject: "Lead Banco Volks - Ver parcelas",
+      unitName: storeTitle,
+      vehicleId: vehicle.id,
+      vehicle: vehicle.name,
+      price: vehicle.price
+    });
+    const leadPayload = createBancoVolksLeadPayload(vwfsResult, {
+      form: "banco-volks-single",
+      subject: "Lead Banco Volks - Ver parcelas",
+      unitName: storeTitle,
+      vehicle: leadVehicleContext,
+      message: `Veículo: ${vehicle.name}\nPreço: ${vehicle.price}\nPágina: ${leadVehicleContext.url}`,
+      tracking,
+      meta: {
+        page_url: leadVehicleContext.url,
+        store_id: resolvedStoreId,
+        unit_technical_id: resolvedStoreId
+      }
+    });
+
+    if (!leadPayload) return;
+
+    try {
+      logLeadPayload("banco-volks-single", leadPayload);
+      const response = await fetch("/api/financiamento-leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(leadPayload)
+      });
+      await logLeadmobResponse("banco-volks-single", response);
+    } catch {
+      // Best effort: the simulator flow must not be blocked by tracking failure.
+    }
+  };
+
+  const handleVwfsFinish = (...result: unknown[]) => {
+    void submitBancoVolksLead(result.length > 1 ? { result } : result[0]);
+    if (vwfsCloseWatcherRef.current) {
+      vwfsCloseWatcherRef.current();
+      vwfsCloseWatcherRef.current = null;
+    }
+    openFinanceFollowUp();
+  };
+
   const openFinanceSimulator = () => {
     if (!vehicle || isOpeningFinanceSimulator) return;
 
@@ -677,7 +727,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
       try {
         armVwfsCloseWatcher();
         financeFollowUpOpenedRef.current = false;
-        window.bvfs.simulator(payload, () => armVwfsCloseWatcher(true));
+        window.bvfs.simulator(payload, handleVwfsFinish);
       } catch {
         if (vwfsCloseWatcherRef.current) {
           vwfsCloseWatcherRef.current();
@@ -742,7 +792,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
       try {
         await navigator.share({
           title: vehicle.name,
-          text: `Confira este veículo da Savol: ${vehicle.name}`,
+          text: `Confira este veículo da SAVOL: ${vehicle.name}`,
           url: shareUrl
         });
         return;
@@ -1053,7 +1103,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
                     setLeadErrors((current) => ({ ...current, consent: "" }));
                   }}
                 />
-                <span>Autorizo o contato da Savol Seminovos por e-mail, telefone ou WhatsApp.</span>
+                <span>Autorizo o contato da SAVOL Seminovos por e-mail, telefone ou WhatsApp.</span>
               </label>
               {leadErrors.consent ? <p className="vehicle-consent-error">{leadErrors.consent}</p> : null}
 

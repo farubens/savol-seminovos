@@ -1,9 +1,9 @@
 <?php
 /**
- * Plugin Name: Savol Comercial Suite
- * Description: Plugin all-in-one Savol para veiculos, painel comercial, Venda Seu Carro, financiamento e conta de clientes.
- * Version: 1.0.9
- * Author: Savol
+ * Plugin Name: SAVOL Comercial Suite
+ * Description: Plugin all-in-one SAVOL para veiculos, painel comercial, Venda Seu Carro, financiamento e conta de clientes.
+ * Version: 1.0.10
+ * Author: SAVOL
  */
 
 if (!defined('ABSPATH')) {
@@ -11,7 +11,7 @@ if (!defined('ABSPATH')) {
 }
 
 if (!defined('SAVOL_COMERCIAL_SUITE_VERSION')) {
-    define('SAVOL_COMERCIAL_SUITE_VERSION', '1.0.9');
+    define('SAVOL_COMERCIAL_SUITE_VERSION', '1.0.10');
 }
 if (!defined('SAVOL_COMERCIAL_SUITE_FILE')) {
     define('SAVOL_COMERCIAL_SUITE_FILE', __FILE__);
@@ -86,13 +86,13 @@ function savol_comercial_suite_admin_notice(): void
     $legacy = get_option('savol_comercial_suite_deactivated_legacy', []);
     if (is_array($legacy) && !empty($legacy)) {
         delete_option('savol_comercial_suite_deactivated_legacy');
-        echo '<div class="notice notice-success is-dismissible"><p><strong>Savol Comercial Suite:</strong> plugins antigos desativados automaticamente: ' . esc_html(implode(', ', $legacy)) . '. As chaves, tokens, dados e metadados foram preservados.</p></div>';
+        echo '<div class="notice notice-success is-dismissible"><p><strong>SAVOL Comercial Suite:</strong> plugins antigos desativados automaticamente: ' . esc_html(implode(', ', $legacy)) . '. As chaves, tokens, dados e metadados foram preservados.</p></div>';
         return;
     }
 
     $active_legacy = savol_comercial_suite_active_legacy_plugins();
     if (!empty($active_legacy)) {
-        echo '<div class="notice notice-error"><p><strong>Savol Comercial Suite:</strong> desative os plugins Savol antigos para evitar duplicidade: ' . esc_html(implode(', ', $active_legacy)) . '.</p></div>';
+        echo '<div class="notice notice-error"><p><strong>SAVOL Comercial Suite:</strong> desative os plugins SAVOL antigos para evitar duplicidade: ' . esc_html(implode(', ', $active_legacy)) . '.</p></div>';
     }
 }
 

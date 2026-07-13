@@ -1,19 +1,8 @@
-export const LEADMOB_DEFAULT_EMPRESA = "10104";
+﻿export const LEADMOB_DEFAULT_EMPRESA = "10104";
 export const LEADMOB_DEFAULT_ORIGEM = "1";
+export const LEADMOB_DEFAULT_ORIGEM_LABEL = "SITE SEMINOVOS";
 
-const DEPARTAMENTO_NOVOS = "1";
 const DEPARTAMENTO_SEMINOVOS = "2";
-const DEPARTAMENTO_CONSORCIO = "3";
-const DEPARTAMENTO_VENDAS_ESPECIAIS = "4";
-const DEPARTAMENTO_PECAS_ACESSORIOS = "5";
-const DEPARTAMENTO_POS_VENDAS = "6";
-const DEPARTAMENTO_FUNILARIA = "7";
-const DEPARTAMENTO_BLINDADOS = "8";
-const DEPARTAMENTO_ADMINISTRATIVO = "9";
-const DEPARTAMENTO_SEGUROS = "11";
-const DEPARTAMENTO_FI = "12";
-const DEPARTAMENTO_RH = "15";
-const DEPARTAMENTO_SIMPLES_COMPRA = "18";
 
 const LEADMOB_COMPANIES_BY_UNIT = [
   { id: 10104, terms: ["savol grupo", "atendimento savol", "sem preferencia", "unidade nao informada"] },
@@ -111,25 +100,7 @@ export function resolveLeadmobDepartmentIntent(input: LeadmobRuleInput): Leadmob
     }
   }
 
-  const source = normalizeForLeadmobMatch(`${input.form || ""} ${input.subject || ""} ${input.message || ""}`);
-
-  if (source.includes("venda seu carro")) return { fallbackId: Number(DEPARTAMENTO_SIMPLES_COMPRA), aliases: ["Simples Compra"] };
-  if (source.includes("consorcio")) return { fallbackId: Number(DEPARTAMENTO_CONSORCIO), aliases: ["Consórcio", "Consorcio"] };
-  if (source.includes("venda por atacado") || source.includes("vendas especiais")) {
-    return { fallbackId: Number(DEPARTAMENTO_VENDAS_ESPECIAIS), aliases: ["Vendas Especiais"] };
-  }
-  if (source.includes("pecas") || source.includes("acessorios")) {
-    return { fallbackId: Number(DEPARTAMENTO_PECAS_ACESSORIOS), aliases: ["Peças e Acessórios", "Pecas e Acessorios"] };
-  }
-  if (source.includes("pos venda") || source.includes("pos vendas")) return { fallbackId: Number(DEPARTAMENTO_POS_VENDAS), aliases: ["Pós Vendas", "Pos Vendas"] };
-  if (source.includes("funilaria") || source.includes("pintura")) return { fallbackId: Number(DEPARTAMENTO_FUNILARIA), aliases: ["Funilaria e Pintura"] };
-  if (source.includes("blindados") || source.includes("blindado")) return { fallbackId: Number(DEPARTAMENTO_BLINDADOS), aliases: ["Blindados"] };
-  if (source.includes("seguros") || source.includes("seguro")) return { fallbackId: Number(DEPARTAMENTO_SEGUROS), aliases: ["Seguros"] };
-  if (source.includes("financiamento") || source.includes("f i") || source.includes("f&i")) return { fallbackId: Number(DEPARTAMENTO_FI), aliases: ["F&I", "F I"] };
-  if (source.includes("rh")) return { fallbackId: Number(DEPARTAMENTO_RH), aliases: ["RH", "Recursos Humanos"] };
-  if (source.includes("veiculos novos") || source.includes("veiculo novo")) return { fallbackId: Number(DEPARTAMENTO_NOVOS), aliases: ["Veículos Novos", "Veiculos Novos"] };
-
-  return { fallbackId: Number(DEPARTAMENTO_SEMINOVOS), aliases: ["Veículos Seminovos", "Veiculos Seminovos", "Seminovos"] };
+  return { fallbackId: Number(DEPARTAMENTO_SEMINOVOS), aliases: ["Veiculos Seminovos", "Seminovos"] };
 }
 
 export function resolveLeadmobOriginId(input: LeadmobRuleInput): number {
@@ -141,15 +112,32 @@ export function resolveLeadmobOriginId(input: LeadmobRuleInput): number {
   return Number(LEADMOB_DEFAULT_ORIGEM);
 }
 
+export function resolveLeadmobSuboriginLabel(input: LeadmobRuleInput): string {
+  const source = normalizeForLeadmobMatch(`${input.form || ""} ${input.subject || ""} ${input.message || ""}`);
+
+  if (source.includes("banco volks")) return "BANCO VOLKS";
+  if (source.includes("ver parcelas") || source.includes("financiamento") || source.includes("simule seu financiamento")) return "VER PARCELAS";
+  if (source.includes("anti saida") || source.includes("exit popup") || source.includes("popup")) return "POPUP ANTI SAIDA";
+  if (source.includes("whatsapp")) return "WHATSAPP";
+  if (source.includes("venda seu carro")) return "VENDA SEU CARRO";
+  if (source.includes("contato")) return "FORMULARIO DE CONTATO";
+  if (source.includes("proposta")) return "FORMULARIO DE PROPOSTA";
+
+  return "SITE";
+}
+
 export function buildLeadmobCodePreview(input: LeadmobRuleInput) {
   const empresa = resolveLeadmobCompanyId(input);
   const departamento = resolveLeadmobDepartmentId(input);
   const origem = resolveLeadmobOriginId(input);
+  const suborigem = resolveLeadmobSuboriginLabel(input);
 
   return {
     empresa,
     departamento,
     origem,
+    origemDescricao: LEADMOB_DEFAULT_ORIGEM_LABEL,
+    suborigemDescricao: suborigem,
     companyId: empresa,
     departmentId: departamento,
     originId: origem

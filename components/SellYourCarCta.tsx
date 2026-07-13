@@ -6,11 +6,11 @@ export function SellYourCarCta() {
   return (
     <section className="container sell">
       <div className="sell-brand-card">
-        <Image src="/images/nova-savol-cta.png" alt="Consultora Savol com chave do carro" width={1154} height={1536} className="sell-brand-image" />
+        <Image src="/images/nova-savol-cta.png" alt="Consultora SAVOL com chave do carro" width={1154} height={1536} className="sell-brand-image" />
       </div>
       <div className="sell-copy">
         <h2>Venda seu carro</h2>
-        <p>Aqui no Grupo Savol você vende seu carro com segurança, agilidade e atendimento especializado.</p>
+        <p>Aqui no Grupo SAVOL você vende seu carro com segurança, agilidade e atendimento especializado.</p>
         <Link href="/venda-seu-carro" className="btn">
           Quero vender
         </Link>
@@ -23,7 +23,7 @@ export function SellYourCarCta() {
           <ShieldCheck size={18} /> Processo seguro
         </li>
         <li>
-          <Store size={18} /> Divulgação pelo Grupo Savol
+          <Store size={18} /> Divulgação pelo Grupo SAVOL
         </li>
       </ul>
     </section>

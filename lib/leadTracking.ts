@@ -38,7 +38,7 @@ export function getLeadTrackingPayload(extraMeta: Record<string, string | number
     page_url: window.location.href,
     landing_page: stored.meta.landing_page || window.location.href,
     referrer: stored.meta.referrer || document.referrer || undefined,
-    meta_plataforma: "site",
+    meta_plataforma: "SITE SEMINOVOS",
     ...Object.fromEntries(Object.entries(extraMeta).map(([key, value]) => [key, value === undefined || value === null ? undefined : String(value)]))
   };
 

@@ -27,7 +27,7 @@ export default function Home() {
       <section className="hero">
         <div className="container hero-grid">
           <div className="hero-copy">
-            <img src="/images/medalha-60-anos.webp" alt="Grupo Savol 60 anos" className="hero-badge-medal" />
+            <img src="/images/medalha-60-anos.webp" alt="Grupo SAVOL 60 anos" className="hero-badge-medal" />
             <h1>
               Encontre o <br /><span>seminovo ideal</span>
               <br />
@@ -36,7 +36,7 @@ export default function Home() {
             <p>
               Centenas de veículos de qualidade com a confiança e a estrutura do
               <br />
-              Grupo Savol.
+              Grupo SAVOL.
             </p>
             <div className="actions">
               <Link href="/veiculos" className="btn hero-btn hero-btn-primary">
@@ -88,7 +88,7 @@ export default function Home() {
         <section className="container newsletter">
           <article className="newsletter-card">
             <div className="newsletter-media-wrap">
-              <Image src="/images/news-savol.png" alt="Campanha de newsletter Savol" width={640} height={420} className="newsletter-media" />
+              <Image src="/images/news-savol.png" alt="Campanha de newsletter SAVOL" width={640} height={420} className="newsletter-media" />
             </div>
 
             <div className="newsletter-content">

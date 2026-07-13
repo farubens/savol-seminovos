@@ -27,7 +27,7 @@ export default function VendaPorAtacadoPage() {
           </div>
 
           <div className="wholesale-hero-v2-media" aria-hidden="true">
-            <Image src="/images/CELTA.webp" alt="Estoque atacado Savol" width={880} height={520} className="wholesale-hero-v2-image" priority />
+            <Image src="/images/CELTA.webp" alt="Estoque atacado SAVOL" width={880} height={520} className="wholesale-hero-v2-image" priority />
           </div>
         </article>
 

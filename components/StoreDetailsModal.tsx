@@ -121,7 +121,7 @@ export function StoreDetailsModal({ open, store, onClose, onOpenDirections }: St
             <img src={getFacadeImage(store)} alt={`Fachada da loja ${store.name}`} loading="lazy" />
             <span className="store-details-facade-badge">
               <Store size={14} />
-              Loja Savol
+              Loja SAVOL
             </span>
           </article>
 

@@ -163,7 +163,7 @@ function savol_account_get_or_create_token(int $user_id): string
 function savol_account_user_payload(int $user_id): array
 {
     $user = get_user_by('id', $user_id);
-    $name = $user ? ($user->display_name ?: current(explode('@', $user->user_email))) : 'Cliente Savol';
+    $name = $user ? ($user->display_name ?: current(explode('@', $user->user_email))) : 'Cliente SAVOL';
     $email = $user ? $user->user_email : '';
 
     return [

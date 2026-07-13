@@ -9,14 +9,14 @@ export function SavolMegaFooter() {
         <div className="container savol-footer-bottom-grid">
           <div className="savol-footer-company">
             <Link href="/" aria-label="Ir para a página inicial">
-              <Image src="/images/logo-branco.png" alt="Savol" width={220} height={62} className="savol-footer-logo" />
+              <Image src="/images/logo-branco.png" alt="SAVOL" width={220} height={62} className="savol-footer-logo" />
             </Link>
             <p>Somos um grupo empresarial familiar, sólido e com forte presença nas regiões do Grande ABC, São Paulo e Baixada Santista.</p>
             <div className="savol-footer-socials">
-              <a href="https://www.facebook.com/gruposavol/" target="_blank" rel="noopener noreferrer" aria-label="Facebook Savol">
+              <a href="https://www.facebook.com/gruposavol/" target="_blank" rel="noopener noreferrer" aria-label="Facebook SAVOL">
                 <Facebook size={18} />
               </a>
-              <a href="https://www.instagram.com/gruposavol/" target="_blank" rel="noopener noreferrer" aria-label="Instagram Savol">
+              <a href="https://www.instagram.com/gruposavol/" target="_blank" rel="noopener noreferrer" aria-label="Instagram SAVOL">
                 <Instagram size={18} />
               </a>
             </div>
@@ -78,7 +78,7 @@ export function SavolMegaFooter() {
 
         <div className="savol-footer-copy">
           <div className="container">
-            <p>© 2026 Grupo Savol. Todos os direitos reservados.</p>
+            <p>© 2026 Grupo SAVOL. Todos os direitos reservados.</p>
           </div>
         </div>
       </section>

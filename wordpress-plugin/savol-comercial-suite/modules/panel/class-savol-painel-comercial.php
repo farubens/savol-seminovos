@@ -7,7 +7,7 @@ if (!class_exists('Savol_Painel_Comercial')) :
 
 final class Savol_Painel_Comercial {
     private const ROLE = 'gestor_savol';
-    private const ROLE_LABEL = 'Gestor Savol';
+    private const ROLE_LABEL = 'Gestor SAVOL';
     private const VERSION = '0.6.1';
     private const OPTION_VERSION = 'savol_painel_comercial_version';
     private const ANALYTICS_TABLE = 'savol_painel_analytics';
@@ -275,8 +275,8 @@ final class Savol_Painel_Comercial {
         }
 
         add_menu_page(
-            'Painel Savol',
-            'Painel Savol',
+            'Painel SAVOL',
+            'Painel SAVOL',
             'read',
             self::DASHBOARD_SLUG,
             [__CLASS__, 'render_dashboard'],
@@ -328,7 +328,7 @@ final class Savol_Painel_Comercial {
 
         wp_add_dashboard_widget(
             'savol_painel_comercial_access_widget',
-            'Painel Savol',
+            'Painel SAVOL',
             [__CLASS__, 'render_dashboard_access_widget']
         );
     }
@@ -343,10 +343,10 @@ final class Savol_Painel_Comercial {
         $leads_url = admin_url('edit.php?post_type=' . self::SELL_LEAD_POST_TYPE);
         ?>
         <div class="savol-access-widget">
-            <p class="savol-access-eyebrow">Gestao Savol</p>
+            <p class="savol-access-eyebrow">Gestao SAVOL</p>
             <h2>Dashboard comercial</h2>
             <p>Acesse KPIs, estoque de seminovos e leads de venda em uma interface limpa.</p>
-            <a class="button button-primary button-hero" href="<?php echo esc_url($dashboard_url); ?>">Abrir Painel Savol</a>
+            <a class="button button-primary button-hero" href="<?php echo esc_url($dashboard_url); ?>">Abrir Painel SAVOL</a>
             <div class="savol-access-links">
                 <a href="<?php echo esc_url($vehicles_url); ?>">Seminovos</a>
                 <a href="<?php echo esc_url($leads_url); ?>">Leads de venda</a>
@@ -369,7 +369,7 @@ final class Savol_Painel_Comercial {
             return;
         }
 
-        wp_die('Acesso restrito ao Painel Savol.', 'Painel Savol', ['response' => 403]);
+        wp_die('Acesso restrito ao Painel SAVOL.', 'Painel SAVOL', ['response' => 403]);
     }
 
     public static function redirect_legacy_dashboard_slug(): void {
@@ -706,7 +706,7 @@ JS;
             <div class="savol-gestor-hero">
                 <div>
                     <div class="savol-brand-mark">S</div>
-                    <p class="savol-kicker">Savol Seminovos</p>
+                    <p class="savol-kicker">SAVOL Seminovos</p>
                     <h1>Painel do gestor</h1>
                     <p class="savol-dashboard-version">Painel comercial visual - v<?php echo esc_html(self::VERSION); ?></p>
                 </div>
@@ -1857,7 +1857,7 @@ body.savol-gestor-role #adminmenu:before {
     border: 1px solid rgba(255,255,255,.12);
     border-radius: 8px;
     color: #ffffff;
-    content: "Savol";
+    content: "SAVOL";
     display: flex;
     font-size: 18px;
     font-weight: 800;
@@ -2422,7 +2422,7 @@ body.savol-gestor-role .wrap > h1:first-child:before {
 body.savol-gestor-role .wrap h1.wp-heading-inline:after,
 body.savol-gestor-role .wrap > h1:first-child:after {
     color: var(--savol-muted);
-    content: "Gestao Savol";
+    content: "Gestao SAVOL";
     font-size: 13px;
     font-weight: 800;
     margin-left: auto;
@@ -2795,7 +2795,7 @@ body.login h1 a:before {
     background: #0f172a;
     border-radius: 8px;
     color: #ffffff;
-    content: "Savol";
+    content: "SAVOL";
     display: inline-flex;
     font-size: 24px;
     font-weight: 900;
@@ -2886,7 +2886,7 @@ CSS;
     }
 
     public static function login_header_text(): string {
-        return 'Savol Seminovos';
+        return 'SAVOL Seminovos';
     }
 
     public static function admin_body_class($classes) {

@@ -1,10 +1,12 @@
 import {
+  LEADMOB_DEFAULT_ORIGEM_LABEL,
   LEADMOB_DEFAULT_ORIGEM,
   normalizeForLeadmobMatch,
   resolveLeadmobCompanyId,
   resolveLeadmobDepartmentId,
   resolveLeadmobDepartmentIntent,
-  resolveLeadmobOriginId
+  resolveLeadmobOriginId,
+  resolveLeadmobSuboriginLabel
 } from "@/lib/leadmobRules";
 
 const LEADMOB_BASE_URL = "https://app.leadmob.com.br/tools/api";
@@ -87,9 +89,12 @@ function trimText(value: unknown, maxLength: number): string {
 
 function buildObservation(input: LeadmobLeadInput): string {
   const utm = input.utm || {};
+  const suboriginLabel = input.meta?.suborigem_descricao || resolveLeadmobSuboriginLabel(input);
   const chunks = [
     input.form ? `Form: ${input.form}` : "",
     input.subject ? `Assunto: ${input.subject}` : "",
+    `Origem: ${LEADMOB_DEFAULT_ORIGEM_LABEL}`,
+    suboriginLabel ? `Suborigem: ${suboriginLabel}` : "",
     input.unitName ? `Unidade: ${input.unitName}` : "",
     input.vehicle?.plate ? `Placa: ${input.vehicle.plate}` : "",
     input.vehicle?.brand ? `Marca: ${input.vehicle.brand}` : "",
@@ -165,6 +170,7 @@ function buildLeadmobPayload(input: LeadmobLeadInput, options: { departmentId?: 
   const utm = input.utm || {};
   const meta = input.meta || {};
   const vehicle = input.vehicle || {};
+  const suboriginLabel = String(meta.suborigem_descricao || resolveLeadmobSuboriginLabel(input));
 
   return {
     empresa: resolveLeadmobCompanyId(input),
@@ -176,6 +182,8 @@ function buildLeadmobPayload(input: LeadmobLeadInput, options: { departmentId?: 
     protocolo: trimText(input.protocol, 20),
     origem: resolveLeadmobOriginId(input) || Number(LEADMOB_DEFAULT_ORIGEM),
     suborigem: input.suboriginId ? Number(input.suboriginId) : undefined,
+    origem_descricao: LEADMOB_DEFAULT_ORIGEM_LABEL,
+    suborigem_descricao: trimText(suboriginLabel, 100),
     observacao: buildObservation(input),
     unidade: trimText(input.unitName, 100),
     cpf: onlyDigits(input.cpf).slice(0, 11),
@@ -196,7 +204,7 @@ function buildLeadmobPayload(input: LeadmobLeadInput, options: { departmentId?: 
     meta_campanha: trimText(meta.meta_campanha || utm.utm_campaign, 255),
     meta_conjunto_anuncio: trimText(meta.meta_conjunto_anuncio || utm.utm_medium, 255),
     meta_anuncio: trimText(meta.meta_anuncio || utm.utm_content, 255),
-    meta_plataforma: trimText(meta.meta_plataforma || utm.utm_source || "site", 255),
+    meta_plataforma: trimText(meta.meta_plataforma || utm.utm_source || LEADMOB_DEFAULT_ORIGEM_LABEL, 255),
     source_url: trimText(meta.page_url || meta.source_url || vehicle.url, 255),
     source_type: trimText(meta.source_type || "site", 100),
     meta_body: trimText(input.message, 255),

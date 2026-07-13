@@ -33,6 +33,7 @@ import { getLeadTrackingPayload } from "@/lib/leadTracking";
 import { resolveSavolTechnicalStoreIdFromParts } from "@/lib/savolStores";
 import { buildOldPriceLabelFromOfficialPrice, parseCurrencyToInteger } from "@/utils/pricing";
 import { watchVwfsSimulatorClose } from "@/utils/vwfsModalWatcher";
+import { createBancoVolksLeadPayload } from "@/utils/vwfsLeadPayload";
 
 type Props = {
   vehicleId: number;
@@ -63,7 +64,7 @@ const FALLBACK_HIGHLIGHT = "Oportunidade";
 declare global {
   interface Window {
     bvfs?: {
-      simulator: (payload: Record<string, unknown>, onFinish?: () => void) => void;
+      simulator: (payload: Record<string, unknown>, onFinish?: (...result: unknown[]) => void) => void;
     };
   }
 }
@@ -576,6 +577,53 @@ export function VehicleOfferCard({
     }, { assumeOpened });
   };
 
+  const submitBancoVolksLead = async (vwfsResult: unknown) => {
+    const tracking = getLeadTrackingPayload({
+      form: "banco-volks-card",
+      subject: "Lead Banco Volks - Ver parcelas",
+      unitName: store,
+      vehicleId,
+      vehicle: name,
+      price
+    });
+    const leadPayload = createBancoVolksLeadPayload(vwfsResult, {
+      form: "banco-volks-card",
+      subject: "Lead Banco Volks - Ver parcelas",
+      unitName: store,
+      vehicle: leadVehicleContext,
+      message: `Veículo: ${name}\nPreço: ${price}`,
+      tracking,
+      meta: {
+        page_url: leadVehicleContext.url,
+        store_id: resolvedVwfsStoreId,
+        unit_technical_id: resolvedVwfsStoreId
+      }
+    });
+
+    if (!leadPayload) return;
+
+    try {
+      logLeadPayload("banco-volks-card", leadPayload);
+      const response = await fetch("/api/financiamento-leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(leadPayload)
+      });
+      await logLeadmobResponse("banco-volks-card", response);
+    } catch {
+      // Best effort: the simulator flow must not be blocked by tracking failure.
+    }
+  };
+
+  const handleVwfsFinish = (...result: unknown[]) => {
+    void submitBancoVolksLead(result.length > 1 ? { result } : result[0]);
+    if (vwfsCloseWatcherRef.current) {
+      vwfsCloseWatcherRef.current();
+      vwfsCloseWatcherRef.current = null;
+    }
+    openFinanceFollowUp();
+  };
+
   const openVwfsSimulator = () => {
     if (isSimulatingFinance) return;
     if (!hasVwfsConfig || !hasVehicleIdForVwfs) {
@@ -604,7 +652,7 @@ export function VehicleOfferCard({
       try {
         armVwfsCloseWatcher();
         financeFollowUpOpenedRef.current = false;
-        window.bvfs.simulator(payload, () => armVwfsCloseWatcher(true));
+        window.bvfs.simulator(payload, handleVwfsFinish);
       } catch {
         if (vwfsCloseWatcherRef.current) {
           vwfsCloseWatcherRef.current();
@@ -682,7 +730,7 @@ export function VehicleOfferCard({
         try {
           armVwfsCloseWatcher();
           financeFollowUpOpenedRef.current = false;
-          window.bvfs.simulator(payload, () => armVwfsCloseWatcher(true));
+          window.bvfs.simulator(payload, handleVwfsFinish);
         } catch {
           if (vwfsCloseWatcherRef.current) {
             vwfsCloseWatcherRef.current();
@@ -1145,7 +1193,7 @@ export function VehicleOfferCard({
                             checked={proposalForm.consent}
                             onChange={(event) => setProposalForm((current) => ({ ...current, consent: event.target.checked }))}
                           />
-                          <span>Autorizo o contato da Savol por e-mail, telefone ou WhatsApp.</span>
+                          <span>Autorizo o contato da SAVOL por e-mail, telefone ou WhatsApp.</span>
                         </label>
 
                         <button type="button" className="finance-modal-proposal-btn" onClick={handleProposalSubmit} disabled={proposalSubmitting}>

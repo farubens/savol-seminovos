@@ -12,7 +12,7 @@ type MapDirectionsModalProps = {
 
 function buildEncodedQuery(storeName: string, address: string): string {
   const source = `${address || ""} ${storeName || ""}`.trim();
-  return encodeURIComponent(source || "Grupo Savol");
+  return encodeURIComponent(source || "Grupo SAVOL");
 }
 
 export function MapDirectionsModal({ open, storeName, address, onClose }: MapDirectionsModalProps) {
@@ -42,13 +42,13 @@ export function MapDirectionsModal({ open, storeName, address, onClose }: MapDir
 
   return (
     <div className="directions-modal-backdrop" onClick={onClose}>
-      <div className="directions-modal" role="dialog" aria-modal="true" aria-label={`Opções de rota para ${storeName || "Savol"}`} onClick={(event) => event.stopPropagation()}>
+      <div className="directions-modal" role="dialog" aria-modal="true" aria-label={`Opções de rota para ${storeName || "SAVOL"}`} onClick={(event) => event.stopPropagation()}>
         <button type="button" className="directions-modal-close" aria-label="Fechar modal de rotas" onClick={onClose}>
           <X size={18} />
         </button>
 
         <p className="directions-modal-kicker">Como chegar</p>
-        <h3>Vá até a Savol mais próxima de você</h3>
+        <h3>Vá até a SAVOL mais próxima de você</h3>
         {storeName ? <p className="directions-modal-store">{storeName}</p> : null}
         {address ? <p className="directions-modal-address">{address}</p> : null}
 

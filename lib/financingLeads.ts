@@ -108,7 +108,7 @@ function resolveFinancingUnitName(payload: FinancingLeadPayload): string {
   if (namedCandidate) return namedCandidate;
 
   const technicalId = candidates.find(isTechnicalUnitId);
-  if (technicalId) return "Savol Seminovos - Simulador Banco Volkswagen";
+  if (technicalId) return "SAVOL Seminovos - Simulador Banco Volkswagen";
 
   return "";
 }
@@ -132,6 +132,7 @@ function normalizeFinancingPayload(payload: FinancingLeadPayload, context: Finan
     protocol,
     form,
     subject,
+    departmentId: payload.departmentId || "2",
     cpf,
     message,
     unitName,
@@ -145,6 +146,8 @@ function normalizeFinancingPayload(payload: FinancingLeadPayload, context: Finan
       form,
       subject,
       source_integration: context.sourceName || payload.meta?.source_integration,
+      origem_descricao: "SITE SEMINOVOS",
+      suborigem_descricao: payload.meta?.suborigem_descricao || (context.sourceName === "banco-volks" ? "BANCO VOLKS" : "VER PARCELAS"),
       page_url: payload.meta?.page_url || vehicleUrl || fallbackTracking.meta?.page_url,
       user_agent: context.userAgent || payload.meta?.user_agent,
       unit_name: unitName,

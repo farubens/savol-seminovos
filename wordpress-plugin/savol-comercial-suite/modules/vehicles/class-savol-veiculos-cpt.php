@@ -9,7 +9,7 @@ final class Savol_Veiculos_CPT {
     private const POST_TYPE = 'veiculo';
     private const SELL_YOUR_CAR_POST_TYPE = 'venda_carro_lead';
     private const SELLER_ROLE = 'vendedor_savol';
-    private const SELLER_ROLE_LABEL = 'Vendedor Savol';
+    private const SELLER_ROLE_LABEL = 'Vendedor SAVOL';
     private const SELLER_CAPABILITY = 'savol_venda_seu_carro_vendedor';
     private const SELLER_MENU_SLUG = 'savol-venda-seu-carro-vendedores';
     private const SELLER_LEADS_MENU_SLUG = 'savol-vendedor-venda-seu-carro';
@@ -71,7 +71,7 @@ final class Savol_Veiculos_CPT {
     private const SELL_YOUR_CAR_REST_ROUTE = '/venda-seu-carro';
     // Legacy list kept for backward reference. The active site flow uses sell_your_car_photo_fields().
     private const SELL_YOUR_CAR_PHOTO_FIELDS = [
-        'photo_front' => 'Frente',
+        'photo_front' => 'FOTO FRENTE VEÍCULO',
         'photo_leftSide' => 'Lateral esquerda',
         'photo_rightSide' => 'Lateral direita',
         'photo_rear' => 'Traseira',
@@ -982,20 +982,19 @@ final class Savol_Veiculos_CPT {
 
     private static function sell_your_car_photo_fields(): array {
         return [
-            'photo_vehicle' => 'Foto do carro',
+            'photo_vehicle' => 'FOTO FRENTE VEÍCULO',
             'photo_documentFront' => 'Frente do documento',
-            'photo_documentBack' => 'Verso do documento',
+            'photo_odometer' => 'Hodômetro',
         ];
     }
 
     private static function sell_your_car_optional_photo_fields(): array {
         return [
-            'photo_front' => 'Frente',
+            'photo_front' => 'FOTO FRENTE VEÍCULO',
             'photo_leftSide' => 'Lateral esquerda',
             'photo_rightSide' => 'Lateral direita',
             'photo_rear' => 'Traseira',
             'photo_dashboard' => 'Painel',
-            'photo_odometer' => 'Odometro',
             'photo_spare' => 'Estepe',
             'photo_trunk' => 'Porta-malas',
             'photo_roof' => 'Teto',
@@ -1957,7 +1956,7 @@ JS;
         <div style="font-family:Arial,sans-serif;background:#f1f5f9;padding:24px;color:#0f172a">
             <div style="max-width:720px;margin:0 auto;background:#fff;border:1px solid #dbe4ef;border-radius:12px;overflow:hidden">
                 <div style="background:#111827;color:#fff;padding:22px 26px">
-                    <p style="margin:0 0 6px;color:#93c5fd;font-size:12px;font-weight:700;text-transform:uppercase">Savol Seminovos</p>
+                    <p style="margin:0 0 6px;color:#93c5fd;font-size:12px;font-weight:700;text-transform:uppercase">SAVOL Seminovos</p>
                     <h1 style="margin:0;font-size:24px">Novo lead Venda Seu Carro</h1>
                 </div>
                 <div style="padding:24px 26px">
@@ -1984,7 +1983,7 @@ JS;
 
     private static function generate_lead_pdf(int $lead_id): string {
         $lines = [
-            ['Savol Seminovos', 22],
+            ['SAVOL Seminovos', 22],
             ['Lead Venda Seu Carro', 14],
             [self::lead_short_label($lead_id), 12],
             ['', 10],
@@ -3140,21 +3139,21 @@ JS;
 
         if (str_contains($normalized, 'mg') || str_contains($normalized, 'motor')) {
             if (str_contains($normalized, 'analia')) {
-                return 'Unidade Savol MG Motor Anália Franco';
+                return 'Unidade SAVOL MG Motor Anália Franco';
             }
-            return 'Unidade Savol MG Motor São Caetano';
+            return 'Unidade SAVOL MG Motor São Caetano';
         }
 
         if (str_contains($normalized, 'jetour')) {
             if (str_contains($normalized, 'sao caetano') || str_contains($normalized, 'scs')) {
-                return 'Unidade Savol JETOUR São Caetano do Sul';
+                return 'Unidade SAVOL JETOUR São Caetano do Sul';
             }
-            return 'Unidade Savol JETOUR Santo André';
+            return 'Unidade SAVOL JETOUR Santo André';
         }
 
         $by_cnpj = [
-            '62870730000109' => 'Unidade Savol MG Motor São Caetano',
-            '65214691000171' => 'Unidade Savol JETOUR Santo André',
+            '62870730000109' => 'Unidade SAVOL MG Motor São Caetano',
+            '65214691000171' => 'Unidade SAVOL JETOUR Santo André',
         ];
         if ($cnpj !== '' && isset($by_cnpj[$cnpj])) {
             return $by_cnpj[$cnpj];

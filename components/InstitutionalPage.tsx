@@ -79,8 +79,8 @@ export function InstitutionalPage() {
     <section className="container institutional-page">
       <header className="institutional-hero">
         <div className="institutional-hero-copy">
-          <p className="institutional-head-breadcrumb">Início / Institucional / Sobre o Grupo Savol</p>
-          <h1>Sobre o Grupo Savol</h1>
+          <p className="institutional-head-breadcrumb">Início / Institucional / Sobre o Grupo SAVOL</p>
+          <h1>Sobre o Grupo SAVOL</h1>
           <span className="institutional-head-line" />
           <p className="institutional-head-lead">Há 63 anos movendo pessoas, construindo relações e gerando valor.</p>
         </div>
@@ -169,7 +169,7 @@ export function InstitutionalPage() {
             <Inbox size={ICON_SIZE} />
           </span>
           <div>
-            <h3>Fique por dentro das novidades Savol</h3>
+            <h3>Fique por dentro das novidades SAVOL</h3>
             <p>Receba ofertas exclusivas, lançamentos e oportunidades.</p>
           </div>
         </div>

@@ -12,7 +12,7 @@ export default function ContatoPage() {
       <section className="container contact-page">
         <section className="contact-hero">
           <div className="contact-hero-content">
-            <p className="contact-hero-kicker">Atendimento Savol</p>
+            <p className="contact-hero-kicker">Atendimento SAVOL</p>
             <h1>Fale com nossa equipe</h1>
             <p>Envie sua mensagem e retornamos o mais rápido possível para ajudar na compra, troca ou venda do seu veículo.</p>
           </div>

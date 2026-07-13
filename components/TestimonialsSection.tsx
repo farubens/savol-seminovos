@@ -11,7 +11,7 @@ const testimonials = [
     period: "há 2 meses",
     source: "3 avaliações no Google",
     message:
-      "Gostaria de registrar meu agradecimento pelo atendimento recebido recentemente na compra de um T-Cross, em especial ao Sr. Daniel Palomares, extremamente gentil, educado e muito profissional em todos os momentos. Sua atenção, paciência e disposição em ajudar fizeram toda a diferença na minha experiência. A Savol tem muita sorte em tê-lo como profissional. Parabéns pelo excelente trabalho e muito obrigado pelo cuidado e dedicação!"
+      "Gostaria de registrar meu agradecimento pelo atendimento recebido recentemente na compra de um T-Cross, em especial ao Sr. Daniel Palomares, extremamente gentil, educado e muito profissional em todos os momentos. Sua atenção, paciência e disposição em ajudar fizeram toda a diferença na minha experiência. A SAVOL tem muita sorte em tê-lo como profissional. Parabéns pelo excelente trabalho e muito obrigado pelo cuidado e dedicação!"
   },
   {
     id: "fabio",
@@ -20,7 +20,7 @@ const testimonials = [
     period: "há 2 meses",
     source: "5 avaliações no Google",
     message:
-      "Fui até a Savol para comprar um Virtus Exclusive e fui atendido pelo vendedor Vitor. Ele foi transparente e atencioso durante todo o processo: pedido do veículo, emissão do boleto para pagamento, entrega e pós-venda. Nota 10, muito atencioso. Indico muito este profissional."
+      "Fui até a SAVOL para comprar um Virtus Exclusive e fui atendido pelo vendedor Vitor. Ele foi transparente e atencioso durante todo o processo: pedido do veículo, emissão do boleto para pagamento, entrega e pós-venda. Nota 10, muito atencioso. Indico muito este profissional."
   },
   {
     id: "leandro",
@@ -29,7 +29,7 @@ const testimonials = [
     period: "há 2 meses",
     source: "19 avaliações no Google",
     message:
-      "Quero deixar registrado o alto profissionalismo da recepcionista Brenda Helloa, que atenciosamente e prontamente me ajudou com um favor sobre histórico de revisão de um veículo que possuo. Sua dedicação é fora do normal. Parabéns Brenda e Savol por ter uma profissional desta qualidade."
+      "Quero deixar registrado o alto profissionalismo da recepcionista Brenda Helloa, que atenciosamente e prontamente me ajudou com um favor sobre histórico de revisão de um veículo que possuo. Sua dedicação é fora do normal. Parabéns Brenda e SAVOL por ter uma profissional desta qualidade."
   },
   {
     id: "thayane",
@@ -113,7 +113,7 @@ export function TestimonialsSection() {
     <section className="testimonials-wrap">
       <div className="container testimonials-shell">
         <p className="testimonials-kicker">
-          <span>Savol</span>
+          <span>SAVOL</span>
           <span>Excelência que gera confiança</span>
         </p>
 
@@ -180,7 +180,7 @@ export function TestimonialsSection() {
 
         <p className="testimonials-brand-line" aria-hidden="true">
           <span />
-          Savol
+          SAVOL
           <span />
         </p>
       </div>

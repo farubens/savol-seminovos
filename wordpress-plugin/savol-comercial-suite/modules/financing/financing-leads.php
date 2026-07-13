@@ -101,8 +101,8 @@ function savol_financing_register_rest_routes(): void
 function savol_financing_register_settings_page(): void
 {
     add_options_page(
-        'Savol Financiamento',
-        'Savol Financiamento',
+        'SAVOL Financiamento',
+        'SAVOL Financiamento',
         'manage_options',
         'savol-financiamento',
         'savol_financing_render_settings_page'
@@ -225,7 +225,7 @@ function savol_financing_resolve_unit_name($unit_name, array $vehicle = [], arra
 
     foreach ($candidates as $candidate) {
         if (savol_financing_is_technical_unit_id($candidate)) {
-            return 'Savol Seminovos - Simulador Banco Volkswagen';
+            return 'SAVOL Seminovos - Simulador Banco Volkswagen';
         }
     }
 
@@ -587,7 +587,7 @@ function savol_financing_export_pdf(): void
     <main class="page">
         <header class="hero">
             <div>
-                <small>Savol Seminovos</small>
+                <small>SAVOL Seminovos</small>
                 <h1>Lead de financiamento</h1>
                 <p><?php echo esc_html($protocol); ?></p>
             </div>
@@ -645,7 +645,7 @@ function savol_financing_render_settings_page(): void
     $token = savol_financing_get_expected_token();
     ?>
     <div class="wrap">
-        <h1>Savol Financiamento</h1>
+        <h1>SAVOL Financiamento</h1>
         <p>Use este token tambem na variavel de ambiente <code>SAVOL_FINANCE_LEADS_TOKEN</code> da Vercel.</p>
 
         <?php if ($token_from_constant) : ?>

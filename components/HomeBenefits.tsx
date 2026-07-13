@@ -38,7 +38,7 @@ export function HomeBenefits() {
         </span>
         <div>
           <h3>Lojas do Grupo</h3>
-          <p>Savol Seminovos</p>
+          <p>SAVOL Seminovos</p>
         </div>
       </article>
       <article className="benefit">

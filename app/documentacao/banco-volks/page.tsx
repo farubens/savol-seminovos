@@ -4,8 +4,8 @@ import { SavolMegaFooter } from "@/components/SavolMegaFooter";
 import { SiteHeader } from "@/components/SiteHeader";
 
 export const metadata: Metadata = {
-  title: "API Banco Volks | Savol Seminovos",
-  description: "Documentacao publica para envio de leads de financiamento do Banco Volks para a Savol Seminovos."
+  title: "API Banco Volks | SAVOL Seminovos",
+  description: "Documentacao publica para envio de leads de financiamento do Banco Volks para a SAVOL Seminovos."
 };
 
 const apiUrl = "https://www.savolseminovos.com.br/api/integracoes/banco-volks/leads";
@@ -18,15 +18,15 @@ export default function BancoVolksDocsPage() {
         <header className="public-api-doc-hero">
           <p>Documentacao publica</p>
           <h1>API de leads de financiamento Banco Volks</h1>
-          <span>Versao 1.0 - Savol Seminovos</span>
+          <span>Versao 1.0 - SAVOL Seminovos</span>
         </header>
 
         <article className="public-api-doc-panel">
           <h2>Endpoint</h2>
           <pre><code>{`POST ${apiUrl}`}</code></pre>
           <p>
-            Use este endpoint para enviar para a Savol os leads gerados no fluxo "Simule seu financiamento".
-            O token de acesso deve ser enviado pela Savol em canal privado.
+            Use este endpoint para enviar para a SAVOL os leads gerados no fluxo "Simule seu financiamento".
+            O token de acesso deve ser enviado pela SAVOL em canal privado.
           </p>
         </article>
 
@@ -39,7 +39,7 @@ X-Savol-Request-Id: VWFS-123456
 Content-Type: application/json
 Accept: application/json`}</code></pre>
           <p>
-            A Savol fornece dois segredos em canal privado: o token Bearer e o segredo de assinatura HMAC.
+            A SAVOL fornece dois segredos em canal privado: o token Bearer e o segredo de assinatura HMAC.
             A assinatura deve ser calculada sobre o corpo JSON bruto enviado na requisicao.
           </p>
         </article>

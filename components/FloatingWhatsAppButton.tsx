@@ -8,7 +8,7 @@ import { logLeadmobResponse, logLeadPayload } from "@/lib/leadDebug";
 import { getLeadTrackingPayload } from "@/lib/leadTracking";
 import type { LeadmobVehicle } from "@/lib/leadmob";
 
-const TOYOTA_STORE_NAME = "Savol Toyota";
+const TOYOTA_STORE_NAME = "SAVOL Toyota";
 const AUTO_OPEN_STORAGE_KEY = "savol-whatsapp-chat-opened";
 const TYPING_DELAY_MS = 800;
 const FINAL_RESPONSE_TEXT =
@@ -224,7 +224,7 @@ export function FloatingWhatsAppButton() {
 
     const vehicleContext = getVehicleLeadContext();
     const unitText = vehicleContext?.unitName ?? TOYOTA_STORE_NAME;
-    const customerUnitText = vehicleContext?.unitName ?? "Atendimento Savol";
+    const customerUnitText = vehicleContext?.unitName ?? "Atendimento SAVOL";
     const customerMessage = (messageOverride ?? chatForm.message).trim();
     const pageText = isVehicleDetail ? `\nPágina: ${vehicleContext?.pageUrl || window.location.href}` : "";
     const vehicleText = vehicleContext?.vehicleName ? `\nVeículo: ${vehicleContext.vehicleName}` : "";
@@ -303,7 +303,7 @@ export function FloatingWhatsAppButton() {
           <header className="whatsapp-store-modal-head">
             <Image src="/images/whatsapp_icon.png" alt="" width={26} height={26} className="whatsapp-chat-head-icon" />
             <div>
-              <h2 id="whatsapp-store-title">Atendimento Savol</h2>
+              <h2 id="whatsapp-store-title">Atendimento SAVOL</h2>
               <p>Online agora</p>
             </div>
           </header>

@@ -50,7 +50,7 @@ export function WhyChooseSavol() {
     <section className="container why-savol">
       <div className="why-savol-layout">
         <article className="why-savol-media-wrap">
-          <Image src="/images/side-por-que-savol.png" alt="Equipe Savol em showroom" width={820} height={960} className="why-savol-media" />
+          <Image src="/images/side-por-que-savol.png" alt="Equipe SAVOL em showroom" width={820} height={960} className="why-savol-media" />
           <div className="why-savol-media-badge">
             <Protection {...whySavolIconProps} size={18} />
             <p>Tradição e confiança que movem gerações.</p>
@@ -58,7 +58,7 @@ export function WhyChooseSavol() {
         </article>
 
         <div className="why-savol-content">
-          <h2>Por que comprar no <span>Grupo Savol?</span></h2>
+          <h2>Por que comprar no <span>Grupo SAVOL?</span></h2>
 
           <div className="why-savol-grid">
             {items.map((item) => {

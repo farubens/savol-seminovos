@@ -26,10 +26,10 @@ export function SiteHeader({ active = "home", showEnvNote = false }: HeaderProps
           <div className="topbar-social-spacer" aria-hidden="true" />
           <p className="topbar-schedule">Segunda a sexta: 08h às 19h | Sábado: 09h às 18h</p>
           <div className="topbar-social" aria-label="Redes sociais">
-            <a className="topbar-social-link" href="https://www.facebook.com/gruposavol/" target="_blank" rel="noopener noreferrer" aria-label="Facebook Savol">
+            <a className="topbar-social-link" href="https://www.facebook.com/gruposavol/" target="_blank" rel="noopener noreferrer" aria-label="Facebook SAVOL">
               <Facebook size={14} />
             </a>
-            <a className="topbar-social-link" href="https://www.instagram.com/gruposavol/" target="_blank" rel="noopener noreferrer" aria-label="Instagram Savol">
+            <a className="topbar-social-link" href="https://www.instagram.com/gruposavol/" target="_blank" rel="noopener noreferrer" aria-label="Instagram SAVOL">
               <Instagram size={14} />
             </a>
           </div>
@@ -38,7 +38,7 @@ export function SiteHeader({ active = "home", showEnvNote = false }: HeaderProps
 
       <header className={`header container${mobileMenuOpen ? " is-mobile-open" : ""}`}>
         <Link href="/" aria-label="Ir para a página inicial">
-          <Image src="/images/logo.png" alt="Savol" width={200} height={48} className="site-logo" />
+          <Image src="/images/logo.png" alt="SAVOL" width={200} height={48} className="site-logo" />
         </Link>
 
         <button
@@ -91,7 +91,7 @@ export function SiteHeader({ active = "home", showEnvNote = false }: HeaderProps
             </span>
             <p className="header-env-title">SAVOL SEMINOVOS</p>
             <span className="header-env-divider" aria-hidden="true" />
-            <p className="header-env-copy">Veículos selecionados e atendimento com a segurança do Grupo Savol.</p>
+            <p className="header-env-copy">Veículos selecionados e atendimento com a segurança do Grupo SAVOL.</p>
           </div>
         </div>
       )}

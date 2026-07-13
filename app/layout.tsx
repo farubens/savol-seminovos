@@ -7,8 +7,10 @@ import { SavolAnalyticsTracker } from "@/components/SavolAnalyticsTracker";
 import "leaflet/dist/leaflet.css";
 import "./globals.css";
 
+const ENABLE_FLOATING_WHATSAPP = false;
+
 export const metadata: Metadata = {
-  title: "Savol Seminovos",
+  title: "SAVOL Seminovos",
   description: "Encontre o carro ideal para você",
   icons: {
     icon: "/favicon.webp",
@@ -29,7 +31,7 @@ export default function RootLayout({
           <Suspense fallback={null}>
             <SavolAnalyticsTracker />
           </Suspense>
-          <FloatingWhatsAppButton />
+          {ENABLE_FLOATING_WHATSAPP ? <FloatingWhatsAppButton /> : null}
         </SavolAccountProvider>
       </body>
     </html>

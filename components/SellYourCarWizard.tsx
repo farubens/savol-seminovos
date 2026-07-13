@@ -92,7 +92,7 @@ const STEPS: Array<{ id: Step; label: string }> = [
 ];
 
 const PHOTO_SLOTS: Array<{ id: PhotoSlotId; label: string; required: boolean }> = [
-  { id: "vehicle", label: "Foto do carro", required: true },
+  { id: "vehicle", label: "FOTO FRENTE VEÍCULO", required: true },
   { id: "documentFront", label: "Frente do documento", required: true },
   { id: "odometer", label: "Hodômetro", required: true },
   { id: "front", label: "Frente do veículo", required: false },
@@ -169,6 +169,16 @@ function toNumberValue(value: string): number | null {
   if (!digits) return null;
   const parsed = Number(digits);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function formatCurrencyInput(value: string): string {
+  const numericValue = toNumberValue(value);
+  if (!numericValue) return "";
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    maximumFractionDigits: 0
+  }).format(numericValue);
 }
 
 function blobToFile(blob: Blob, originalFile: File): File {
@@ -528,7 +538,7 @@ export function SellYourCarWizard() {
             <h1>Venda seu carro</h1>
             <p>É rápido, seguro e sem complicação. Preencha os dados do seu veículo e receba uma avaliação justa.</p>
           </div>
-          <Image src="/images/banner-venda-seu-carro.png" alt="Banner venda seu carro Savol" width={1916} height={821} className="sell-page-hero-image" priority />
+          <Image src="/images/banner-venda-seu-carro.png" alt="Banner venda seu carro SAVOL" width={1916} height={821} className="sell-page-hero-image" priority />
         </article>
 
         <section className="sell-page-wizard">
@@ -598,7 +608,7 @@ export function SellYourCarWizard() {
                       <label className="sell-field"><span>Ano fabricacao *</span><input type="text" placeholder="Ex.: 2021" value={form.manufactureYear} onChange={(event) => handleChange("manufactureYear", event.target.value)} /><FieldError error={errors.manufactureYear} /></label>
                       <label className="sell-field"><span>Quilometragem *</span><input type="text" placeholder="Ex.: 45000" value={form.km} onChange={(event) => handleChange("km", event.target.value)} /><FieldError error={errors.km} /></label>
                       <label className="sell-field"><span>Cor *</span><input type="text" placeholder="Ex.: Prata" value={form.color} onChange={(event) => handleChange("color", event.target.value)} /><FieldError error={errors.color} /></label>
-                      <label className="sell-field"><span>Valor pretendido (R$) *</span><input type="text" placeholder="Ex.: 95000" value={form.desiredPrice} onChange={(event) => handleChange("desiredPrice", event.target.value)} /><FieldError error={errors.desiredPrice} /></label>
+                      <label className="sell-field"><span>Valor pretendido *</span><input type="text" inputMode="numeric" placeholder="Ex.: R$ 95.000" value={form.desiredPrice} onChange={(event) => handleChange("desiredPrice", formatCurrencyInput(event.target.value))} /><FieldError error={errors.desiredPrice} /></label>
                       <label className="sell-field"><span>Placa</span><input type="text" value={formatPlateDisplay(form.plate)} readOnly /></label>
                     </div>
                   )}
@@ -659,7 +669,7 @@ export function SellYourCarWizard() {
                   {step === 5 && (
                     <div className="sell-form-grid">
                       <div className="sell-review-grid">
-                        <article><h4>Veiculo</h4><ul><li><strong>Placa:</strong> {formatPlateDisplay(form.plate) || "-"}</li><li><strong>Marca:</strong> {form.brand || "-"}</li><li><strong>Modelo:</strong> {form.model || "-"}</li><li><strong>Versao:</strong> {form.version || "-"}</li><li><strong>Ano modelo:</strong> {form.modelYear || "-"}</li><li><strong>Ano fabricacao:</strong> {form.manufactureYear || "-"}</li><li><strong>KM:</strong> {form.km || "-"}</li><li><strong>Cor:</strong> {form.color || "-"}</li><li><strong>Valor:</strong> {form.desiredPrice ? `R$ ${form.desiredPrice}` : "-"}</li></ul></article>
+                        <article><h4>Veiculo</h4><ul><li><strong>Placa:</strong> {formatPlateDisplay(form.plate) || "-"}</li><li><strong>Marca:</strong> {form.brand || "-"}</li><li><strong>Modelo:</strong> {form.model || "-"}</li><li><strong>Versao:</strong> {form.version || "-"}</li><li><strong>Ano modelo:</strong> {form.modelYear || "-"}</li><li><strong>Ano fabricacao:</strong> {form.manufactureYear || "-"}</li><li><strong>KM:</strong> {form.km || "-"}</li><li><strong>Cor:</strong> {form.color || "-"}</li><li><strong>Valor:</strong> {form.desiredPrice || "-"}</li></ul></article>
                         <article><h4>Contato</h4><ul><li><strong>Nome:</strong> {form.fullName || "-"}</li><li><strong>E-mail:</strong> {form.email || "-"}</li><li><strong>Telefone:</strong> {form.phone || "-"}</li><li><strong>CPF:</strong> {form.cpf || "-"}</li><li><strong>Fotos:</strong> {getPhotosList(form.photos).length}</li></ul></article>
                       </div>
                       <label className="sell-check"><input type="checkbox" checked={form.acceptedTerms} onChange={(event) => handleChange("acceptedTerms", event.target.checked)} /><span>Li e concordo com os termos de atendimento.</span></label>
@@ -671,7 +681,7 @@ export function SellYourCarWizard() {
                 </div>
 
                 <aside className="sell-security-card">
-                  <Image src="/images/fit.png" alt="Processo seguro Savol" width={777} height={474} className="sell-security-image" />
+                  <Image src="/images/fit.png" alt="Processo seguro SAVOL" width={777} height={474} className="sell-security-image" />
                   <h4>Processo seguro</h4>
                   <ul>
                     <li><CheckCircle2 size={16} /> Avaliação rápida e gratuita</li>
@@ -694,7 +704,7 @@ export function SellYourCarWizard() {
           )}
 
           <section className="sell-proof">
-            <article className="sell-proof-main"><div className="sell-proof-icon"><CheckCircle2 size={24} /></div><div><h3>Por que vender com a Savol?</h3><p>Somos referência em seminovos e oferecemos negociação transparente com suporte completo.</p></div></article>
+            <article className="sell-proof-main"><div className="sell-proof-icon"><CheckCircle2 size={24} /></div><div><h3>Por que vender com a SAVOL?</h3><p>Somos referência em seminovos e oferecemos negociação transparente com suporte completo.</p></div></article>
             <article><strong>63</strong><span>anos de experiência</span></article>
             <article><strong>Milhares</strong><span>de negociações realizadas</span></article>
             <article><strong>Processo</strong><span>claro e transparente</span></article>
@@ -704,7 +714,7 @@ export function SellYourCarWizard() {
             <article><span><Calendar size={17} /></span><div><strong>Avaliação rápida</strong><p>Resposta em pouco tempo.</p></div></article>
             <article><span><ShieldCheck size={17} /></span><div><strong>Processo seguro</strong><p>Dados protegidos e processo claro.</p></div></article>
             <article><span><CircleDollarSign size={17} /></span><div><strong>Oferta transparente</strong><p>Avaliação justa para seu carro.</p></div></article>
-            <article><span><Store size={17} /></span><div><strong>Grupo Savol</strong><p>Divulgação com suporte da nossa equipe.</p></div></article>
+            <article><span><Store size={17} /></span><div><strong>Grupo SAVOL</strong><p>Divulgação com suporte da nossa equipe.</p></div></article>
           </section>
 
           <section className="sell-summary-bar">
