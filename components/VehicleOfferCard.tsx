@@ -58,6 +58,7 @@ type Props = {
   molicar?: string;
   plate?: string;
   armored?: boolean;
+  negotiating?: boolean;
   showFinanceButton?: boolean;
 };
 
@@ -337,6 +338,7 @@ export function VehicleOfferCard({
   molicar = "",
   plate = "",
   armored = false,
+  negotiating = false,
   showFinanceButton = true
 }: Props) {
   type ProposalFormState = {
@@ -877,9 +879,10 @@ export function VehicleOfferCard({
       secondaryHighlights,
       molicar,
       plate,
-      armored
+      armored,
+      negotiating
     }),
-    [armored, fuel, gallery, km, molicar, name, oldPrice, plate, price, qualityTag, resolvedDetailUrl, safeImage, secondaryHighlights, store, subtitle, transmission, vehicleId, year]
+    [armored, fuel, gallery, km, molicar, name, negotiating, oldPrice, plate, price, qualityTag, resolvedDetailUrl, safeImage, secondaryHighlights, store, subtitle, transmission, vehicleId, year]
   );
   const isSavedAsFavorite = isFavorite(vehicleId);
   const wasVisited = hasVisited(vehicleId);
@@ -949,10 +952,19 @@ export function VehicleOfferCard({
         <div className="offer-content">
           <div className="offer-body">
             <h3>{name}</h3>
-            {armored ? (
-              <span className="offer-armored-badge">
-                <ShieldCheck size={13} /> Blindado
-              </span>
+            {(armored || negotiating) ? (
+              <div className="offer-status-badges">
+                {armored ? (
+                  <span className="offer-armored-badge">
+                    <ShieldCheck size={13} /> Blindado
+                  </span>
+                ) : null}
+                {negotiating ? (
+                  <span className="offer-negotiating-badge">
+                    <Tag size={13} /> Em negociação
+                  </span>
+                ) : null}
+              </div>
             ) : null}
             <p className="offer-subtitle">{subtitle}</p>
 

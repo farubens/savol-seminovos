@@ -224,6 +224,7 @@ final class Savol_Veiculos_CPT {
             'ipva_pago' => ['label' => 'IPVA pago', 'type' => 'boolean'],
             'licenciado' => ['label' => 'Licenciado', 'type' => 'boolean'],
             'blindado' => ['label' => 'Blindado', 'type' => 'boolean'],
+            'negociacao' => ['label' => 'Em negociacao', 'type' => 'boolean'],
         ];
     }
 
@@ -2726,6 +2727,7 @@ JS;
                 'placa' => self::normalize_plate((string) ($row['placa'] ?? '')),
                 'chassi' => self::normalize_vehicle_lookup_key((string) ($row['chassi'] ?? '')),
                 'veiculo' => trim((string) ($row['veiculo'] ?? '')),
+                'negociacao' => self::to_boolean_flag($row['negociacao'] ?? false),
                 'des_veiculo' => $description,
                 'raw' => $row,
             ];
@@ -3014,6 +3016,7 @@ JS;
                 'placa' => (string) ($apolo_reconciliation['apolo']['placa'] ?? ''),
                 'chassi' => (string) ($apolo_reconciliation['apolo']['chassi'] ?? ''),
                 'veiculo' => (string) ($apolo_reconciliation['apolo']['veiculo'] ?? ''),
+                'negociacao' => !empty($apolo_reconciliation['apolo']['negociacao']),
                 'des_veiculo' => (string) ($apolo_reconciliation['apolo']['des_veiculo'] ?? ''),
             ],
             'autosync' => [
@@ -3153,6 +3156,7 @@ JS;
         update_post_meta($post_id, 'apolo_val_compra', self::parse_money_value($apolo_reconciliation['apolo']['val_compra'] ?? null));
         update_post_meta($post_id, 'apolo_nome_fantasia', (string) ($apolo_reconciliation['apolo']['nome_fantasia'] ?? ''));
         update_post_meta($post_id, 'apolo_cnpj', (string) ($apolo_reconciliation['apolo']['cnpj'] ?? ''));
+        update_post_meta($post_id, 'apolo_negociacao', !empty($apolo_reconciliation['apolo']['negociacao']) ? 1 : 0);
         update_post_meta($post_id, 'apolo_reconciliacao_motivo', (string) $apolo_reconciliation['reason']);
         update_post_meta($post_id, 'combustivel', (string) ($vehicle['fuelName'] ?? ''));
         update_post_meta($post_id, 'cambio', (string) ($vehicle['transmissionName'] ?? ''));
@@ -3169,6 +3173,7 @@ JS;
         update_post_meta($post_id, 'ipva_pago', 0);
         update_post_meta($post_id, 'licenciado', 0);
         update_post_meta($post_id, 'blindado', self::is_vehicle_armored($vehicle) ? 1 : 0);
+        update_post_meta($post_id, 'negociacao', !empty($apolo_reconciliation['apolo']['negociacao']) ? 1 : 0);
 
         self::set_term_if_value($post_id, 'veiculo_marca', (string) ($vehicle['brandName'] ?? ''));
         self::set_term_if_value($post_id, 'veiculo_modelo', (string) ($vehicle['modelName'] ?? ''));

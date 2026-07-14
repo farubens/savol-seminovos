@@ -74,6 +74,7 @@ type ApiVehicle = {
   molicar?: string;
   plate?: string;
   armored: boolean;
+  negotiating: boolean;
 };
 
 type CachedVehicles = {
@@ -441,6 +442,7 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
   const metaMolicar = getMetaField(vehicle, "molicar");
   const metaPlate = normalizePlateValue(getMetaField(vehicle, "placa") || getMetaField(vehicle, "plate"));
   const metaArmored = getMetaField(vehicle, "blindado");
+  const metaNegotiating = getMetaField(vehicle, "negociacao") || getMetaField(vehicle, "apolo_negociacao");
   const priceData = extractPriceData(content, metaPrice);
 
   const image = encodeURI(getEmbeddedImage(vehicle) ?? FALLBACK_IMAGE);
@@ -476,7 +478,8 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
     body: metaBody,
     molicar: metaMolicar || "",
     plate: metaPlate || "",
-    armored: parseBooleanMeta(metaArmored)
+    armored: parseBooleanMeta(metaArmored),
+    negotiating: parseBooleanMeta(metaNegotiating)
   };
 }
 

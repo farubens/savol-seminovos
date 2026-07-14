@@ -1729,8 +1729,17 @@ h2 {
   line-height: 1.45;
 }
 
+.offer-status-badges,
+.vehicle-status-badges {
+  display: grid;
+  gap: 5px;
+  justify-items: start;
+}
+
 .offer-armored-badge,
-.vehicle-armored-badge {
+.vehicle-armored-badge,
+.offer-negotiating-badge,
+.vehicle-negotiating-badge {
   width: fit-content;
   display: inline-flex;
   align-items: center;
@@ -1750,6 +1759,18 @@ h2 {
 .offer-armored-badge svg,
 .vehicle-armored-badge svg {
   color: #b57b00;
+}
+
+.offer-negotiating-badge,
+.vehicle-negotiating-badge {
+  border-color: rgba(130, 175, 35, 0.58);
+  background: #f0f8d9;
+  color: #24410f;
+}
+
+.offer-negotiating-badge svg,
+.vehicle-negotiating-badge svg {
+  color: #6e9f16;
 }
 
 .offer-mobile-commerce {
@@ -4144,7 +4165,7 @@ h2 {
   text-transform: uppercase;
 }
 
-.vehicle-armored-badge {
+.vehicle-status-badges {
   margin-top: 8px;
 }
 

@@ -99,6 +99,7 @@ export function VehicleGrid() {
               molicar={vehicle.molicar}
               plate={vehicle.plate}
               armored={vehicle.armored}
+              negotiating={vehicle.negotiating}
             />
           ))}
         </div>

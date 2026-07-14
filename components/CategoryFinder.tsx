@@ -677,6 +677,7 @@ export function CategoryFinder() {
                 delay={index * 0.05}
                 variant="grid"
                 armored={vehicle.armored}
+                negotiating={vehicle.negotiating}
               />
             ))
           )}

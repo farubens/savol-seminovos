@@ -317,7 +317,9 @@ function toSavedVehicle(vehicle: ApiVehicle): SavedVehicle {
     city: vehicle.city,
     uf: vehicle.uf,
     molicar: vehicle.molicar,
-    plate: vehicle.plate
+    plate: vehicle.plate,
+    armored: vehicle.armored,
+    negotiating: vehicle.negotiating
   };
 }
 
@@ -1051,10 +1053,19 @@ export function VehicleDetailsPageClient({ slug }: Props) {
         <aside className="vehicle-details-side">
           <article className="vehicle-info-card">
             <h1>{vehicle.name}</h1>
-            {vehicle.armored ? (
-              <span className="vehicle-armored-badge">
-                <ShieldCheck size={13} /> Blindado
-              </span>
+            {(vehicle.armored || vehicle.negotiating) ? (
+              <div className="vehicle-status-badges">
+                {vehicle.armored ? (
+                  <span className="vehicle-armored-badge">
+                    <ShieldCheck size={13} /> Blindado
+                  </span>
+                ) : null}
+                {vehicle.negotiating ? (
+                  <span className="vehicle-negotiating-badge">
+                    <Tag size={13} /> Em negociação
+                  </span>
+                ) : null}
+              </div>
             ) : null}
             <p className="vehicle-info-subtitle">{vehicle.subtitle}</p>
             <p className="vehicle-year-badge">Ano/Modelo {vehicle.year}</p>
@@ -1349,6 +1360,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
                   qualityTag={item.qualityTag}
                   secondaryHighlights={item.secondaryHighlights}
                   armored={item.armored}
+                  negotiating={item.negotiating}
                   showFinanceButton={false}
                 />
               ))}
