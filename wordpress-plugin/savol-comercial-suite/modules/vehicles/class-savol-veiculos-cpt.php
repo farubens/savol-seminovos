@@ -66,6 +66,12 @@ final class Savol_Veiculos_CPT {
         'Situação não permitida no APOLO',
         'Preço de compra acima do preço de venda',
     ];
+    private const PRICE_OVERRIDE_REASON = 'Preço de compra acima do preço de venda';
+    private const PRICE_OVERRIDE_REASON_META = 'publicacao_preco_justificativa_motivo';
+    private const PRICE_OVERRIDE_DETAILS_META = 'publicacao_preco_justificativa_detalhes';
+    private const PRICE_OVERRIDE_USER_ID_META = 'publicacao_preco_usuario_id';
+    private const PRICE_OVERRIDE_USER_NAME_META = 'publicacao_preco_usuario_nome';
+    private const PRICE_OVERRIDE_DATE_META = 'publicacao_preco_data';
     private const PHOTO_IMPORT_TIMEOUT = 5;
     private const SELL_YOUR_CAR_MAX_PHOTO_SIZE = 8388608;
     private const SELL_YOUR_CAR_REST_NAMESPACE = 'savol/v1';
@@ -253,6 +259,7 @@ final class Savol_Veiculos_CPT {
         add_action('init', [__CLASS__, 'register_meta']);
         add_action('init', [__CLASS__, 'register_sell_your_car_api_alias']);
         add_action('rest_api_init', [__CLASS__, 'register_rest_routes']);
+        add_action('transition_post_status', [__CLASS__, 'capture_vehicle_publish_user'], 10, 3);
         add_filter('query_vars', [__CLASS__, 'register_sell_your_car_query_vars']);
         add_action('parse_request', [__CLASS__, 'handle_sell_your_car_api_alias_request']);
         add_action('template_redirect', [__CLASS__, 'handle_sell_your_car_api_alias']);
@@ -485,6 +492,15 @@ final class Savol_Veiculos_CPT {
         );
 
         add_meta_box(
+            'savol_veiculos_justificativa_publicacao',
+            'Justificativa de publicacao',
+            [__CLASS__, 'render_price_override_meta_box'],
+            self::POST_TYPE,
+            'normal',
+            'default'
+        );
+
+        add_meta_box(
             'savol_venda_carro_dados',
             'Dados do lead',
             [__CLASS__, 'render_sell_your_car_meta_box'],
@@ -541,6 +557,63 @@ final class Savol_Veiculos_CPT {
         }
 
         echo '</div>';
+    }
+
+    private static function price_override_reason_options(): array {
+        return [
+            'BONUS TRADE IN MONTADORA',
+            'VEICULO ANTIGO DE ESTOQUE',
+            'AVALIAÇÃO ERRADA',
+            'MUITO CARRO IGUAL NO ESTOQUE',
+            'QUEDA DE MERCADO',
+            'PROBLEMAS MECANICOS APÓS ENTRADA',
+            'PREÇO DO USADO MUITO PERTO DO ZERO KM',
+        ];
+    }
+
+    public static function render_price_override_meta_box(\WP_Post $post): void {
+        $reason = (string) get_post_meta($post->ID, 'apolo_reconciliacao_motivo', true);
+        $is_price_override = $reason === self::PRICE_OVERRIDE_REASON;
+        $selected = (string) get_post_meta($post->ID, self::PRICE_OVERRIDE_REASON_META, true);
+        $details = (string) get_post_meta($post->ID, self::PRICE_OVERRIDE_DETAILS_META, true);
+        $published_user_name = (string) get_post_meta($post->ID, self::PRICE_OVERRIDE_USER_NAME_META, true);
+        $published_user_id = absint(get_post_meta($post->ID, self::PRICE_OVERRIDE_USER_ID_META, true));
+        $published_date = (string) get_post_meta($post->ID, self::PRICE_OVERRIDE_DATE_META, true);
+
+        if (!$is_price_override) {
+            echo '<p>Este veiculo nao esta bloqueado por preco de compra acima do preco de venda.</p>';
+            if ($reason !== '') {
+                echo '<p><strong>Motivo atual:</strong> ' . esc_html($reason) . '</p>';
+            }
+            return;
+        }
+
+        echo '<p>Preencha a justificativa antes de publicar um veiculo em rascunho por preco de venda abaixo do preco de compra.</p>';
+        echo '<p><label for="' . esc_attr(self::PRICE_OVERRIDE_REASON_META) . '"><strong>Motivo da publicacao</strong></label></p>';
+        echo '<select id="' . esc_attr(self::PRICE_OVERRIDE_REASON_META) . '" name="' . esc_attr(self::PRICE_OVERRIDE_REASON_META) . '" style="width:100%;max-width:520px;">';
+        echo '<option value="">Selecione uma justificativa</option>';
+        foreach (self::price_override_reason_options() as $option) {
+            printf(
+                '<option value="%1$s"%2$s>%1$s</option>',
+                esc_attr($option),
+                selected($selected, $option, false)
+            );
+        }
+        echo '</select>';
+
+        echo '<p><label for="' . esc_attr(self::PRICE_OVERRIDE_DETAILS_META) . '"><strong>Detalhes da justificativa</strong></label></p>';
+        echo '<textarea id="' . esc_attr(self::PRICE_OVERRIDE_DETAILS_META) . '" name="' . esc_attr(self::PRICE_OVERRIDE_DETAILS_META) . '" rows="6" style="width:100%;max-width:720px;" placeholder="Descreva melhor a justificativa para publicar este veiculo.">' . esc_textarea($details) . '</textarea>';
+
+        echo '<hr />';
+        if ($published_user_id > 0 || $published_user_name !== '') {
+            $label = $published_user_name !== '' ? $published_user_name : ('Usuario #' . $published_user_id);
+            echo '<p><strong>Publicado por:</strong> ' . esc_html($label) . '</p>';
+            if ($published_date !== '') {
+                echo '<p><strong>Data da publicacao:</strong> ' . esc_html($published_date) . '</p>';
+            }
+        } else {
+            echo '<p><strong>Publicado por:</strong> Ainda nao publicado manualmente.</p>';
+        }
     }
 
     public static function render_sell_your_car_meta_box(\WP_Post $post): void {
@@ -734,6 +807,52 @@ final class Savol_Veiculos_CPT {
 
             update_post_meta($post_id, $key, sanitize_text_field((string) $raw));
         }
+
+        $apolo_reason = (string) get_post_meta($post_id, 'apolo_reconciliacao_motivo', true);
+        if ($apolo_reason === self::PRICE_OVERRIDE_REASON) {
+            $selected_reason = isset($_POST[self::PRICE_OVERRIDE_REASON_META])
+                ? sanitize_text_field((string) wp_unslash($_POST[self::PRICE_OVERRIDE_REASON_META]))
+                : '';
+            if (!in_array($selected_reason, self::price_override_reason_options(), true)) {
+                $selected_reason = '';
+            }
+            $details = isset($_POST[self::PRICE_OVERRIDE_DETAILS_META])
+                ? sanitize_textarea_field((string) wp_unslash($_POST[self::PRICE_OVERRIDE_DETAILS_META]))
+                : '';
+
+            update_post_meta($post_id, self::PRICE_OVERRIDE_REASON_META, $selected_reason);
+            update_post_meta($post_id, self::PRICE_OVERRIDE_DETAILS_META, $details);
+
+            if ($selected_reason !== '' && get_post_status($post_id) === 'publish' && !get_post_meta($post_id, self::PRICE_OVERRIDE_USER_ID_META, true)) {
+                self::record_price_override_publisher($post_id);
+            }
+        }
+    }
+
+    public static function capture_vehicle_publish_user(string $new_status, string $old_status, \WP_Post $post): void {
+        if ($post->post_type !== self::POST_TYPE || $new_status !== 'publish' || $old_status === 'publish') {
+            return;
+        }
+
+        $apolo_reason = (string) get_post_meta($post->ID, 'apolo_reconciliacao_motivo', true);
+        if ($apolo_reason !== self::PRICE_OVERRIDE_REASON) {
+            return;
+        }
+
+        self::record_price_override_publisher($post->ID);
+    }
+
+    private static function has_price_override_justification(int $post_id): bool {
+        $selected_reason = (string) get_post_meta($post_id, self::PRICE_OVERRIDE_REASON_META, true);
+        return in_array($selected_reason, self::price_override_reason_options(), true);
+    }
+
+    private static function record_price_override_publisher(int $post_id): void {
+        $user_id = get_current_user_id();
+        $user = $user_id > 0 ? get_user_by('id', $user_id) : null;
+        update_post_meta($post_id, self::PRICE_OVERRIDE_USER_ID_META, $user_id);
+        update_post_meta($post_id, self::PRICE_OVERRIDE_USER_NAME_META, $user ? $user->display_name : 'Sistema');
+        update_post_meta($post_id, self::PRICE_OVERRIDE_DATE_META, current_time('d/m/Y H:i'));
     }
 
     public static function register_sell_your_car_api_alias(): void {
@@ -3107,6 +3226,13 @@ JS;
         }
         $title = self::strip_apolo_draft_reason_from_title($title);
         $apolo_reconciliation = self::reconcile_autosync_vehicle_with_apolo($vehicle, $apolo_stock_index, $apolo_item);
+        if (
+            $post_id > 0
+            && $apolo_reconciliation['reason'] === self::PRICE_OVERRIDE_REASON
+            && self::has_price_override_justification($post_id)
+        ) {
+            $apolo_reconciliation['status'] = 'publish';
+        }
         $official_unit_name = self::resolve_official_unidade_name($apolo_reconciliation['apolo'] ?? [], (string) ($vehicle['entityName'] ?? ''));
         $photo_urls = self::extract_vehicle_photo_urls($vehicle);
         $sync_signature = self::build_vehicle_sync_signature($vehicle, $apolo_reconciliation, $photo_urls, $official_unit_name, $title);
