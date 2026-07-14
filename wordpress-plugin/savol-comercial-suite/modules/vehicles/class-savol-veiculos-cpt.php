@@ -272,6 +272,8 @@ final class Savol_Veiculos_CPT {
         add_action('wp_ajax_savol_veiculos_run_autosync', [__CLASS__, 'handle_run_autosync_ajax']);
         add_action('wp_ajax_savol_veiculos_autosync_progress', [__CLASS__, 'handle_autosync_progress_ajax']);
         add_action('savol_veiculos_run_autosync_cron', [__CLASS__, 'run_autosync_cron_job']);
+        add_action('restrict_manage_posts', [__CLASS__, 'render_vehicle_admin_filters']);
+        add_action('pre_get_posts', [__CLASS__, 'apply_vehicle_admin_filters']);
         add_filter('manage_' . self::SELL_YOUR_CAR_POST_TYPE . '_posts_columns', [__CLASS__, 'register_sell_your_car_columns']);
         add_action('manage_' . self::SELL_YOUR_CAR_POST_TYPE . '_posts_custom_column', [__CLASS__, 'render_sell_your_car_column'], 10, 2);
         add_action('veiculo_cor_add_form_fields', [__CLASS__, 'render_cor_add_fields']);
@@ -1492,6 +1494,92 @@ JS;
             'savol-veiculos-autosync',
             [__CLASS__, 'render_autosync_page']
         );
+    }
+
+    public static function render_vehicle_admin_filters(): void {
+        global $typenow;
+        if ($typenow !== self::POST_TYPE) {
+            return;
+        }
+
+        $selected_unit = isset($_GET['savol_veiculo_unidade_filter'])
+            ? absint(wp_unslash($_GET['savol_veiculo_unidade_filter']))
+            : 0;
+        $plate = isset($_GET['savol_veiculo_placa_filter'])
+            ? sanitize_text_field((string) wp_unslash($_GET['savol_veiculo_placa_filter']))
+            : '';
+
+        $terms = get_terms([
+            'taxonomy' => 'veiculo_unidade',
+            'hide_empty' => false,
+            'orderby' => 'name',
+            'order' => 'ASC',
+        ]);
+
+        if (!is_wp_error($terms) && !empty($terms)) {
+            echo '<label class="screen-reader-text" for="savol_veiculo_unidade_filter">Filtrar por unidade</label>';
+            echo '<select name="savol_veiculo_unidade_filter" id="savol_veiculo_unidade_filter">';
+            echo '<option value="">Todas as unidades</option>';
+            foreach ($terms as $term) {
+                printf(
+                    '<option value="%1$d"%2$s>%3$s</option>',
+                    (int) $term->term_id,
+                    selected($selected_unit, (int) $term->term_id, false),
+                    esc_html((string) $term->name)
+                );
+            }
+            echo '</select>';
+        }
+
+        printf(
+            '<label class="screen-reader-text" for="savol_veiculo_placa_filter">Buscar por placa</label><input type="search" name="savol_veiculo_placa_filter" id="savol_veiculo_placa_filter" value="%s" placeholder="Placa" style="width: 110px;" />',
+            esc_attr($plate)
+        );
+    }
+
+    public static function apply_vehicle_admin_filters(\WP_Query $query): void {
+        if (!is_admin() || !$query->is_main_query()) {
+            return;
+        }
+
+        $post_type = $query->get('post_type');
+        if (!$post_type && isset($_GET['post_type'])) {
+            $post_type = sanitize_key((string) wp_unslash($_GET['post_type']));
+        }
+        if (is_array($post_type)) {
+            $post_type = reset($post_type);
+        }
+        if ($post_type !== self::POST_TYPE) {
+            return;
+        }
+
+        $selected_unit = isset($_GET['savol_veiculo_unidade_filter'])
+            ? absint(wp_unslash($_GET['savol_veiculo_unidade_filter']))
+            : 0;
+        if ($selected_unit > 0) {
+            $existing_tax_query = $query->get('tax_query');
+            $tax_query = is_array($existing_tax_query) ? $existing_tax_query : [];
+            $tax_query[] = [
+                'taxonomy' => 'veiculo_unidade',
+                'field' => 'term_id',
+                'terms' => [$selected_unit],
+            ];
+            $query->set('tax_query', $tax_query);
+        }
+
+        $plate = isset($_GET['savol_veiculo_placa_filter'])
+            ? self::normalize_plate(sanitize_text_field((string) wp_unslash($_GET['savol_veiculo_placa_filter'])))
+            : '';
+        if ($plate !== '') {
+            $existing_meta_query = $query->get('meta_query');
+            $meta_query = is_array($existing_meta_query) ? $existing_meta_query : [];
+            $meta_query[] = [
+                'key' => 'placa',
+                'value' => $plate,
+                'compare' => 'LIKE',
+            ];
+            $query->set('meta_query', $meta_query);
+        }
     }
 
     public static function restrict_seller_admin(): void {
