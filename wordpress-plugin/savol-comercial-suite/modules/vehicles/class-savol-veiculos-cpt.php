@@ -54,7 +54,7 @@ final class Savol_Veiculos_CPT {
     private const AUTOSYNC_API_LOCK_TTL = 180;
     private const AUTOSYNC_ENDPOINT_DEFAULT = 'https://sync-backend.autoavaliar.com.br/vehicle/stock';
     private const AUTOSYNC_BATCH_OPTION = 'savol_veiculos_autosync_batch';
-    private const AUTOSYNC_BATCH_SIZE = 1;
+    private const AUTOSYNC_BATCH_SIZE = 10;
     private const AUTOSYNC_BATCH_TIME_LIMIT = 45;
     private const APOLO_STOCK_URL = 'https://drive.google.com/uc?export=download&id=1zyCN8JXUa5kUD-kjeIsO49y7J3wRmFd4';
     private const APOLO_ALLOWED_COMPANIES = ['16', '17'];
@@ -3092,8 +3092,12 @@ JS;
         self::assign_informacao_destaque_terms($post_id, $vehicle);
         self::assign_destaque_secundario_terms($post_id, $vehicle);
 
-        update_post_meta($post_id, 'autosync_photo_urls', implode("\n", $photo_urls));
-        self::import_vehicle_photos_to_gallery($post_id, $vehicle);
+        $photo_urls_text = implode("\n", $photo_urls);
+        $previous_photo_urls_text = (string) get_post_meta($post_id, 'autosync_photo_urls', true);
+        update_post_meta($post_id, 'autosync_photo_urls', $photo_urls_text);
+        if ($photo_urls_text !== '' && $photo_urls_text !== $previous_photo_urls_text) {
+            self::import_vehicle_photos_to_gallery($post_id, $vehicle);
+        }
         update_post_meta($post_id, 'savol_sync_signature', $sync_signature);
         if ($plate !== '') {
             self::cleanup_duplicate_plate_posts($post_id, $plate);
