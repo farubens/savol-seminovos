@@ -72,6 +72,7 @@ final class Savol_Veiculos_CPT {
     private const PRICE_OVERRIDE_USER_ID_META = 'publicacao_preco_usuario_id';
     private const PRICE_OVERRIDE_USER_NAME_META = 'publicacao_preco_usuario_nome';
     private const PRICE_OVERRIDE_DATE_META = 'publicacao_preco_data';
+    private const PRICE_OVERRIDE_NOTICE_TRANSIENT = 'savol_preco_publicacao_notice_';
     private const PHOTO_IMPORT_TIMEOUT = 5;
     private const SELL_YOUR_CAR_MAX_PHOTO_SIZE = 8388608;
     private const SELL_YOUR_CAR_REST_NAMESPACE = 'savol/v1';
@@ -261,8 +262,10 @@ final class Savol_Veiculos_CPT {
         add_action('rest_api_init', [__CLASS__, 'register_rest_routes']);
         add_action('transition_post_status', [__CLASS__, 'capture_vehicle_publish_user'], 10, 3);
         add_filter('query_vars', [__CLASS__, 'register_sell_your_car_query_vars']);
+        add_filter('wp_insert_post_data', [__CLASS__, 'enforce_price_override_before_insert'], 10, 2);
         add_action('parse_request', [__CLASS__, 'handle_sell_your_car_api_alias_request']);
         add_action('template_redirect', [__CLASS__, 'handle_sell_your_car_api_alias']);
+        add_action('admin_notices', [__CLASS__, 'render_price_override_admin_notice']);
         add_action('add_meta_boxes', [__CLASS__, 'add_meta_boxes']);
         add_action('save_post_' . self::POST_TYPE, [__CLASS__, 'save_meta']);
         add_action('admin_enqueue_scripts', [__CLASS__, 'enqueue_admin_assets']);
@@ -588,8 +591,8 @@ final class Savol_Veiculos_CPT {
             return;
         }
 
-        echo '<p>Preencha a justificativa antes de publicar um veiculo em rascunho por preco de venda abaixo do preco de compra.</p>';
-        echo '<p><label for="' . esc_attr(self::PRICE_OVERRIDE_REASON_META) . '"><strong>Motivo da publicacao</strong></label></p>';
+        echo '<p><strong>Obrigatorio:</strong> selecione uma justificativa antes de publicar um veiculo em rascunho por preco de venda abaixo do preco de compra.</p>';
+        echo '<p><label for="' . esc_attr(self::PRICE_OVERRIDE_REASON_META) . '"><strong>Motivo da publicacao *</strong></label></p>';
         echo '<select id="' . esc_attr(self::PRICE_OVERRIDE_REASON_META) . '" name="' . esc_attr(self::PRICE_OVERRIDE_REASON_META) . '" style="width:100%;max-width:520px;">';
         echo '<option value="">Selecione uma justificativa</option>';
         foreach (self::price_override_reason_options() as $option) {
@@ -823,6 +826,14 @@ final class Savol_Veiculos_CPT {
             update_post_meta($post_id, self::PRICE_OVERRIDE_REASON_META, $selected_reason);
             update_post_meta($post_id, self::PRICE_OVERRIDE_DETAILS_META, $details);
 
+            if ($selected_reason === '' && get_post_status($post_id) === 'publish') {
+                delete_post_meta($post_id, self::PRICE_OVERRIDE_USER_ID_META);
+                delete_post_meta($post_id, self::PRICE_OVERRIDE_USER_NAME_META);
+                delete_post_meta($post_id, self::PRICE_OVERRIDE_DATE_META);
+                self::force_price_override_back_to_draft($post_id);
+                return;
+            }
+
             if ($selected_reason !== '' && get_post_status($post_id) === 'publish' && !get_post_meta($post_id, self::PRICE_OVERRIDE_USER_ID_META, true)) {
                 self::record_price_override_publisher($post_id);
             }
@@ -838,8 +849,42 @@ final class Savol_Veiculos_CPT {
         if ($apolo_reason !== self::PRICE_OVERRIDE_REASON) {
             return;
         }
+        if (!self::has_price_override_justification($post->ID)) {
+            return;
+        }
 
         self::record_price_override_publisher($post->ID);
+    }
+
+    public static function enforce_price_override_before_insert(array $data, array $postarr): array {
+        if (($data['post_type'] ?? '') !== self::POST_TYPE || ($data['post_status'] ?? '') !== 'publish') {
+            return $data;
+        }
+
+        $post_id = isset($postarr['ID']) ? absint($postarr['ID']) : 0;
+        if ($post_id <= 0) {
+            return $data;
+        }
+
+        $apolo_reason = (string) get_post_meta($post_id, 'apolo_reconciliacao_motivo', true);
+        if ($apolo_reason !== self::PRICE_OVERRIDE_REASON) {
+            return $data;
+        }
+
+        $submitted_reason = null;
+        if (isset($_POST[self::PRICE_OVERRIDE_REASON_META])) {
+            $submitted_reason = sanitize_text_field((string) wp_unslash($_POST[self::PRICE_OVERRIDE_REASON_META]));
+        }
+        $selected_reason = $submitted_reason !== null
+            ? $submitted_reason
+            : (string) get_post_meta($post_id, self::PRICE_OVERRIDE_REASON_META, true);
+
+        if (!in_array($selected_reason, self::price_override_reason_options(), true)) {
+            $data['post_status'] = 'draft';
+            self::set_price_override_required_notice();
+        }
+
+        return $data;
     }
 
     private static function has_price_override_justification(int $post_id): bool {
@@ -853,6 +898,39 @@ final class Savol_Veiculos_CPT {
         update_post_meta($post_id, self::PRICE_OVERRIDE_USER_ID_META, $user_id);
         update_post_meta($post_id, self::PRICE_OVERRIDE_USER_NAME_META, $user ? $user->display_name : 'Sistema');
         update_post_meta($post_id, self::PRICE_OVERRIDE_DATE_META, current_time('d/m/Y H:i'));
+    }
+
+    private static function force_price_override_back_to_draft(int $post_id): void {
+        self::set_price_override_required_notice();
+
+        remove_action('save_post_' . self::POST_TYPE, [__CLASS__, 'save_meta']);
+        wp_update_post([
+            'ID' => $post_id,
+            'post_status' => 'draft',
+        ]);
+        add_action('save_post_' . self::POST_TYPE, [__CLASS__, 'save_meta']);
+    }
+
+    private static function set_price_override_required_notice(): void {
+        set_transient(
+            self::price_override_notice_key(),
+            'Para publicar este veiculo, selecione uma justificativa para preco de venda abaixo do preco de compra.',
+            60
+        );
+    }
+
+    private static function price_override_notice_key(): string {
+        return self::PRICE_OVERRIDE_NOTICE_TRANSIENT . max(0, get_current_user_id());
+    }
+
+    public static function render_price_override_admin_notice(): void {
+        $message = get_transient(self::price_override_notice_key());
+        if (!is_string($message) || $message === '') {
+            return;
+        }
+
+        delete_transient(self::price_override_notice_key());
+        echo '<div class="notice notice-error is-dismissible"><p><strong>SAVOL Veiculos:</strong> ' . esc_html($message) . '</p></div>';
     }
 
     public static function register_sell_your_car_api_alias(): void {
