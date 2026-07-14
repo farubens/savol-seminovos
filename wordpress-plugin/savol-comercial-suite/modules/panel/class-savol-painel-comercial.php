@@ -1764,9 +1764,9 @@ JS;
 
     private static function format_money(float $value): string {
         if ($value <= 0) {
-            return 'R$ 0';
+            return 'R$ 0,00';
         }
-        return 'R$ ' . number_format_i18n($value, 0);
+        return 'R$ ' . number_format_i18n($value, 2);
     }
 
     private static function format_percent(float $value): string {

@@ -177,7 +177,8 @@ function formatCurrencyInput(value: string): string {
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
     currency: "BRL",
-    maximumFractionDigits: 0
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
   }).format(numericValue);
 }
 
@@ -608,7 +609,7 @@ export function SellYourCarWizard() {
                       <label className="sell-field"><span>Ano fabricacao *</span><input type="text" placeholder="Ex.: 2021" value={form.manufactureYear} onChange={(event) => handleChange("manufactureYear", event.target.value)} /><FieldError error={errors.manufactureYear} /></label>
                       <label className="sell-field"><span>Quilometragem *</span><input type="text" placeholder="Ex.: 45000" value={form.km} onChange={(event) => handleChange("km", event.target.value)} /><FieldError error={errors.km} /></label>
                       <label className="sell-field"><span>Cor *</span><input type="text" placeholder="Ex.: Prata" value={form.color} onChange={(event) => handleChange("color", event.target.value)} /><FieldError error={errors.color} /></label>
-                      <label className="sell-field"><span>Valor pretendido *</span><input type="text" inputMode="numeric" placeholder="Ex.: R$ 95.000" value={form.desiredPrice} onChange={(event) => handleChange("desiredPrice", formatCurrencyInput(event.target.value))} /><FieldError error={errors.desiredPrice} /></label>
+                      <label className="sell-field"><span>Valor pretendido *</span><input type="text" inputMode="numeric" placeholder="Ex.: R$ 95.000,00" value={form.desiredPrice} onChange={(event) => handleChange("desiredPrice", formatCurrencyInput(event.target.value))} /><FieldError error={errors.desiredPrice} /></label>
                       <label className="sell-field"><span>Placa</span><input type="text" value={formatPlateDisplay(form.plate)} readOnly /></label>
                     </div>
                   )}

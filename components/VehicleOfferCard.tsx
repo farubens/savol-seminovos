@@ -122,7 +122,7 @@ function parseMoney(value: string): number | null {
   return parseCurrencyToInteger(value);
 }
 
-function formatMoney(value: number, minimumFractionDigits = 0, maximumFractionDigits = 0): string {
+function formatMoney(value: number, minimumFractionDigits = 2, maximumFractionDigits = 2): string {
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
     currency: "BRL",
@@ -139,7 +139,7 @@ function resolveOldPrice(oldPrice: string | undefined, price: string): string {
 }
 
 function formatEntryInput(value: number): string {
-  return formatMoney(Math.max(0, value), 0, 0);
+  return formatMoney(Math.max(0, value));
 }
 
 function parseEntryInput(value: string): number {

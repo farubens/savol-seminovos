@@ -193,14 +193,14 @@ await fetch("${apiUrl}", {
   "email": "cliente@email.com",
   "cpf": "12345678910",
   "unitName": "SAVOL TOYOTA - SAO BERNARDO DO CAMPO",
-  "message": "Simulacao Banco Volks\\nEntrada: R$ 25.000\\nPrazo: 48 meses",
+  "message": "Simulacao Banco Volks\\nEntrada: R$ 25.000,00\\nPrazo: 48 meses",
   "vehicle": {
     "id": "2341",
     "brand": "NISSAN",
     "model": "KICKS",
     "version": "1.6 16V FLEXSTART ADVANCE XTRONIC",
     "year": "2024",
-    "price": "R$ 107.900",
+    "price": "R$ 107.900,00",
     "plate": "TMG8C30",
     "store": "SAVOL TOYOTA - SAO BERNARDO DO CAMPO",
     "url": "https://www.savolseminovos.com.br/veiculos/nissan-kicks-2024"

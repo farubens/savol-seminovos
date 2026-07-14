@@ -43,7 +43,7 @@ const tabs: Array<{ key: TabKey; label: string }> = [
 ];
 
 const aiExamples = [
-  "SUV automático até R$ 130.000 com baixa quilometragem",
+  "SUV automático até R$ 130.000,00 com baixa quilometragem",
   "Sedan econômico 2022 ou mais novo com multimídia",
   "Picape 4x4 diesel para trabalho e uso urbano",
   "Carro para família com porta-malas grande e segurança"
@@ -100,7 +100,8 @@ function formatPriceValue(value: number): string {
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
     currency: "BRL",
-    maximumFractionDigits: 0
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
   }).format(value);
 }
 
