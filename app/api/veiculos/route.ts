@@ -73,6 +73,7 @@ type ApiVehicle = {
   uf: string;
   molicar?: string;
   plate?: string;
+  armored: boolean;
 };
 
 type CachedVehicles = {
@@ -171,6 +172,11 @@ function parseGalleryUrls(rawValue: string): string[] {
 
 function normalizePlateValue(value: string): string {
   return value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 7);
+}
+
+function parseBooleanMeta(value: string): boolean {
+  const normalized = normalizeForMatch(value).replace(/[^a-z0-9]+/g, "");
+  return ["1", "s", "sim", "true", "yes", "y"].includes(normalized);
 }
 
 function pickImageFromMedia(media: WpMedia | null): string | null {
@@ -434,6 +440,7 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
   const metaGalleryUrls = getMetaField(vehicle, "autosync_photo_urls");
   const metaMolicar = getMetaField(vehicle, "molicar");
   const metaPlate = normalizePlateValue(getMetaField(vehicle, "placa") || getMetaField(vehicle, "plate"));
+  const metaArmored = getMetaField(vehicle, "blindado");
   const priceData = extractPriceData(content, metaPrice);
 
   const image = encodeURI(getEmbeddedImage(vehicle) ?? FALLBACK_IMAGE);
@@ -468,7 +475,8 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
     category: metaCategory,
     body: metaBody,
     molicar: metaMolicar || "",
-    plate: metaPlate || ""
+    plate: metaPlate || "",
+    armored: parseBooleanMeta(metaArmored)
   };
 }
 

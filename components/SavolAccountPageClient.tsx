@@ -35,7 +35,8 @@ function toSavedVehicle(vehicle: ApiVehicle): SavedVehicle {
     city: vehicle.city,
     uf: vehicle.uf,
     molicar: vehicle.molicar,
-    plate: vehicle.plate
+    plate: vehicle.plate,
+    armored: vehicle.armored
   };
 }
 
@@ -63,6 +64,7 @@ function SavedVehicleCard({ vehicle, index }: { vehicle: SavedVehicle; index: nu
       variant="grid"
       molicar={vehicle.molicar}
       plate={vehicle.plate}
+      armored={vehicle.armored}
     />
   );
 }

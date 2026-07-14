@@ -1416,6 +1416,7 @@ export function VehicleCatalog() {
                       variant="grid"
                       molicar={vehicle.molicar}
                       plate={vehicle.plate}
+                      armored={vehicle.armored}
                     />
                   ))}
 

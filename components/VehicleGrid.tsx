@@ -98,6 +98,7 @@ export function VehicleGrid() {
               variant={effectiveViewMode}
               molicar={vehicle.molicar}
               plate={vehicle.plate}
+              armored={vehicle.armored}
             />
           ))}
         </div>

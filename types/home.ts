@@ -27,6 +27,7 @@ export type ApiVehicle = {
   uf: string;
   molicar?: string;
   plate?: string;
+  armored: boolean;
 };
 
 export type ApiStore = {

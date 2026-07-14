@@ -2944,6 +2944,7 @@ JS;
                 'colorName' => (string) ($vehicle['colorName'] ?? ''),
                 'entityName' => (string) ($vehicle['entityName'] ?? ''),
                 'comments' => (string) ($vehicle['comments'] ?? ''),
+                'blindado' => self::is_vehicle_armored($vehicle),
                 'features' => self::extract_named_items($vehicle['VehicleFeatures'] ?? []),
                 'optionals' => self::extract_named_items($vehicle['VehicleOptionals'] ?? []),
                 'equipments' => self::extract_named_items($vehicle['VehicleEquipments'] ?? []),
@@ -3079,7 +3080,7 @@ JS;
         update_post_meta($post_id, 'condicao', isset($vehicle['conditionType']) ? (string) $vehicle['conditionType'] : '');
         update_post_meta($post_id, 'ipva_pago', 0);
         update_post_meta($post_id, 'licenciado', 0);
-        update_post_meta($post_id, 'blindado', 0);
+        update_post_meta($post_id, 'blindado', self::is_vehicle_armored($vehicle) ? 1 : 0);
 
         self::set_term_if_value($post_id, 'veiculo_marca', (string) ($vehicle['brandName'] ?? ''));
         self::set_term_if_value($post_id, 'veiculo_modelo', (string) ($vehicle['modelName'] ?? ''));
@@ -3207,6 +3208,62 @@ JS;
         }
 
         return $matched >= 8;
+    }
+
+    private static function is_vehicle_armored(array $vehicle): bool {
+        foreach (['blindado', 'blindagem', 'isBlindado', 'is_blindado', 'armored', 'armor', 'isArmored', 'is_armored', 'shielded', 'isShielded'] as $key) {
+            if (array_key_exists($key, $vehicle) && self::to_boolean_flag($vehicle[$key])) {
+                return true;
+            }
+        }
+
+        $texts = [
+            (string) ($vehicle['comments'] ?? ''),
+            (string) ($vehicle['versionName'] ?? ''),
+            (string) ($vehicle['modelName'] ?? ''),
+            (string) ($vehicle['section'] ?? ''),
+        ];
+        $texts = array_merge(
+            $texts,
+            self::extract_named_items($vehicle['VehicleFeatures'] ?? []),
+            self::extract_named_items($vehicle['VehicleOptionals'] ?? []),
+            self::extract_named_items($vehicle['VehicleEquipments'] ?? [])
+        );
+
+        foreach ($texts as $text) {
+            if (self::text_indicates_armored((string) $text)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static function text_indicates_armored(string $text): bool {
+        $normalized = self::canonicalize_text($text);
+        if (!str_contains($normalized, 'blindado') && !str_contains($normalized, 'blindagem')) {
+            return false;
+        }
+
+        foreach (['nao blindado', 'blindado nao', 'sem blindagem', 'blindagem nao', 'nao possui blindagem'] as $negative) {
+            if (str_contains($normalized, $negative)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static function to_boolean_flag($value): bool {
+        if (is_bool($value)) {
+            return $value;
+        }
+        if (is_int($value) || is_float($value)) {
+            return (float) $value > 0;
+        }
+
+        $normalized = self::canonicalize_text((string) $value);
+        return in_array($normalized, ['1', 's', 'sim', 'true', 'yes', 'y'], true);
     }
 
     private static function optional_list_contains_any(array $optionals, array $needles): bool {

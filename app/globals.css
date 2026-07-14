@@ -1729,6 +1729,29 @@ h2 {
   line-height: 1.45;
 }
 
+.offer-armored-badge,
+.vehicle-armored-badge {
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 24px;
+  border: 1px solid rgba(255, 184, 0, 0.55);
+  border-radius: 999px;
+  background: #fff8df;
+  color: #0c2f74;
+  padding: 0 9px;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.offer-armored-badge svg,
+.vehicle-armored-badge svg {
+  color: #b57b00;
+}
+
 .offer-mobile-commerce {
   display: none;
 }
@@ -4119,6 +4142,10 @@ h2 {
   line-height: 1.45;
   color: #4d638d;
   text-transform: uppercase;
+}
+
+.vehicle-armored-badge {
+  margin-top: 8px;
 }
 
 .vehicle-year-badge {

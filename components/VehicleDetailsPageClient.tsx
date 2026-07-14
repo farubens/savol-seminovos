@@ -1051,6 +1051,11 @@ export function VehicleDetailsPageClient({ slug }: Props) {
         <aside className="vehicle-details-side">
           <article className="vehicle-info-card">
             <h1>{vehicle.name}</h1>
+            {vehicle.armored ? (
+              <span className="vehicle-armored-badge">
+                <ShieldCheck size={13} /> Blindado
+              </span>
+            ) : null}
             <p className="vehicle-info-subtitle">{vehicle.subtitle}</p>
             <p className="vehicle-year-badge">Ano/Modelo {vehicle.year}</p>
 
@@ -1343,6 +1348,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
                   adUrl={item.absoluteUrl}
                   qualityTag={item.qualityTag}
                   secondaryHighlights={item.secondaryHighlights}
+                  armored={item.armored}
                   showFinanceButton={false}
                 />
               ))}

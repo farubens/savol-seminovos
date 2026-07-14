@@ -676,6 +676,7 @@ export function CategoryFinder() {
                 secondaryHighlights={vehicle.secondaryHighlights}
                 delay={index * 0.05}
                 variant="grid"
+                armored={vehicle.armored}
               />
             ))
           )}
