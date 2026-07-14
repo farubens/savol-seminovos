@@ -1,4 +1,5 @@
 import type { LeadmobLeadInput, LeadmobVehicle } from "@/lib/leadmob";
+import { resolveLeadmobCompanyId } from "@/lib/leadmobRules";
 import type { LeadTrackingPayload } from "@/lib/leadTracking";
 
 type VwfsLeadContext = {
@@ -80,6 +81,11 @@ export function createBancoVolksLeadPayload(vwfsResult: unknown, context: VwfsLe
   const email = findText(vwfsResult, EMAIL_KEYS) || "sem-email@savolseminovos.com.br";
   const cpf = findText(vwfsResult, CPF_KEYS);
   const payloadSnapshot = compactJson(vwfsResult);
+  const companyId = resolveLeadmobCompanyId({
+    unitName: context.unitName,
+    vehicle: context.vehicle,
+    meta: context.meta
+  });
 
   return {
     form: context.form,
@@ -88,6 +94,7 @@ export function createBancoVolksLeadPayload(vwfsResult: unknown, context: VwfsLe
     phone,
     email,
     cpf,
+    companyId,
     unitName: context.unitName,
     vehicle: context.vehicle,
     message: [context.message, "Lead recebido pelo simulador Banco Volks.", cpf ? `CPF: ${cpf}` : ""].filter(Boolean).join("\n"),

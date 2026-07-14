@@ -5,6 +5,7 @@ import {
   type LeadmobLeadInput,
   validateLeadmobInput
 } from "@/lib/leadmob";
+import { resolveLeadmobCompanyId } from "@/lib/leadmobRules";
 
 const TRACKING_KEYS = ["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", "gclid", "fbclid", "msclkid"] as const;
 
@@ -126,12 +127,21 @@ function normalizeFinancingPayload(payload: FinancingLeadPayload, context: Finan
   const unitTechnicalId = isTechnicalUnitId(payload.unitName)
     ? String(payload.unitName).trim()
     : payload.meta?.unit_technical_id || payload.meta?.store_id || (isTechnicalUnitId(vehicleStoreId) ? String(vehicleStoreId).trim() : undefined);
+  const companyId = payload.companyId || resolveLeadmobCompanyId({
+    ...payload,
+    unitName,
+    meta: {
+      ...(payload.meta || {}),
+      unit_technical_id: unitTechnicalId
+    }
+  });
 
   return {
     ...payload,
     protocol,
     form,
     subject,
+    companyId,
     departmentId: payload.departmentId || "2",
     cpf,
     message,

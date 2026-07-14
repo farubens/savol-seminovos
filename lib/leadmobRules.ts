@@ -34,6 +34,35 @@ const LEADMOB_COMPANIES_BY_UNIT = [
   { id: 10216, terms: ["assinaturas", "assinatura"] }
 ] as const;
 
+type LeadmobTechnicalCompanyRule = {
+  technicalIds: readonly string[];
+  id: number;
+  terms?: readonly string[];
+  fallbackId?: number;
+};
+
+const LEADMOB_COMPANIES_BY_TECHNICAL_UNIT: readonly LeadmobTechnicalCompanyRule[] = [
+  { technicalIds: ["18882"], id: 10057 },
+  { technicalIds: ["25815"], id: 10040 },
+  { technicalIds: ["25817"], id: 10038, terms: ["toyota santo andre"], fallbackId: 10038 },
+  { technicalIds: ["25817"], id: 10223, terms: ["toyota dom pedro", "dom pedro"] },
+  { technicalIds: ["25820"], id: 10039 },
+  { technicalIds: ["101181625"], id: 10127, terms: ["peugeot santo andre", "peugeot"], fallbackId: 10127 },
+  { technicalIds: ["101181625"], id: 10123, terms: ["citroen santo andre", "citroen"] },
+  { technicalIds: ["101181626"], id: 10128, terms: ["peugeot sao bernardo", "peugeot"], fallbackId: 10128 },
+  { technicalIds: ["101181626"], id: 10124, terms: ["citroen sao bernardo", "citroen"] },
+  { technicalIds: ["101199580"], id: 10191 },
+  { technicalIds: ["101199581"], id: 10190 },
+  { technicalIds: ["101199584"], id: 10188 },
+  { technicalIds: ["101199585"], id: 10166 },
+  { technicalIds: ["101236779"], id: 10189 },
+  { technicalIds: ["101252001"], id: 10129, terms: ["peugeot sao caetano", "peugeot"] },
+  { technicalIds: ["101252001"], id: 10280, terms: ["jetour santo andre"] },
+  { technicalIds: ["101252001"], id: 10289, terms: ["jetour sao caetano", "jetour scs", "jetour"] },
+  { technicalIds: ["101252001"], id: 10300, terms: ["mg analia"] },
+  { technicalIds: ["101252001"], id: 10295, terms: ["mg sao caetano", "mg motor", "mg"], fallbackId: 10295 }
+] as const;
+
 export type LeadmobRuleInput = {
   companyId?: string | number;
   departmentId?: string | number;
@@ -45,9 +74,11 @@ export type LeadmobRuleInput = {
   vehicle?: {
     brand?: string;
     store?: string;
+    storeId?: string | number | null;
     city?: string;
     uf?: string;
   };
+  meta?: Record<string, unknown>;
 };
 
 export type LeadmobDepartmentIntent = {
@@ -64,6 +95,72 @@ export function normalizeForLeadmobMatch(value: unknown): string {
     .trim();
 }
 
+function onlyDigits(value: unknown): string {
+  return String(value ?? "").replace(/\D/g, "");
+}
+
+function matchesLeadmobTerm(candidate: string, term: string): boolean {
+  const normalizedTerm = normalizeForLeadmobMatch(term);
+  return candidate.includes(normalizedTerm) || normalizedTerm.includes(candidate);
+}
+
+function resolveLeadmobCompanyIdByName(candidates: string[]): number | null {
+  for (const candidate of candidates) {
+    const match = LEADMOB_COMPANIES_BY_UNIT.find((company) =>
+      company.terms.some((term) => matchesLeadmobTerm(candidate, term))
+    );
+    if (match) return match.id;
+  }
+
+  return null;
+}
+
+function getTechnicalUnitCandidates(input: LeadmobRuleInput): string[] {
+  const values = [
+    input.unitName,
+    input.vehicle?.storeId,
+    input.meta?.unit_technical_id,
+    input.meta?.store_id,
+    input.meta?.storeId
+  ];
+
+  return Array.from(
+    new Set(
+      values
+        .map(onlyDigits)
+        .filter((value) => value.length >= 4)
+    )
+  );
+}
+
+function resolveLeadmobCompanyIdByTechnicalUnit(input: LeadmobRuleInput, nameCandidates: string[]): number | null {
+  const technicalIds = getTechnicalUnitCandidates(input);
+  if (!technicalIds.length) return null;
+
+  const context = [
+    ...nameCandidates,
+    normalizeForLeadmobMatch(input.vehicle?.brand),
+    normalizeForLeadmobMatch(input.vehicle?.city),
+    normalizeForLeadmobMatch(input.vehicle?.uf),
+    normalizeForLeadmobMatch(input.message)
+  ].filter(Boolean).join(" ");
+
+  for (const technicalId of technicalIds) {
+    const rules = LEADMOB_COMPANIES_BY_TECHNICAL_UNIT.filter((rule) => rule.technicalIds.includes(technicalId));
+    const contextualMatch = rules.find((rule) =>
+      rule.terms?.some((term) => matchesLeadmobTerm(context, term))
+    );
+    if (contextualMatch) return contextualMatch.id;
+
+    if (rules.length === 1) return rules[0].id;
+
+    const fallback = rules.find((rule) => "fallbackId" in rule && rule.fallbackId === rule.id);
+    if (fallback) return fallback.id;
+  }
+
+  return null;
+}
+
 export function resolveLeadmobCompanyId(input: LeadmobRuleInput): number {
   if (input.companyId) {
     const explicitCompanyId = Number(input.companyId);
@@ -77,15 +174,11 @@ export function resolveLeadmobCompanyId(input: LeadmobRuleInput): number {
     input.vehicle?.brand && input.vehicle?.uf ? `${input.vehicle.brand} ${input.vehicle.uf}` : ""
   ].map(normalizeForLeadmobMatch).filter(Boolean);
 
-  for (const candidate of candidates) {
-    const match = LEADMOB_COMPANIES_BY_UNIT.find((company) =>
-      company.terms.some((term) => {
-        const normalizedTerm = normalizeForLeadmobMatch(term);
-        return candidate.includes(normalizedTerm) || normalizedTerm.includes(candidate);
-      })
-    );
-    if (match) return match.id;
-  }
+  const namedCompanyId = resolveLeadmobCompanyIdByName(candidates);
+  if (namedCompanyId) return namedCompanyId;
+
+  const technicalCompanyId = resolveLeadmobCompanyIdByTechnicalUnit(input, candidates);
+  if (technicalCompanyId) return technicalCompanyId;
 
   return Number(LEADMOB_DEFAULT_EMPRESA);
 }
