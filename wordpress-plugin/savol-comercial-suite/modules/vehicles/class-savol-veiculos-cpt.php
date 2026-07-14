@@ -61,6 +61,7 @@ final class Savol_Veiculos_CPT {
     private const APOLO_ALLOWED_SITUATIONS = ['ES', 'ED'];
     private const APOLO_DRAFT_REASONS = [
         'Não cadastrado no APOLO',
+        'Sem dados no AutoSync',
         'Empresa não autorizada no APOLO',
         'Situação não permitida no APOLO',
         'Preço de compra acima do preço de venda',
@@ -238,6 +239,7 @@ final class Savol_Veiculos_CPT {
             'veiculo_cidade' => ['label' => 'Cidade', 'hierarchical' => false],
             'veiculo_uf' => ['label' => 'UF', 'hierarchical' => false],
             'veiculo_unidade' => ['label' => 'Unidade', 'hierarchical' => false],
+            'status-loja' => ['label' => 'Status loja', 'hierarchical' => false],
             'veiculo_informacao_destaque' => ['label' => 'Informação de destaque', 'hierarchical' => false],
             'veiculo_destaque_secundario' => ['label' => 'Destaque secundario', 'hierarchical' => false],
         ];
@@ -2450,7 +2452,11 @@ JS;
             return false;
         }
 
-        $rows = self::filter_autosync_rows($payload['vehicles']['rows']);
+        $autosync_rows = self::filter_autosync_rows($payload['vehicles']['rows']);
+        $autosync_stock_index = self::build_autosync_stock_index($autosync_rows);
+        $rows = isset($apolo_stock_index['_rows']) && is_array($apolo_stock_index['_rows'])
+            ? $apolo_stock_index['_rows']
+            : [];
         $total = count($rows);
         if ($total <= 0) {
             delete_option(self::AUTOSYNC_BATCH_OPTION);
@@ -2460,7 +2466,7 @@ JS;
                 'processed' => 0,
                 'total' => 0,
                 'percent' => 100,
-                'message' => 'Nenhum veiculo para importar.',
+                'message' => 'Nenhum veiculo APOLO para sincronizar.',
             ]);
             return true;
         }
@@ -2469,6 +2475,7 @@ JS;
             'source' => $source,
             'rows' => array_values($rows),
             'apolo_stock_index' => $apolo_stock_index,
+            'autosync_stock_index' => $autosync_stock_index,
             'index' => 0,
             'total' => $total,
             'started_at' => time(),
@@ -2479,7 +2486,7 @@ JS;
             'processed' => 0,
             'total' => $total,
             'percent' => 0,
-            'message' => 'Importacao enfileirada com ' . $total . ' veiculos.',
+            'message' => 'Sincronizacao enfileirada com ' . $total . ' veiculos APOLO.',
         ]);
 
         return true;
@@ -2495,6 +2502,7 @@ JS;
         $total = (int) $batch['total'];
         $index = max(0, (int) $batch['index']);
         $apolo_stock_index = isset($batch['apolo_stock_index']) && is_array($batch['apolo_stock_index']) ? $batch['apolo_stock_index'] : [];
+        $autosync_stock_index = isset($batch['autosync_stock_index']) && is_array($batch['autosync_stock_index']) ? $batch['autosync_stock_index'] : [];
         if (empty($apolo_stock_index)) {
             $loaded_apolo_stock_index = self::request_apolo_stock_index();
             if (is_wp_error($loaded_apolo_stock_index)) {
@@ -2512,14 +2520,21 @@ JS;
         $processed_in_batch = 0;
 
         while ($index < $total && $processed_in_batch < self::AUTOSYNC_BATCH_SIZE && (time() - $start) < self::AUTOSYNC_BATCH_TIME_LIMIT) {
-            $vehicle = $rows[$index] ?? null;
+            $apolo_item = $rows[$index] ?? null;
             $index++;
 
-            if (!is_array($vehicle) || !isset($vehicle['id'])) {
+            if (!is_array($apolo_item)) {
                 continue;
             }
 
-            self::upsert_vehicle($vehicle, $apolo_stock_index);
+            $vehicle = self::find_autosync_vehicle_for_apolo($apolo_item, $autosync_stock_index);
+            if ($vehicle === null) {
+                $vehicle = self::build_vehicle_from_apolo_item($apolo_item);
+            } else {
+                $vehicle['_autosync_found'] = true;
+            }
+
+            self::upsert_vehicle($vehicle, $apolo_stock_index, $apolo_item);
             $processed_in_batch++;
             $percent = $total > 0 ? (int) floor(($index / $total) * 100) : 100;
             self::update_progress([
@@ -2527,7 +2542,7 @@ JS;
                 'processed' => $index,
                 'total' => $total,
                 'percent' => $percent,
-                'message' => 'Importando veiculo ' . $index . ' de ' . $total,
+                'message' => 'Verificando veiculo ' . $index . ' de ' . $total,
             ]);
         }
 
@@ -2540,12 +2555,13 @@ JS;
                 'processed' => $index,
                 'total' => $total,
                 'percent' => $percent,
-                'message' => 'Importacao em segundo plano: ' . $index . ' de ' . $total,
+                'message' => 'Sincronizacao em segundo plano: ' . $index . ' de ' . $total,
             ]);
             self::schedule_autosync_cron();
             return true;
         }
 
+        self::mark_posts_missing_from_apolo_as_draft($apolo_stock_index);
         delete_option(self::AUTOSYNC_BATCH_OPTION);
         delete_option(self::AUTOSYNC_LAST_ERROR_OPTION);
         self::update_progress([
@@ -2603,13 +2619,16 @@ JS;
     }
 
     private static function build_apolo_stock_index(array $rows): array {
-        $index = [];
+        $index = [
+            '_rows' => [],
+        ];
 
         foreach ($rows as $row) {
             if (!is_array($row)) {
                 continue;
             }
 
+            $description = trim((string) ($row['des_veiculo'] ?? ($row['descricao'] ?? '')));
             $item = [
                 'empresa' => preg_replace('/\D+/', '', (string) ($row['empresa'] ?? '')),
                 'situacao' => strtoupper(trim((string) ($row['situacao'] ?? ''))),
@@ -2619,21 +2638,64 @@ JS;
                 'placa' => self::normalize_plate((string) ($row['placa'] ?? '')),
                 'chassi' => self::normalize_vehicle_lookup_key((string) ($row['chassi'] ?? '')),
                 'veiculo' => trim((string) ($row['veiculo'] ?? '')),
+                'des_veiculo' => $description,
+                'raw' => $row,
             ];
+            $item['parsed'] = self::parse_apolo_vehicle_description($description);
 
+            $index['_rows'][] = $item;
             if ($item['placa'] !== '') {
                 $index['plate:' . $item['placa']] = $item;
             }
             if ($item['chassi'] !== '') {
                 $index['vin:' . $item['chassi']] = $item;
             }
+            if ($item['veiculo'] !== '') {
+                $index['apolo:' . self::normalize_vehicle_lookup_key($item['veiculo'])] = $item;
+            }
         }
 
         return $index;
     }
 
-    private static function reconcile_autosync_vehicle_with_apolo(array $vehicle, array $apolo_stock_index): array {
-        $apolo_item = self::find_apolo_stock_item_for_vehicle($vehicle, $apolo_stock_index);
+    private static function build_autosync_stock_index(array $rows): array {
+        $index = [];
+        foreach ($rows as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+
+            $plate = self::normalize_plate((string) ($row['plate'] ?? ''));
+            $vin = self::normalize_vehicle_lookup_key((string) ($row['vin'] ?? ($row['chassi'] ?? ($row['chassis'] ?? ''))));
+            if ($plate !== '') {
+                $index['plate:' . $plate] = $row;
+            }
+            if ($vin !== '') {
+                $index['vin:' . $vin] = $row;
+            }
+        }
+
+        return $index;
+    }
+
+    private static function find_autosync_vehicle_for_apolo(array $apolo_item, array $autosync_stock_index): ?array {
+        $plate = self::normalize_plate((string) ($apolo_item['placa'] ?? ''));
+        if ($plate !== '' && isset($autosync_stock_index['plate:' . $plate]) && is_array($autosync_stock_index['plate:' . $plate])) {
+            return $autosync_stock_index['plate:' . $plate];
+        }
+
+        $vin = self::normalize_vehicle_lookup_key((string) ($apolo_item['chassi'] ?? ''));
+        if ($vin !== '' && isset($autosync_stock_index['vin:' . $vin]) && is_array($autosync_stock_index['vin:' . $vin])) {
+            return $autosync_stock_index['vin:' . $vin];
+        }
+
+        return null;
+    }
+
+    private static function reconcile_autosync_vehicle_with_apolo(array $vehicle, array $apolo_stock_index, ?array $apolo_item = null): array {
+        if ($apolo_item === null) {
+            $apolo_item = self::find_apolo_stock_item_for_vehicle($vehicle, $apolo_stock_index);
+        }
         $reason = '';
 
         if ($apolo_item === null) {
@@ -2642,6 +2704,8 @@ JS;
             $reason = 'Empresa não autorizada no APOLO';
         } elseif (!in_array((string) $apolo_item['situacao'], self::APOLO_ALLOWED_SITUATIONS, true)) {
             $reason = 'Situação não permitida no APOLO';
+        } elseif (empty($vehicle['_autosync_found'])) {
+            $reason = 'Sem dados no AutoSync';
         } else {
             $purchase_price = self::parse_money_value($apolo_item['val_compra'] ?? null);
             $sale_price = self::parse_money_value($vehicle['value'] ?? null);
@@ -2671,6 +2735,63 @@ JS;
         return null;
     }
 
+    private static function vehicle_exists_in_apolo_index(string $plate, string $vin, string $external_id, array $apolo_stock_index): bool {
+        $plate = self::normalize_plate($plate);
+        if ($plate !== '' && isset($apolo_stock_index['plate:' . $plate])) {
+            return true;
+        }
+
+        $vin = self::normalize_vehicle_lookup_key($vin);
+        if ($vin !== '' && isset($apolo_stock_index['vin:' . $vin])) {
+            return true;
+        }
+
+        $external_id = self::normalize_vehicle_lookup_key($external_id);
+        if ($external_id !== '' && isset($apolo_stock_index['apolo:' . $external_id])) {
+            return true;
+        }
+
+        return false;
+    }
+
+    private static function mark_posts_missing_from_apolo_as_draft(array $apolo_stock_index): void {
+        $query = new \WP_Query([
+            'post_type' => self::POST_TYPE,
+            'post_status' => ['publish', 'draft', 'pending', 'private', 'future'],
+            'posts_per_page' => -1,
+            'fields' => 'ids',
+            'no_found_rows' => true,
+        ]);
+
+        if (empty($query->posts)) {
+            return;
+        }
+
+        foreach ($query->posts as $post_id) {
+            $post_id = (int) $post_id;
+            $plate = (string) get_post_meta($post_id, 'placa', true);
+            $vin = (string) get_post_meta($post_id, 'chassi_vin', true);
+            $external_id = (string) get_post_meta($post_id, 'identificador_externo', true);
+            if (self::vehicle_exists_in_apolo_index($plate, $vin, $external_id, $apolo_stock_index)) {
+                continue;
+            }
+
+            update_post_meta($post_id, 'apolo_reconciliacao_motivo', 'Não cadastrado no APOLO');
+            update_post_meta($post_id, 'savol_sync_signature', '');
+            self::set_status_loja_term($post_id, 'Não cadastrado no APOLO');
+            $post = get_post($post_id);
+            $title = $post ? self::strip_apolo_draft_reason_from_title((string) $post->post_title) : '';
+            $postarr = [
+                'ID' => $post_id,
+                'post_status' => 'draft',
+            ];
+            if ($title !== '') {
+                $postarr['post_title'] = $title;
+            }
+            wp_update_post($postarr);
+        }
+    }
+
     private static function append_apolo_draft_reason_to_title(string $title, string $reason): string {
         $title = self::strip_apolo_draft_reason_from_title($title);
         if ($reason === '') {
@@ -2687,6 +2808,149 @@ JS;
         }
 
         return trim((string) $title);
+    }
+
+    private static function parse_apolo_vehicle_description(string $description): array {
+        $description = str_replace(["\r\n", "\r"], "\n", $description);
+        $lines = array_values(array_filter(array_map('trim', explode("\n", $description))));
+        $parsed = [
+            'brandName' => '',
+            'modelName' => '',
+            'colorName' => '',
+            'fuelName' => '',
+            'renavam' => '',
+            'manufacturingYear' => '',
+            'modelYear' => '',
+        ];
+
+        foreach ($lines as $line) {
+            if ($parsed['brandName'] === '' && !str_contains($line, '.:') && !str_contains($line, '..:') && !str_contains($line, ':')) {
+                $parsed['brandName'] = $line;
+            }
+
+            if (preg_match('/MODELO\.*:\s*(.+)$/iu', $line, $matches)) {
+                $parsed['modelName'] = trim($matches[1]);
+                continue;
+            }
+            if (preg_match('/COR\.*:\s*(.+)$/iu', $line, $matches)) {
+                $parsed['colorName'] = trim($matches[1]);
+                continue;
+            }
+            if (preg_match('/COMBUST\.*:\s*(.+)$/iu', $line, $matches)) {
+                $parsed['fuelName'] = trim($matches[1]);
+                continue;
+            }
+            if (preg_match('/RENAVAM\.*:\s*(.+)$/iu', $line, $matches)) {
+                $parsed['renavam'] = preg_replace('/\D+/', '', (string) $matches[1]);
+                continue;
+            }
+            if (preg_match('/ANO\s*FAB\.*:\s*(\d{4})\s*\/\s*MOD\.*:\s*(\d{4})/iu', $line, $matches)) {
+                $parsed['manufacturingYear'] = $matches[1];
+                $parsed['modelYear'] = $matches[2];
+            }
+        }
+
+        return $parsed;
+    }
+
+    private static function build_vehicle_from_apolo_item(array $apolo_item): array {
+        $parsed = isset($apolo_item['parsed']) && is_array($apolo_item['parsed'])
+            ? $apolo_item['parsed']
+            : self::parse_apolo_vehicle_description((string) ($apolo_item['des_veiculo'] ?? ''));
+        $apolo_id = self::resolve_apolo_external_id($apolo_item);
+
+        return [
+            'id' => $apolo_id,
+            'brandName' => (string) ($parsed['brandName'] ?? ''),
+            'modelName' => (string) ($parsed['modelName'] ?? ($apolo_item['veiculo'] ?? '')),
+            'versionName' => '',
+            'modelYear' => (string) ($parsed['modelYear'] ?? ''),
+            'manufacturingYear' => (string) ($parsed['manufacturingYear'] ?? ''),
+            'plate' => (string) ($apolo_item['placa'] ?? ''),
+            'vin' => (string) ($apolo_item['chassi'] ?? ''),
+            'renavam' => (string) ($parsed['renavam'] ?? ''),
+            'colorName' => (string) ($parsed['colorName'] ?? ''),
+            'fuelName' => (string) ($parsed['fuelName'] ?? ''),
+            'entityName' => (string) ($apolo_item['nome_fantasia'] ?? ''),
+            'comments' => (string) ($apolo_item['des_veiculo'] ?? ''),
+            'value' => '',
+            '_autosync_found' => false,
+        ];
+    }
+
+    private static function resolve_apolo_external_id(array $apolo_item): string {
+        $plate = self::normalize_plate((string) ($apolo_item['placa'] ?? ''));
+        if ($plate !== '') {
+            return 'apolo-plate-' . $plate;
+        }
+
+        $vin = self::normalize_vehicle_lookup_key((string) ($apolo_item['chassi'] ?? ''));
+        if ($vin !== '') {
+            return 'apolo-vin-' . $vin;
+        }
+
+        $apolo_code = self::normalize_vehicle_lookup_key((string) ($apolo_item['veiculo'] ?? ''));
+        if ($apolo_code !== '') {
+            return 'apolo-' . $apolo_code;
+        }
+
+        return 'apolo-' . md5(wp_json_encode($apolo_item));
+    }
+
+    private static function extract_vehicle_photo_urls(array $vehicle): array {
+        $photo_urls = [];
+        if (isset($vehicle['VehiclePhotos']) && is_array($vehicle['VehiclePhotos'])) {
+            foreach ($vehicle['VehiclePhotos'] as $photo) {
+                if (is_array($photo) && !empty($photo['link'])) {
+                    $photo_urls[] = esc_url_raw((string) $photo['link']);
+                }
+            }
+        }
+
+        return array_values(array_unique(array_filter($photo_urls)));
+    }
+
+    private static function build_vehicle_sync_signature(array $vehicle, array $apolo_reconciliation, array $photo_urls, string $official_unit_name, string $title): string {
+        $payload = [
+            'title' => $title,
+            'status' => (string) ($apolo_reconciliation['status'] ?? ''),
+            'reason' => (string) ($apolo_reconciliation['reason'] ?? ''),
+            'unit' => $official_unit_name,
+            'photos' => $photo_urls,
+            'apolo' => [
+                'empresa' => (string) ($apolo_reconciliation['apolo']['empresa'] ?? ''),
+                'situacao' => (string) ($apolo_reconciliation['apolo']['situacao'] ?? ''),
+                'val_compra' => self::parse_money_value($apolo_reconciliation['apolo']['val_compra'] ?? null),
+                'nome_fantasia' => (string) ($apolo_reconciliation['apolo']['nome_fantasia'] ?? ''),
+                'cnpj' => (string) ($apolo_reconciliation['apolo']['cnpj'] ?? ''),
+                'placa' => (string) ($apolo_reconciliation['apolo']['placa'] ?? ''),
+                'chassi' => (string) ($apolo_reconciliation['apolo']['chassi'] ?? ''),
+                'veiculo' => (string) ($apolo_reconciliation['apolo']['veiculo'] ?? ''),
+                'des_veiculo' => (string) ($apolo_reconciliation['apolo']['des_veiculo'] ?? ''),
+            ],
+            'autosync' => [
+                'id' => (string) ($vehicle['id'] ?? ''),
+                'brandName' => (string) ($vehicle['brandName'] ?? ''),
+                'modelName' => (string) ($vehicle['modelName'] ?? ''),
+                'versionName' => (string) ($vehicle['versionName'] ?? ''),
+                'manufacturingYear' => (string) ($vehicle['manufacturingYear'] ?? ''),
+                'modelYear' => (string) ($vehicle['modelYear'] ?? ''),
+                'kilometers' => (string) ($vehicle['kilometers'] ?? ''),
+                'value' => self::parse_money_value($vehicle['value'] ?? null),
+                'status' => (string) ($vehicle['status'] ?? ''),
+                'fuelName' => (string) ($vehicle['fuelName'] ?? ''),
+                'transmissionName' => (string) ($vehicle['transmissionName'] ?? ''),
+                'section' => (string) ($vehicle['section'] ?? ''),
+                'colorName' => (string) ($vehicle['colorName'] ?? ''),
+                'entityName' => (string) ($vehicle['entityName'] ?? ''),
+                'comments' => (string) ($vehicle['comments'] ?? ''),
+                'features' => self::extract_named_items($vehicle['VehicleFeatures'] ?? []),
+                'optionals' => self::extract_named_items($vehicle['VehicleOptionals'] ?? []),
+                'equipments' => self::extract_named_items($vehicle['VehicleEquipments'] ?? []),
+            ],
+        ];
+
+        return hash('sha256', (string) wp_json_encode($payload));
     }
 
     private static function normalize_vehicle_lookup_key(string $value): string {
@@ -2722,9 +2986,10 @@ JS;
         return is_numeric($text) ? (float) $text : 0.0;
     }
 
-    private static function upsert_vehicle(array $vehicle, array $apolo_stock_index): void {
+    private static function upsert_vehicle(array $vehicle, array $apolo_stock_index, ?array $apolo_item = null): void {
         $external_id = (string) $vehicle['id'];
         $plate = self::normalize_plate((string) ($vehicle['plate'] ?? ''));
+        $vin = self::normalize_vehicle_lookup_key((string) ($vehicle['vin'] ?? ($vehicle['chassi'] ?? ($vehicle['chassis'] ?? ''))));
         $existing = get_posts([
             'post_type' => self::POST_TYPE,
             'post_status' => 'any',
@@ -2735,7 +3000,8 @@ JS;
         ]);
         $post_id_by_external = !empty($existing) ? (int) $existing[0] : 0;
         $post_id_by_plate_oldest = $plate !== '' ? self::find_oldest_post_id_by_plate($plate) : 0;
-        $post_id = $post_id_by_plate_oldest > 0 ? $post_id_by_plate_oldest : $post_id_by_external;
+        $post_id_by_vin_oldest = $vin !== '' ? self::find_oldest_post_id_by_vin($vin) : 0;
+        $post_id = $post_id_by_plate_oldest > 0 ? $post_id_by_plate_oldest : ($post_id_by_vin_oldest > 0 ? $post_id_by_vin_oldest : $post_id_by_external);
 
         $title_parts = [
             isset($vehicle['brandName']) ? (string) $vehicle['brandName'] : '',
@@ -2748,9 +3014,24 @@ JS;
             $title = 'Veiculo ' . $external_id;
         }
         $title = self::strip_apolo_draft_reason_from_title($title);
-        $apolo_reconciliation = self::reconcile_autosync_vehicle_with_apolo($vehicle, $apolo_stock_index);
-        if ($apolo_reconciliation['status'] === 'draft' && $apolo_reconciliation['reason'] !== '') {
-            $title = self::append_apolo_draft_reason_to_title($title, $apolo_reconciliation['reason']);
+        $apolo_reconciliation = self::reconcile_autosync_vehicle_with_apolo($vehicle, $apolo_stock_index, $apolo_item);
+        $official_unit_name = self::resolve_official_unidade_name($apolo_reconciliation['apolo'] ?? [], (string) ($vehicle['entityName'] ?? ''));
+        $photo_urls = self::extract_vehicle_photo_urls($vehicle);
+        $sync_signature = self::build_vehicle_sync_signature($vehicle, $apolo_reconciliation, $photo_urls, $official_unit_name, $title);
+
+        if ($post_id > 0) {
+            $previous_signature = (string) get_post_meta($post_id, 'savol_sync_signature', true);
+            $current_post = get_post($post_id);
+            $current_status = $current_post ? (string) $current_post->post_status : '';
+            $current_title = $current_post ? self::strip_apolo_draft_reason_from_title((string) $current_post->post_title) : '';
+            if (
+                $previous_signature !== ''
+                && hash_equals($previous_signature, $sync_signature)
+                && $current_status === (string) $apolo_reconciliation['status']
+                && $current_title === $title
+            ) {
+                return;
+            }
         }
 
         $postarr = [
@@ -2772,7 +3053,7 @@ JS;
         update_post_meta($post_id, 'identificador_externo', $external_id);
         update_post_meta($post_id, 'placa', $plate);
         update_post_meta($post_id, 'renavam', (string) ($vehicle['renavam'] ?? ''));
-        update_post_meta($post_id, 'chassi_vin', (string) ($vehicle['vin'] ?? ''));
+        update_post_meta($post_id, 'chassi_vin', $vin);
         update_post_meta($post_id, 'ano', is_numeric($vehicle['manufacturingYear'] ?? null) ? (float) $vehicle['manufacturingYear'] : 0);
         update_post_meta($post_id, 'ano_modelo', is_numeric($vehicle['modelYear'] ?? null) ? (float) $vehicle['modelYear'] : 0);
         update_post_meta($post_id, 'km', is_numeric($vehicle['kilometers'] ?? null) ? (float) $vehicle['kilometers'] : 0);
@@ -2804,23 +3085,16 @@ JS;
         self::set_term_if_value($post_id, 'veiculo_modelo', (string) ($vehicle['modelName'] ?? ''));
         self::set_term_if_value($post_id, 'veiculo_versao', (string) ($vehicle['versionName'] ?? ''));
         self::set_term_if_value($post_id, 'veiculo_cor', (string) ($vehicle['colorName'] ?? ''));
-        $official_unit_name = self::resolve_official_unidade_name($apolo_reconciliation['apolo'] ?? [], (string) ($vehicle['entityName'] ?? ''));
+        self::set_status_loja_term($post_id, (string) $apolo_reconciliation['reason']);
         self::set_term_if_value($post_id, 'veiculo_cidade', self::extract_city_from_unidade($official_unit_name));
         self::set_term_if_value($post_id, 'veiculo_uf', 'SP');
         self::assign_unidade_term_with_contacts($post_id, $official_unit_name);
         self::assign_informacao_destaque_terms($post_id, $vehicle);
         self::assign_destaque_secundario_terms($post_id, $vehicle);
 
-        $photo_urls = [];
-        if (isset($vehicle['VehiclePhotos']) && is_array($vehicle['VehiclePhotos'])) {
-            foreach ($vehicle['VehiclePhotos'] as $photo) {
-                if (is_array($photo) && !empty($photo['link'])) {
-                    $photo_urls[] = esc_url_raw((string) $photo['link']);
-                }
-            }
-        }
         update_post_meta($post_id, 'autosync_photo_urls', implode("\n", $photo_urls));
         self::import_vehicle_photos_to_gallery($post_id, $vehicle);
+        update_post_meta($post_id, 'savol_sync_signature', $sync_signature);
         if ($plate !== '') {
             self::cleanup_duplicate_plate_posts($post_id, $plate);
         }
@@ -2979,6 +3253,37 @@ JS;
         return 0;
     }
 
+    private static function find_oldest_post_id_by_vin(string $vin): int {
+        $vin = self::normalize_vehicle_lookup_key($vin);
+        if ($vin === '') {
+            return 0;
+        }
+
+        $query = new \WP_Query([
+            'post_type' => self::POST_TYPE,
+            'post_status' => ['publish', 'draft', 'pending', 'private', 'future'],
+            'posts_per_page' => 1,
+            'fields' => 'ids',
+            'meta_query' => [
+                [
+                    'key' => 'chassi_vin',
+                    'value' => $vin,
+                    'compare' => '=',
+                ],
+            ],
+            'orderby' => [
+                'date' => 'ASC',
+                'ID' => 'ASC',
+            ],
+        ]);
+
+        if (!empty($query->posts)) {
+            return (int) $query->posts[0];
+        }
+
+        return 0;
+    }
+
     private static function cleanup_duplicate_plate_posts(int $keep_post_id, string $plate): void {
         $plate = self::normalize_plate($plate);
         if ($plate === '' || $keep_post_id <= 0) {
@@ -3062,7 +3367,7 @@ JS;
         if (!empty($gallery_ids)) {
             $gallery_ids = array_values(array_unique(array_map('absint', $gallery_ids)));
             update_post_meta($post_id, 'galeria_fotos', implode(',', $gallery_ids));
-            if (!has_post_thumbnail($post_id) && isset($gallery_ids[0])) {
+            if (isset($gallery_ids[0])) {
                 set_post_thumbnail($post_id, $gallery_ids[0]);
             }
         }
@@ -3130,6 +3435,15 @@ JS;
             return;
         }
         wp_set_object_terms($post_id, [$value], $taxonomy, false);
+    }
+
+    private static function set_status_loja_term(int $post_id, string $reason): void {
+        $term = trim($reason);
+        if ($term === '') {
+            $term = 'Publicado';
+        }
+
+        wp_set_object_terms($post_id, [$term], 'status-loja', false);
     }
 
     private static function resolve_official_unidade_name(array $apolo_item, string $fallback_entity_name): string {
