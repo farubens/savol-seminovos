@@ -2995,7 +2995,7 @@ JS;
             $reason = 'Sem dados no AutoSync';
         } else {
             $purchase_price = self::parse_money_value($apolo_item['val_compra'] ?? null);
-            $sale_price = self::parse_money_value($vehicle['value'] ?? null);
+            $sale_price = self::resolve_vehicle_sale_price($vehicle, $apolo_item);
             if ($purchase_price > 0 && $sale_price > 0 && $purchase_price > $sale_price) {
                 $reason = 'Preço de compra acima do preço de venda';
             }
@@ -3208,6 +3208,7 @@ JS;
                 'empresa' => (string) ($apolo_reconciliation['apolo']['empresa'] ?? ''),
                 'situacao' => (string) ($apolo_reconciliation['apolo']['situacao'] ?? ''),
                 'val_compra' => self::parse_money_value($apolo_reconciliation['apolo']['val_compra'] ?? null),
+                'valor_venda' => self::parse_money_value($apolo_reconciliation['apolo']['valor_venda'] ?? null),
                 'nome_fantasia' => (string) ($apolo_reconciliation['apolo']['nome_fantasia'] ?? ''),
                 'cnpj' => (string) ($apolo_reconciliation['apolo']['cnpj'] ?? ''),
                 'placa' => (string) ($apolo_reconciliation['apolo']['placa'] ?? ''),
@@ -3276,6 +3277,15 @@ JS;
         return is_numeric($text) ? (float) $text : 0.0;
     }
 
+    private static function resolve_vehicle_sale_price(array $vehicle, array $apolo_item): float {
+        $apolo_sale_price = self::parse_money_value($apolo_item['valor_venda'] ?? null);
+        if ($apolo_sale_price > 0) {
+            return $apolo_sale_price;
+        }
+
+        return self::parse_money_value($vehicle['value'] ?? null);
+    }
+
     private static function upsert_vehicle(array $vehicle, array $apolo_stock_index, ?array $apolo_item = null): void {
         $external_id = (string) $vehicle['id'];
         $plate = self::normalize_plate((string) ($vehicle['plate'] ?? ''));
@@ -3313,6 +3323,7 @@ JS;
             $apolo_reconciliation['status'] = 'publish';
         }
         $official_unit_name = self::resolve_official_unidade_name($apolo_reconciliation['apolo'] ?? [], (string) ($vehicle['entityName'] ?? ''));
+        $published_price = self::resolve_vehicle_sale_price($vehicle, $apolo_reconciliation['apolo'] ?? []);
         $photo_urls = self::extract_vehicle_photo_urls($vehicle);
         $sync_signature = self::build_vehicle_sync_signature($vehicle, $apolo_reconciliation, $photo_urls, $official_unit_name, $title);
 
@@ -3354,11 +3365,12 @@ JS;
         update_post_meta($post_id, 'ano', is_numeric($vehicle['manufacturingYear'] ?? null) ? (float) $vehicle['manufacturingYear'] : 0);
         update_post_meta($post_id, 'ano_modelo', is_numeric($vehicle['modelYear'] ?? null) ? (float) $vehicle['modelYear'] : 0);
         update_post_meta($post_id, 'km', is_numeric($vehicle['kilometers'] ?? null) ? (float) $vehicle['kilometers'] : 0);
-        update_post_meta($post_id, 'preco', self::parse_money_value($vehicle['value'] ?? null));
+        update_post_meta($post_id, 'preco', $published_price);
         update_post_meta($post_id, 'status', isset($vehicle['status']) ? (string) $vehicle['status'] : '');
         update_post_meta($post_id, 'apolo_empresa', (string) ($apolo_reconciliation['apolo']['empresa'] ?? ''));
         update_post_meta($post_id, 'apolo_situacao', (string) ($apolo_reconciliation['apolo']['situacao'] ?? ''));
         update_post_meta($post_id, 'apolo_val_compra', self::parse_money_value($apolo_reconciliation['apolo']['val_compra'] ?? null));
+        update_post_meta($post_id, 'apolo_valor_venda', self::parse_money_value($apolo_reconciliation['apolo']['valor_venda'] ?? null));
         update_post_meta($post_id, 'apolo_nome_fantasia', (string) ($apolo_reconciliation['apolo']['nome_fantasia'] ?? ''));
         update_post_meta($post_id, 'apolo_cnpj', (string) ($apolo_reconciliation['apolo']['cnpj'] ?? ''));
         update_post_meta($post_id, 'apolo_negociacao', !empty($apolo_reconciliation['apolo']['negociacao']) ? 1 : 0);
@@ -3389,7 +3401,7 @@ JS;
         self::set_term_if_value($post_id, 'veiculo_uf', 'SP');
         self::assign_unidade_term_with_contacts($post_id, $official_unit_name);
         self::assign_informacao_destaque_terms($post_id, $vehicle);
-        self::assign_destaque_secundario_terms($post_id, $vehicle);
+        self::assign_destaque_secundario_terms($post_id, $vehicle, $published_price);
 
         $photo_urls_text = implode("\n", $photo_urls);
         $previous_photo_urls_text = (string) get_post_meta($post_id, 'autosync_photo_urls', true);
@@ -3408,10 +3420,10 @@ JS;
         wp_set_object_terms($post_id, $terms, 'veiculo_informacao_destaque', false);
     }
 
-    private static function assign_destaque_secundario_terms(int $post_id, array $vehicle): void {
+    private static function assign_destaque_secundario_terms(int $post_id, array $vehicle, ?float $published_price = null): void {
         $terms = [];
         $km = is_numeric($vehicle['kilometers'] ?? null) ? (float) $vehicle['kilometers'] : 0;
-        $price = is_numeric($vehicle['value'] ?? null) ? (float) $vehicle['value'] : 0;
+        $price = $published_price !== null ? $published_price : (is_numeric($vehicle['value'] ?? null) ? (float) $vehicle['value'] : 0);
         $fipe = is_numeric($vehicle['fipeValue'] ?? null) ? (float) $vehicle['fipeValue'] : 0;
 
         if (self::has_low_annual_mileage($vehicle)) {
