@@ -7618,6 +7618,10 @@ button.stores-filter-input svg {
   width: 100%;
 }
 
+.stores-mobile-carousel-controls {
+  display: none;
+}
+
 .directions-modal-backdrop {
   position: fixed;
   inset: 0;
@@ -9781,6 +9785,61 @@ button.stores-filter-input svg {
   .stores-card-actions a {
     min-height: 42px;
     font-size: 12px;
+  }
+
+  .stores-mobile-carousel-controls {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr) 34px;
+    align-items: center;
+    gap: 8px;
+    margin-top: 2px;
+  }
+
+  .stores-mobile-carousel-controls > button {
+    width: 34px;
+    height: 34px;
+    border: 1px solid #cfdcf4;
+    border-radius: 999px;
+    background: #ffffff;
+    color: #12346e;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    box-shadow: 0 5px 12px rgba(8, 30, 95, 0.1);
+  }
+
+  .stores-mobile-carousel-controls > button:disabled {
+    opacity: 0.38;
+  }
+
+  .stores-mobile-carousel-dots {
+    min-width: 0;
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding: 4px 0;
+  }
+
+  .stores-mobile-carousel-dots::-webkit-scrollbar {
+    display: none;
+  }
+
+  .stores-mobile-carousel-dots button {
+    flex: 0 0 auto;
+    width: 7px;
+    height: 7px;
+    border: 0;
+    border-radius: 999px;
+    background: #bfd0ee;
+    padding: 0;
+  }
+
+  .stores-mobile-carousel-dots button.is-active {
+    width: 20px;
+    background: #0a2e73;
   }
 
   .stores-directory-map-wrap,

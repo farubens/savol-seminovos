@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type UIEvent, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, MapPin, Navigation, PhoneCall, Search } from "lucide-react";
 import { useHomeSessionData } from "@/components/HomeSessionDataProvider";
 import { MapDirectionsModal } from "@/components/MapDirectionsModal";
@@ -835,6 +835,10 @@ export function StoreDirectory() {
     () => filteredStores.find((store) => store.id === selectedStoreId) ?? null,
     [filteredStores, selectedStoreId]
   );
+  const selectedStoreIndex = useMemo(
+    () => filteredStores.findIndex((store) => store.id === selectedStoreId),
+    [filteredStores, selectedStoreId]
+  );
 
   const mapPoints = useMemo<StoreMapPoint[]>(
     () =>
@@ -856,6 +860,48 @@ export function StoreDirectory() {
     const selectedFromMap = filteredStores.find((store) => store.id === storeId) ?? null;
     if (selectedFromMap) {
       setStoreModal(selectedFromMap);
+    }
+  };
+
+  const scrollStoreCardIntoView = (storeId: number) => {
+    const card = storeCardRefs.current.get(storeId);
+    if (!card) return;
+    skipAutoScrollRef.current = true;
+    card.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+      inline: "center"
+    });
+  };
+
+  const selectStoreFromCarousel = (storeId: number) => {
+    setSelectedStoreId(storeId);
+    scrollStoreCardIntoView(storeId);
+  };
+
+  const stepStoreCarousel = (direction: "previous" | "next") => {
+    if (!filteredStores.length) return;
+    const currentIndex = selectedStoreIndex >= 0 ? selectedStoreIndex : 0;
+    const nextIndex = direction === "next"
+      ? Math.min(currentIndex + 1, filteredStores.length - 1)
+      : Math.max(currentIndex - 1, 0);
+    const nextStore = filteredStores[nextIndex];
+    if (nextStore) selectStoreFromCarousel(nextStore.id);
+  };
+
+  const handleStoreListScroll = (event: UIEvent<HTMLDivElement>) => {
+    const list = event.currentTarget;
+    const firstCard = list.querySelector<HTMLElement>(".stores-directory-card");
+    if (!firstCard) return;
+
+    const gap = 10;
+    const cardWidth = firstCard.offsetWidth + gap;
+    if (cardWidth <= 0) return;
+
+    const nextIndex = Math.max(0, Math.min(filteredStores.length - 1, Math.round(list.scrollLeft / cardWidth)));
+    const nextStore = filteredStores[nextIndex];
+    if (nextStore && nextStore.id !== selectedStoreId) {
+      setSelectedStoreId(nextStore.id);
     }
   };
 
@@ -920,7 +966,7 @@ export function StoreDirectory() {
 
           {locationStatus ? <p className="stores-location-status">{locationStatus}</p> : null}
 
-          <div className="stores-directory-list" ref={storesListRef}>
+          <div className="stores-directory-list" ref={storesListRef} onScroll={handleStoreListScroll}>
             {!loading && filteredStores.length === 0 && (
               <article className="stores-directory-empty">
                 <h3>Sem resultados</h3>
@@ -983,6 +1029,38 @@ export function StoreDirectory() {
                 );
               })}
           </div>
+          {!loading && filteredStores.length > 1 ? (
+            <div className="stores-mobile-carousel-controls" aria-label="Navegar pelas lojas">
+              <button
+                type="button"
+                aria-label="Loja anterior"
+                onClick={() => stepStoreCarousel("previous")}
+                disabled={selectedStoreIndex <= 0}
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <div className="stores-mobile-carousel-dots">
+                {filteredStores.map((store, index) => (
+                  <button
+                    key={store.id}
+                    type="button"
+                    className={index === selectedStoreIndex ? "is-active" : ""}
+                    aria-label={`Ir para loja ${index + 1}`}
+                    aria-current={index === selectedStoreIndex ? "true" : undefined}
+                    onClick={() => selectStoreFromCarousel(store.id)}
+                  />
+                ))}
+              </div>
+              <button
+                type="button"
+                aria-label="Próxima loja"
+                onClick={() => stepStoreCarousel("next")}
+                disabled={selectedStoreIndex === filteredStores.length - 1}
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          ) : null}
         </aside>
 
         <div className="stores-directory-map-wrap">
