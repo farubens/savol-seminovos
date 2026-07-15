@@ -2919,6 +2919,7 @@ JS;
                 'empresa' => preg_replace('/\D+/', '', (string) ($row['empresa'] ?? '')),
                 'situacao' => strtoupper(trim((string) ($row['situacao'] ?? ''))),
                 'val_compra' => self::parse_money_value($row['val_compra'] ?? null),
+                'valor_venda' => self::parse_money_value($row['valor_venda'] ?? null),
                 'nome_fantasia' => trim((string) ($row['nome_fantasia'] ?? '')),
                 'cnpj' => preg_replace('/\D+/', '', (string) ($row['cnpj'] ?? '')),
                 'placa' => self::normalize_plate((string) ($row['placa'] ?? '')),
