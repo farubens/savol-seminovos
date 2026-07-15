@@ -63,6 +63,16 @@ type Props = {
 };
 
 const FALLBACK_HIGHLIGHT = "Oportunidade";
+const HIGHLIGHT_PRIORITY: Record<string, number> = {
+  repasse: 90,
+  garantia: 80,
+  "unico dono": 70,
+  "baixa km": 60,
+  "abaixo fipe": 50,
+  impecavel: 40,
+  completo: 30,
+  oportunidade: 0
+};
 
 declare global {
   interface Window {
@@ -94,6 +104,23 @@ function shouldShowCardHighlight(value: string): boolean {
   if (normalized.includes("seminovo")) return false;
   if (normalized.includes("abaixo") && normalized.includes("fipe")) return false;
   return true;
+}
+
+function resolveHighlightPriority(value: string): number {
+  const normalized = normalizeTag(value);
+  if (normalized.includes("repasse")) return HIGHLIGHT_PRIORITY.repasse;
+  if (normalized.includes("garantia")) return HIGHLIGHT_PRIORITY.garantia;
+  if (normalized.includes("unico dono")) return HIGHLIGHT_PRIORITY["unico dono"];
+  if (normalized.includes("baixa km")) return HIGHLIGHT_PRIORITY["baixa km"];
+  if (normalized.includes("abaixo") && normalized.includes("fipe")) return HIGHLIGHT_PRIORITY["abaixo fipe"];
+  if (normalized.includes("impecavel")) return HIGHLIGHT_PRIORITY.impecavel;
+  if (normalized.includes("completo")) return HIGHLIGHT_PRIORITY.completo;
+  if (normalized.includes("oportunidade")) return HIGHLIGHT_PRIORITY.oportunidade;
+  return 10;
+}
+
+function sortHighlightsByPriority(highlights: string[]): string[] {
+  return [...highlights].sort((left, right) => resolveHighlightPriority(right) - resolveHighlightPriority(left));
 }
 
 function resolveHighlightTone(value: string): "repasse" | "garantia" | "unico-dono" | "baixa-km" | "fipe" | "impecavel" | "completo" | "default" {
@@ -362,7 +389,7 @@ export function VehicleOfferCard({
   const resolvedSecondaryHighlights = useMemo(
     () => {
       const seen = new Set<string>();
-      const highlights = [qualityTag, ...secondaryHighlights]
+      const highlights = sortHighlightsByPriority([qualityTag, ...secondaryHighlights]
         .map((highlight) => highlight.trim())
         .filter(shouldShowCardHighlight)
         .filter((highlight) => {
@@ -370,7 +397,7 @@ export function VehicleOfferCard({
           if (seen.has(key)) return false;
           seen.add(key);
           return true;
-        })
+        }))
         .slice(0, 4);
       return highlights.length ? highlights : [FALLBACK_HIGHLIGHT];
     },

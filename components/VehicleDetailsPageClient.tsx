@@ -96,6 +96,16 @@ const VWFS_DEFAULT_STORE_ID = 123454;
 const VWFS_PRELOAD_DELAY_MS = 1200;
 const VWFS_LOAD_FALLBACK_MS = 7000;
 const FALLBACK_HIGHLIGHT = "Oportunidade";
+const HIGHLIGHT_PRIORITY: Record<string, number> = {
+  repasse: 90,
+  garantia: 80,
+  "unico dono": 70,
+  "baixa km": 60,
+  "abaixo fipe": 50,
+  impecavel: 40,
+  completo: 30,
+  oportunidade: 0
+};
 
 let vwfsScriptPromise: Promise<boolean> | null = null;
 
@@ -132,6 +142,35 @@ function resolveHighlightTone(value: string): "repasse" | "garantia" | "unico-do
   if (normalized.includes("impecavel")) return "impecavel";
   if (normalized.includes("completo")) return "completo";
   return "default";
+}
+
+function resolveHighlightPriority(value: string): number {
+  const normalized = normalize(value);
+  if (normalized.includes("repasse")) return HIGHLIGHT_PRIORITY.repasse;
+  if (normalized.includes("garantia")) return HIGHLIGHT_PRIORITY.garantia;
+  if (normalized.includes("unico dono")) return HIGHLIGHT_PRIORITY["unico dono"];
+  if (normalized.includes("baixa km")) return HIGHLIGHT_PRIORITY["baixa km"];
+  if (normalized.includes("abaixo") && normalized.includes("fipe")) return HIGHLIGHT_PRIORITY["abaixo fipe"];
+  if (normalized.includes("impecavel")) return HIGHLIGHT_PRIORITY.impecavel;
+  if (normalized.includes("completo")) return HIGHLIGHT_PRIORITY.completo;
+  if (normalized.includes("oportunidade")) return HIGHLIGHT_PRIORITY.oportunidade;
+  return 10;
+}
+
+function resolveOrderedHighlights(qualityTag?: string, secondaryHighlights: string[] = []): string[] {
+  const seen = new Set<string>();
+  const highlights = [qualityTag || "", ...secondaryHighlights]
+    .map((highlight) => highlight.trim())
+    .filter(Boolean)
+    .filter((highlight) => {
+      const key = normalize(highlight);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .sort((left, right) => resolveHighlightPriority(right) - resolveHighlightPriority(left));
+
+  return highlights.length ? highlights : [FALLBACK_HIGHLIGHT];
 }
 
 function resolveHighlightIcon(value: string) {
@@ -597,8 +636,9 @@ export function VehicleDetailsPageClient({ slug }: Props) {
       })
     );
   }, [leadVehicleContext, storePhone, storeTitle, vehicle]);
-  const displayQualityTag = vehicle ? (vehicle.qualityTag?.trim() || FALLBACK_HIGHLIGHT) : "";
-  const secondaryHighlights = vehicle ? (vehicle.secondaryHighlights?.length ? vehicle.secondaryHighlights : [FALLBACK_HIGHLIGHT]) : [];
+  const orderedHighlights = vehicle ? resolveOrderedHighlights(vehicle.qualityTag, vehicle.secondaryHighlights) : [];
+  const displayQualityTag = orderedHighlights[0] || "";
+  const secondaryHighlights = orderedHighlights.slice(1);
   const vwfsClientKey = process.env.NEXT_PUBLIC_VWFS_CLIENT_KEY?.trim() || VWFS_DEFAULT_CLIENT_KEY;
   const vwfsClientToken = process.env.NEXT_PUBLIC_VWFS_CLIENT_TOKEN?.trim() || VWFS_DEFAULT_CLIENT_TOKEN;
   const vwfsScriptSrc = process.env.NEXT_PUBLIC_VWFS_SCRIPT_SRC?.trim() || VWFS_DEFAULT_SCRIPT;

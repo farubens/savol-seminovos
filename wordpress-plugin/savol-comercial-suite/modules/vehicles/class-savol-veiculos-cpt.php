@@ -3217,6 +3217,7 @@ JS;
                 'des_veiculo' => (string) ($apolo_reconciliation['apolo']['des_veiculo'] ?? ''),
             ],
             'autosync' => [
+                'highlight_rule_version' => '2026-07-low-km-annual',
                 'id' => (string) ($vehicle['id'] ?? ''),
                 'brandName' => (string) ($vehicle['brandName'] ?? ''),
                 'modelName' => (string) ($vehicle['modelName'] ?? ''),
@@ -3413,7 +3414,7 @@ JS;
         $price = is_numeric($vehicle['value'] ?? null) ? (float) $vehicle['value'] : 0;
         $fipe = is_numeric($vehicle['fipeValue'] ?? null) ? (float) $vehicle['fipeValue'] : 0;
 
-        if ($km > 0 && $km < 30000) {
+        if (self::has_low_annual_mileage($vehicle)) {
             $terms[] = 'Baixa km';
         }
 
@@ -3430,6 +3431,19 @@ JS;
         }
 
         wp_set_object_terms($post_id, array_values(array_unique($terms)), 'veiculo_destaque_secundario', false);
+    }
+
+    private static function has_low_annual_mileage(array $vehicle): bool {
+        $km = is_numeric($vehicle['kilometers'] ?? null) ? (float) $vehicle['kilometers'] : 0;
+        $manufacturing_year = is_numeric($vehicle['manufacturingYear'] ?? null) ? (int) $vehicle['manufacturingYear'] : 0;
+        $current_year = (int) gmdate('Y');
+
+        if ($km <= 0 || $manufacturing_year < 1980 || $manufacturing_year > $current_year) {
+            return false;
+        }
+
+        $vehicle_age_years = max(1, $current_year - $manufacturing_year);
+        return ($km / $vehicle_age_years) <= 10000;
     }
 
     private static function extract_named_items($items): array {
