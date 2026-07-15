@@ -947,11 +947,6 @@ export function VehicleOfferCard({
             </button>
           </div>
           <Image src={safeImage} alt={name} width={630} height={360} />
-        </div>
-
-        <div className="offer-content">
-          <div className="offer-body">
-            <h3>{name}</h3>
             {(armored || negotiating) ? (
               <div className="offer-status-badges">
                 {armored ? (
@@ -966,6 +961,11 @@ export function VehicleOfferCard({
                 ) : null}
               </div>
             ) : null}
+        </div>
+
+        <div className="offer-content">
+          <div className="offer-body">
+            <h3>{name}</h3>
             <p className="offer-subtitle">{subtitle}</p>
 
             <div className="offer-specs">

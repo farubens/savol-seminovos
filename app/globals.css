@@ -1736,6 +1736,15 @@ h2 {
   justify-items: start;
 }
 
+.offer-media .offer-status-badges {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  z-index: 4;
+  max-width: calc(100% - 16px);
+  pointer-events: none;
+}
+
 .offer-armored-badge,
 .vehicle-armored-badge,
 .offer-negotiating-badge,
@@ -1753,7 +1762,7 @@ h2 {
   font-size: 11px;
   font-weight: 800;
   line-height: 1;
-  text-transform: uppercase;
+  text-transform: none;
 }
 
 .offer-armored-badge svg,
@@ -10224,6 +10233,27 @@ button.stores-filter-input svg {
     aspect-ratio: 1 / 1;
     border-radius: 8px;
     align-self: start;
+  }
+
+  .offer-card .offer-media .offer-status-badges {
+    left: 6px;
+    bottom: 6px;
+    max-width: calc(100% - 12px);
+    gap: 3px;
+  }
+
+  .offer-card .offer-media .offer-armored-badge,
+  .offer-card .offer-media .offer-negotiating-badge {
+    min-height: 20px;
+    padding: 0 6px;
+    gap: 3px;
+    font-size: 9px;
+  }
+
+  .offer-card .offer-media .offer-armored-badge svg,
+  .offer-card .offer-media .offer-negotiating-badge svg {
+    width: 11px;
+    height: 11px;
   }
 
   .offer-card .offer-tag {
