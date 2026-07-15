@@ -9740,9 +9740,10 @@ button.stores-filter-input svg {
     gap: 10px;
     overflow-x: auto;
     overflow-y: hidden;
-    margin: 0 -10px;
-    padding: 0 10px 4px;
+    margin: 0;
+    padding: 0 0 6px;
     scroll-snap-type: x mandatory;
+    scroll-padding-left: 0;
     scrollbar-width: none;
   }
 
@@ -9751,7 +9752,9 @@ button.stores-filter-input svg {
   }
 
   .stores-directory-card {
-    flex: 0 0 min(326px, calc(100vw - 44px));
+    flex: 0 0 100%;
+    min-width: 100%;
+    box-sizing: border-box;
     scroll-snap-align: start;
     padding: 10px;
   }
@@ -9771,7 +9774,7 @@ button.stores-filter-input svg {
   }
 
   .stores-card-actions {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
   }
 
   .stores-card-actions button,
@@ -10449,8 +10452,8 @@ button.stores-filter-input svg {
   }
 
   .stores-directory-sidebar {
-    height: 360px;
-    max-height: 360px;
+    height: auto;
+    max-height: none;
   }
 
   .stores-directory-map-wrap,
