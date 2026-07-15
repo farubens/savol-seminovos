@@ -10279,8 +10279,8 @@ button.stores-filter-input svg {
 
   .offer-card {
     display: grid;
-    grid-template-columns: 116px minmax(0, 1fr);
-    gap: 10px;
+    grid-template-columns: minmax(140px, 40%) minmax(0, 1fr);
+    gap: 12px;
     padding: 8px;
     border-radius: 10px;
     box-shadow: 0 8px 18px rgba(8, 30, 95, 0.08);
@@ -10292,9 +10292,13 @@ button.stores-filter-input svg {
 
   .offer-card .offer-media {
     grid-column: 1;
-    aspect-ratio: 1 / 1;
+    aspect-ratio: 4 / 3.45;
     border-radius: 8px;
     align-self: start;
+  }
+
+  .offer-card .offer-media img {
+    object-position: center;
   }
 
   .offer-card .offer-media .offer-status-badges {
@@ -10351,7 +10355,7 @@ button.stores-filter-input svg {
     min-height: 0;
     margin: 0;
     font-size: 13px;
-    line-height: 1.18;
+    line-height: 1.16;
     -webkit-line-clamp: 2;
   }
 
@@ -10479,7 +10483,7 @@ button.stores-filter-input svg {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 8px;
-    margin-top: 2px;
+    margin-top: 4px;
   }
 
   .offer-card .offer-primary,
