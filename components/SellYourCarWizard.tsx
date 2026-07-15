@@ -25,6 +25,7 @@ import {
 import { type ChangeEvent, type DragEvent, useEffect, useRef, useState } from "react";
 import { logLeadPayload } from "@/lib/leadDebug";
 import { getLeadTrackingPayload } from "@/lib/leadTracking";
+import { parseCurrencyToInteger } from "@/utils/pricing";
 
 type Step = 1 | 2 | 3 | 4 | 5;
 
@@ -111,6 +112,7 @@ const PHOTO_SLOTS: Array<{ id: PhotoSlotId; label: string; required: boolean }> 
 const MAX_IMAGE_DIMENSION = 1600;
 const IMAGE_QUALITY = 0.72;
 const TARGET_IMAGE_MAX_BYTES = 900 * 1024;
+const MAX_DESIRED_PRICE = 999999999;
 
 
 function createInitialFormState(): SellFormData {
@@ -165,21 +167,38 @@ function getPhotosList(photos: SellFormData["photos"]): UploadedPhoto[] {
 }
 
 function toNumberValue(value: string): number | null {
-  const digits = value.replace(/[^\d]/g, "");
-  if (!digits) return null;
-  const parsed = Number(digits);
-  return Number.isFinite(parsed) ? parsed : null;
+  return parseCurrencyToInteger(value);
 }
 
 function formatCurrencyInput(value: string): string {
   const numericValue = toNumberValue(value);
   if (!numericValue) return "";
+  if (numericValue > MAX_DESIRED_PRICE) return formatCurrencyInput(String(MAX_DESIRED_PRICE));
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
     currency: "BRL",
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   }).format(numericValue);
+}
+
+function getCurrencyInputEvent(event: ChangeEvent<HTMLInputElement>): InputEvent | null {
+  return typeof InputEvent !== "undefined" && event.nativeEvent instanceof InputEvent ? event.nativeEvent : null;
+}
+
+function resolveCurrencyInputValue(currentValue: string, event: ChangeEvent<HTMLInputElement>): string {
+  const inputEvent = getCurrencyInputEvent(event);
+  const currentDigits = String(toNumberValue(currentValue) ?? "");
+
+  if (inputEvent?.inputType.startsWith("deleteContent")) {
+    return formatCurrencyInput(currentDigits.slice(0, -1));
+  }
+
+  if (inputEvent?.inputType === "insertText" && /^\d$/.test(inputEvent.data ?? "")) {
+    return formatCurrencyInput(`${currentDigits}${inputEvent.data}`);
+  }
+
+  return formatCurrencyInput(event.target.value);
 }
 
 function blobToFile(blob: Blob, originalFile: File): File {
@@ -609,7 +628,7 @@ export function SellYourCarWizard() {
                       <label className="sell-field"><span>Ano fabricacao *</span><input type="text" placeholder="Ex.: 2021" value={form.manufactureYear} onChange={(event) => handleChange("manufactureYear", event.target.value)} /><FieldError error={errors.manufactureYear} /></label>
                       <label className="sell-field"><span>Quilometragem *</span><input type="text" placeholder="Ex.: 45000" value={form.km} onChange={(event) => handleChange("km", event.target.value)} /><FieldError error={errors.km} /></label>
                       <label className="sell-field"><span>Cor *</span><input type="text" placeholder="Ex.: Prata" value={form.color} onChange={(event) => handleChange("color", event.target.value)} /><FieldError error={errors.color} /></label>
-                      <label className="sell-field"><span>Valor pretendido *</span><input type="text" inputMode="numeric" placeholder="Ex.: R$ 95.000,00" value={form.desiredPrice} onChange={(event) => handleChange("desiredPrice", formatCurrencyInput(event.target.value))} /><FieldError error={errors.desiredPrice} /></label>
+                      <label className="sell-field"><span>Valor pretendido *</span><input type="text" inputMode="numeric" placeholder="Ex.: R$ 95.000,00" value={form.desiredPrice} onChange={(event) => handleChange("desiredPrice", resolveCurrencyInputValue(form.desiredPrice, event))} /><FieldError error={errors.desiredPrice} /></label>
                       <label className="sell-field"><span>Placa</span><input type="text" value={formatPlateDisplay(form.plate)} readOnly /></label>
                     </div>
                   )}
