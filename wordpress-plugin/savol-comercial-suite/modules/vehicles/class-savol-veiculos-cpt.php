@@ -3329,6 +3329,7 @@ JS;
 
         if ($post_id > 0) {
             $previous_signature = (string) get_post_meta($post_id, 'savol_sync_signature', true);
+            $current_price = self::parse_money_value(get_post_meta($post_id, 'preco', true));
             $current_post = get_post($post_id);
             $current_status = $current_post ? (string) $current_post->post_status : '';
             $current_title = $current_post ? self::strip_apolo_draft_reason_from_title((string) $current_post->post_title) : '';
@@ -3337,6 +3338,7 @@ JS;
                 && hash_equals($previous_signature, $sync_signature)
                 && $current_status === (string) $apolo_reconciliation['status']
                 && $current_title === $title
+                && abs($current_price - $published_price) < 0.01
             ) {
                 return;
             }
