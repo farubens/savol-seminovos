@@ -121,6 +121,47 @@ function cleanText(value: string | undefined): string {
   return decodeHtml(value).replace(/\s+/g, " ").trim();
 }
 
+function isMissingVehicleInfo(value: string): boolean {
+  const upper = value.toUpperCase();
+  if (!upper.trim() || upper.includes("INFORMADO") || upper.includes("SOB CONSULTA")) return true;
+
+  const normalized = normalizeForMatch(value);
+  return !normalized || normalized.includes("nao informado") || normalized.includes("sob consulta");
+}
+
+function compactFuelLabel(value: string): string {
+  const cleaned = cleanText(value).toUpperCase();
+  if (isMissingVehicleInfo(cleaned)) return "";
+
+  const normalized = normalizeForMatch(cleaned);
+  const hasAlcohol = normalized.includes("alcool") || normalized.includes("etanol");
+  const hasGasoline = normalized.includes("gasolina");
+  const hasGnv = normalized.includes("gas natural") || /\bgnv\b/.test(normalized);
+
+  if (hasAlcohol && hasGasoline && hasGnv) return "FLEX/GNV";
+  if (hasAlcohol && hasGasoline) return "FLEX";
+  if (normalized.includes("diesel")) return "DIESEL";
+  if (normalized.includes("hibrid") || cleaned.includes("BRIDO")) return "HIBRIDO";
+  if (normalized.includes("eletric") || cleaned.includes("TRICO")) return "ELETRICO";
+  if (hasGasoline) return "GASOLINA";
+  if (hasGnv) return "GNV";
+  if (hasAlcohol) return "ETANOL";
+  return cleaned;
+}
+
+function compactTransmissionLabel(value: string): string {
+  const cleaned = cleanText(value).toUpperCase();
+  if (isMissingVehicleInfo(cleaned)) return "";
+
+  const normalized = normalizeForMatch(cleaned);
+  if (normalized.includes("cvt")) return "CVT";
+  if (/\bdct\b/.test(normalized)) return "DCT";
+  if (cleaned.includes("AUTOM") || normalized.includes("automatizado")) return "AUT.";
+  if (normalized.includes("automatic") || /\bat\d?\b/.test(normalized)) return "AUT.";
+  if (cleaned.includes("MANUAL") || normalized.includes("manual") || /\bmt\d?\b/.test(normalized)) return "MAN.";
+  return cleaned;
+}
+
 function stripHtml(value: string | undefined): string {
   if (!value) return "";
   return cleanText(value.replace(/<[^>]*>/g, " "));
@@ -315,13 +356,14 @@ function extractYear(title: string, content: string, metaAno: string, metaAnoMod
 }
 
 function extractFuel(version: string, content: string, metaFuel: string): string {
-  if (metaFuel) return cleanText(metaFuel);
+  if (metaFuel) return compactFuelLabel(metaFuel);
 
   const source = normalizeForMatch(`${version} ${content}`);
-  if (source.includes("flex")) return "Flex";
-  if (source.includes("diesel")) return "Diesel";
-  if (source.includes("gasolina")) return "Gasolina";
-  if (source.includes("etanol")) return "Etanol";
+  if (source.includes("flex")) return "FLEX";
+  if (source.includes("diesel")) return "DIESEL";
+  if (source.includes("gasolina") && (source.includes("etanol") || source.includes("alcool"))) return "FLEX";
+  if (source.includes("gasolina")) return "GASOLINA";
+  if (source.includes("etanol") || source.includes("alcool")) return "ETANOL";
   if (source.includes("hibrid")) return "Híbrido";
   if (source.includes("eletric")) return "Elétrico";
   return "Combustível não informado";
@@ -448,6 +490,10 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
   const image = encodeURI(getEmbeddedImage(vehicle) ?? FALLBACK_IMAGE);
   const galleryFromMeta = parseGalleryUrls(metaGalleryUrls);
   const gallery = Array.from(new Set([image, ...galleryFromMeta].filter(Boolean)));
+  const year = extractYear(title, content, metaAno, metaAnoModelo);
+  const transmission = compactTransmissionLabel(extractTransmission(version, content, metaCambio));
+  const fuel = compactFuelLabel(extractFuel(version, content, metaFuel));
+  const km = formatKm(content, metaKm);
 
   return {
     id: vehicle.id,
@@ -458,10 +504,10 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
     subtitle: buildSubtitle(version, model, excerpt),
     image,
     gallery: gallery.length ? gallery : [FALLBACK_IMAGE],
-    year: extractYear(title, content, metaAno, metaAnoModelo),
-    transmission: extractTransmission(version, content, metaCambio),
-    fuel: extractFuel(version, content, metaFuel),
-    km: formatKm(content, metaKm),
+    year: isMissingVehicleInfo(year) ? "" : year,
+    transmission,
+    fuel,
+    km: isMissingVehicleInfo(km) ? "" : km,
     store: storeLabel,
     storeId,
     oldPrice: priceData.oldPrice,

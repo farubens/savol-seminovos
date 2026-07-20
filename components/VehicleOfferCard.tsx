@@ -123,6 +123,11 @@ function sortHighlightsByPriority(highlights: string[]): string[] {
   return [...highlights].sort((left, right) => resolveHighlightPriority(right) - resolveHighlightPriority(left));
 }
 
+function isVisibleSpecValue(value: string): boolean {
+  const normalized = normalizeTag(value);
+  return Boolean(normalized) && !normalized.includes("nao informado") && !normalized.includes("sob consulta");
+}
+
 function resolveHighlightTone(value: string): "repasse" | "garantia" | "unico-dono" | "baixa-km" | "fipe" | "impecavel" | "completo" | "default" {
   const normalized = normalizeTag(value);
   if (normalized.includes("repasse")) return "repasse";
@@ -405,6 +410,16 @@ export function VehicleOfferCard({
   );
   const resolvedOldPrice = resolveOldPrice(oldPrice, price);
   const displayStore = store.toLocaleUpperCase("pt-BR");
+  const specItems = useMemo(
+    () =>
+      [
+        { key: "year", icon: CalendarDays, label: year },
+        { key: "transmission", icon: GitBranch, label: transmission },
+        { key: "fuel", icon: Fuel, label: fuel },
+        { key: "km", icon: Gauge, label: km }
+      ].filter((item) => isVisibleSpecValue(item.label)),
+    [fuel, km, transmission, year]
+  );
   const priceValue = parseMoney(price) ?? 0;
   const minEntryValue = useMemo(() => Math.round(priceValue * 0.4), [priceValue]);
   const monthlyInterestRate = 0.0165;
@@ -996,18 +1011,11 @@ export function VehicleOfferCard({
             <p className="offer-subtitle">{subtitle}</p>
 
             <div className="offer-specs">
-              <span className="offer-spec-item">
-                <CalendarDays size={16} /> {year}
-              </span>
-              <span className="offer-spec-item">
-                <GitBranch size={16} /> {transmission}
-              </span>
-              <span className="offer-spec-item">
-                <Fuel size={16} /> {fuel}
-              </span>
-              <span className="offer-spec-item">
-                <Gauge size={16} /> {km}
-              </span>
+              {specItems.map(({ key, icon: SpecIcon, label }) => (
+                <span key={key} className="offer-spec-item">
+                  <SpecIcon size={16} /> {label}
+                </span>
+              ))}
             </div>
 
             <div className="offer-mobile-commerce">
@@ -1158,18 +1166,11 @@ export function VehicleOfferCard({
                   </div>
 
                   <div className="finance-modal-specs">
-                    <span className="offer-spec-item">
-                      <CalendarDays size={16} /> {year}
-                    </span>
-                    <span className="offer-spec-item">
-                      <GitBranch size={16} /> {transmission}
-                    </span>
-                    <span className="offer-spec-item">
-                      <Fuel size={16} /> {fuel}
-                    </span>
-                    <span className="offer-spec-item">
-                      <Gauge size={16} /> {km}
-                    </span>
+                    {specItems.map(({ key, icon: SpecIcon, label }) => (
+                      <span key={key} className="offer-spec-item">
+                        <SpecIcon size={16} /> {label}
+                      </span>
+                    ))}
                   </div>
 
                   <p className="finance-modal-description">

@@ -321,6 +321,10 @@ function isUnknownValue(value: string): boolean {
   return !normalized || normalized.includes("nao informado") || normalized.includes("sob consulta");
 }
 
+function isVisibleVehicleSpecValue(value?: string | null): value is string {
+  return Boolean(value && !isUnknownValue(value));
+}
+
 function isPreparationImage(src: string): boolean {
   return src.toLowerCase().includes(PREPARATION_IMAGE_TOKEN);
 }
@@ -639,6 +643,33 @@ export function VehicleDetailsPageClient({ slug }: Props) {
   const orderedHighlights = vehicle ? resolveOrderedHighlights(vehicle.qualityTag, vehicle.secondaryHighlights) : [];
   const displayQualityTag = orderedHighlights[0] || "";
   const secondaryHighlights = orderedHighlights.slice(1);
+  const specItems = useMemo(
+    () =>
+      vehicle
+        ? [
+            { key: "year", icon: CalendarDays, label: vehicle.year },
+            { key: "transmission", icon: GitBranch, label: vehicle.transmission },
+            { key: "fuel", icon: Fuel, label: vehicle.fuel },
+            { key: "km", icon: Gauge, label: vehicle.km }
+          ].filter((item) => isVisibleVehicleSpecValue(item.label))
+        : [],
+    [vehicle]
+  );
+  const aboutSpecItems = useMemo(
+    () =>
+      vehicle && plateEndingDigit
+        ? [...specItems, { key: "plate-ending", icon: Tag, label: `Final de placa: ${plateEndingDigit}` }]
+        : specItems,
+    [plateEndingDigit, specItems, vehicle]
+  );
+  const vehicleDescription = useMemo(() => {
+    if (!vehicle) return "";
+
+    const base = `${vehicle.name}${isVisibleVehicleSpecValue(vehicle.subtitle) ? ` ${vehicle.subtitle}` : ""}.`;
+    const usageSpecs = [vehicle.transmission, vehicle.fuel].filter(isVisibleVehicleSpecValue).map((item) => item.toLowerCase());
+    if (!usageSpecs.length) return `${base} Veículo pronto para uso diário com conforto, segurança e tecnologia.`;
+    return `${base} Veículo com ${usageSpecs.join(" e ")}, pronto para uso diário com conforto, segurança e tecnologia.`;
+  }, [vehicle]);
   const vwfsClientKey = process.env.NEXT_PUBLIC_VWFS_CLIENT_KEY?.trim() || VWFS_DEFAULT_CLIENT_KEY;
   const vwfsClientToken = process.env.NEXT_PUBLIC_VWFS_CLIENT_TOKEN?.trim() || VWFS_DEFAULT_CLIENT_TOKEN;
   const vwfsScriptSrc = process.env.NEXT_PUBLIC_VWFS_SCRIPT_SRC?.trim() || VWFS_DEFAULT_SCRIPT;
@@ -672,7 +703,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
             ["Cor", vehicle.color],
             ["Cidade", `${vehicle.city} - ${vehicle.uf}`],
             ["Loja", storeTitle]
-          ]
+          ].filter(([, value]) => isVisibleVehicleSpecValue(value))
         : [],
     [vehicle, storeTitle]
   );
@@ -1261,28 +1292,13 @@ export function VehicleDetailsPageClient({ slug }: Props) {
               <div className="vehicle-extra-panel">
                 <h3>Sobre este veículo</h3>
                 <div className="vehicle-tab-specs vehicle-tab-specs--five">
-                  <span>
-                    <CalendarDays size={16} /> {vehicle.year}
-                  </span>
-                  <span>
-                    <GitBranch size={16} /> {vehicle.transmission}
-                  </span>
-                  <span>
-                    <Fuel size={16} /> {vehicle.fuel}
-                  </span>
-                  <span>
-                    <Gauge size={16} /> {vehicle.km}
-                  </span>
-                  {plateEndingDigit ? (
-                    <span>
-                      <Tag size={16} /> Final de placa: {plateEndingDigit}
+                  {aboutSpecItems.map(({ key, icon: SpecIcon, label }) => (
+                    <span key={key}>
+                      <SpecIcon size={16} /> {label}
                     </span>
-                  ) : null}
+                  ))}
                 </div>
-                <p>
-                  {vehicle.name} {vehicle.subtitle}. Veículo com {vehicle.transmission.toLowerCase()} e {vehicle.fuel.toLowerCase()}, pronto para uso diário com conforto,
-                  segurança e tecnologia.
-                </p>
+                <p>{vehicleDescription}</p>
                 <p className="vehicle-location-text">
                   Unidade: {storeTitle}. {isUnknownValue(storeAddress) ? "Endereço sob consulta." : storeAddress}
                 </p>
@@ -1317,18 +1333,11 @@ export function VehicleDetailsPageClient({ slug }: Props) {
               <div className="vehicle-extra-panel">
                 <h3>Ficha técnica resumida</h3>
                 <div className="vehicle-tab-specs">
-                  <span>
-                    <CalendarDays size={16} /> {vehicle.year}
-                  </span>
-                  <span>
-                    <GitBranch size={16} /> {vehicle.transmission}
-                  </span>
-                  <span>
-                    <Fuel size={16} /> {vehicle.fuel}
-                  </span>
-                  <span>
-                    <Gauge size={16} /> {vehicle.km}
-                  </span>
+                  {specItems.map(({ key, icon: SpecIcon, label }) => (
+                    <span key={key}>
+                      <SpecIcon size={16} /> {label}
+                    </span>
+                  ))}
                 </div>
                 <div className="vehicle-tech-list">
                   {technicalRows.map(([label, value]) => (
