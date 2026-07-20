@@ -69,6 +69,7 @@ final class Savol_Veiculos_CPT {
     private const APOLO_DRAFT_REASONS = [
         'Não cadastrado no APOLO',
         'Sem dados no AutoSync',
+        'Sem preco de venda no APOLO',
         'Empresa não autorizada no APOLO',
         'Situação não permitida no APOLO',
         'Preço de compra acima do preço de venda',
@@ -3044,8 +3045,10 @@ JS;
             $reason = 'Situação não permitida no APOLO';
         } else {
             $purchase_price = self::parse_money_value($apolo_item['val_compra'] ?? null);
-            $sale_price = self::resolve_vehicle_sale_price($vehicle, $apolo_item);
-            if ($purchase_price > 0 && $sale_price > 0 && $purchase_price > $sale_price) {
+            $apolo_sale_price = self::parse_money_value($apolo_item['valor_venda'] ?? null);
+            if ($apolo_sale_price <= 0) {
+                $reason = 'Sem preco de venda no APOLO';
+            } elseif ($purchase_price > 0 && $purchase_price > $apolo_sale_price) {
                 $reason = 'Preço de compra acima do preço de venda';
             }
         }
