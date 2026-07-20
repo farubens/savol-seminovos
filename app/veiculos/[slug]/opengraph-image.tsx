@@ -13,6 +13,7 @@ export const revalidate = 0;
 
 const SITE_BASE_URL = (process.env.NEXT_PUBLIC_SITE_URL?.trim() || "https://www.savolseminovos.com.br").replace(/\/+$/, "");
 const FALLBACK_IMAGE = "/images/em-preparacao.jpg";
+const LOGO_IMAGE = "/images/logo-branco.png";
 
 type ImageProps = {
   params: Promise<{ slug: string }> | { slug: string };
@@ -68,6 +69,31 @@ function mainBadge(vehicle: ApiVehicle): string {
   return "TOP OFERTA";
 }
 
+function wrapText(value: string, maxChars: number, maxLines: number): string[] {
+  const words = String(value || "").trim().split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let current = "";
+
+  for (const word of words) {
+    const next = current ? `${current} ${word}` : word;
+    if (next.length <= maxChars || !current) {
+      current = next;
+      continue;
+    }
+
+    lines.push(current);
+    current = word;
+    if (lines.length === maxLines) break;
+  }
+
+  if (current && lines.length < maxLines) lines.push(current);
+  if (lines.length === maxLines && words.join(" ").length > lines.join(" ").length) {
+    lines[maxLines - 1] = `${lines[maxLines - 1].replace(/\.*$/, "")}...`;
+  }
+
+  return lines;
+}
+
 export default async function VehicleOpenGraphImage({ params }: ImageProps) {
   const { slug } = await params;
   const vehicle = await getVehicleBySlug(slug);
@@ -97,8 +123,11 @@ export default async function VehicleOpenGraphImage({ params }: ImageProps) {
 
   const { headline, details } = splitVehicleName(vehicle);
   const imageUrl = absoluteUrl(vehicle.image);
+  const logoUrl = absoluteUrl(LOGO_IMAGE);
   const badge = mainBadge(vehicle);
   const modelYear = yearLabel(vehicle.year);
+  const headlineLines = wrapText(headline, headline.length > 30 ? 18 : 16, 3);
+  const detailLines = wrapText(details, 34, 2);
   const specs = [
     vehicle.km,
     vehicle.transmission,
@@ -132,14 +161,77 @@ export default async function VehicleOpenGraphImage({ params }: ImageProps) {
         <div
           style={{
             position: "absolute",
-            right: -30,
-            bottom: 70,
-            width: 760,
-            height: 430,
+            left: 0,
+            top: 0,
+            width: 420,
+            height: 112,
             display: "flex",
-            borderRadius: 34,
+            alignItems: "center",
+            paddingLeft: 34,
+            paddingRight: 44,
+            background: "#111317",
+            color: "#ffffff",
+            borderBottomRightRadius: 36
+          }}
+        >
+          <img src={logoUrl} alt="" style={{ width: 290, height: "auto", objectFit: "contain" }} />
+        </div>
+        <div
+          style={{
+            position: "absolute",
+            right: 40,
+            top: 0,
+            width: 310,
+            height: 94,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "linear-gradient(135deg, #f9d878, #b98622)",
+            color: "#171717",
+            borderBottomLeftRadius: 22,
+            borderBottomRightRadius: 22,
+            fontSize: 36,
+            fontWeight: 900
+          }}
+        >
+          TOP OFERTA
+        </div>
+        <div
+          style={{
+            position: "absolute",
+            left: 42,
+            top: 154,
+            width: 448,
+            display: "flex",
+            flexDirection: "column"
+          }}
+        >
+          <div style={{ display: "flex", flexDirection: "column", fontSize: headline.length > 28 ? 60 : 70, fontWeight: 900, letterSpacing: 0, lineHeight: 0.94 }}>
+            {headlineLines.map((line) => (
+              <span key={line}>{line}</span>
+            ))}
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", marginTop: 18, fontSize: 27, color: "#222936", lineHeight: 1.08 }}>
+            {detailLines.map((line) => (
+              <span key={line}>{line}</span>
+            ))}
+          </div>
+          {modelYear ? (
+            <div style={{ display: "flex", marginTop: 24, fontSize: 46, color: "#c5102f", fontWeight: 900, letterSpacing: 4 }}>{modelYear}</div>
+          ) : null}
+          <div style={{ display: "flex", marginTop: 18, fontSize: 44, color: "#002b66", fontWeight: 900 }}>{vehicle.price}</div>
+        </div>
+        <div
+          style={{
+            position: "absolute",
+            right: 32,
+            bottom: 82,
+            width: 650,
+            height: 442,
+            display: "flex",
+            borderRadius: 30,
             overflow: "hidden",
-            border: "8px solid rgba(255,255,255,0.82)"
+            border: "8px solid rgba(255,255,255,0.86)"
           }}
         >
           <img
@@ -155,89 +247,8 @@ export default async function VehicleOpenGraphImage({ params }: ImageProps) {
         <div
           style={{
             position: "absolute",
-            left: -34,
-            top: 0,
-            width: 470,
-            height: 104,
-            display: "flex",
-            alignItems: "center",
-            paddingLeft: 72,
-            background: "#111317",
-            color: "#ffffff",
-            borderBottomRightRadius: 36
-          }}
-        >
-          <div style={{ display: "flex", flexDirection: "column", lineHeight: 0.85 }}>
-            <span style={{ fontSize: 56, fontWeight: 900, letterSpacing: 1 }}>SAVOL</span>
-            <span style={{ fontSize: 28, fontWeight: 700, letterSpacing: 5 }}>SEMINOVOS</span>
-          </div>
-        </div>
-        <div
-          style={{
-            position: "absolute",
-            right: 40,
-            top: 0,
-            width: 342,
-            height: 94,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: "linear-gradient(135deg, #f9d878, #b98622)",
-            color: "#171717",
-            borderBottomLeftRadius: 22,
-            borderBottomRightRadius: 22,
-            fontSize: 40,
-            fontWeight: 900
-          }}
-        >
-          TOP OFERTA
-        </div>
-        <div
-          style={{
-            position: "absolute",
-            left: 42,
-            top: 150,
-            width: 600,
-            display: "flex",
-            flexDirection: "column"
-          }}
-        >
-          <div style={{ display: "flex", fontSize: headline.length > 22 ? 62 : 76, fontWeight: 900, letterSpacing: -1, lineHeight: 0.95 }}>
-            {headline}
-          </div>
-          <div style={{ display: "flex", marginTop: 14, fontSize: 30, color: "#222936", lineHeight: 1.12 }}>{details}</div>
-          {modelYear ? (
-            <div style={{ display: "flex", marginTop: 24, fontSize: 46, color: "#c5102f", fontWeight: 900, letterSpacing: 4 }}>{modelYear}</div>
-          ) : null}
-          <div style={{ display: "flex", marginTop: 18, fontSize: 44, color: "#002b66", fontWeight: 900 }}>{vehicle.price}</div>
-        </div>
-        <div
-          style={{
-            position: "absolute",
-            right: 44,
-            top: 132,
-            width: 148,
-            height: 148,
-            borderRadius: 999,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            textAlign: "center",
-            background: "linear-gradient(135deg, #181a20, #323642)",
-            border: "10px solid #c99c3a",
-            color: "#ffffff",
-            fontSize: 25,
-            fontWeight: 900,
-            lineHeight: 1.05
-          }}
-        >
-          GARANTIA SAVOL 90 DIAS
-        </div>
-        <div
-          style={{
-            position: "absolute",
             right: 36,
-            bottom: 116,
+            bottom: 120,
             width: 300,
             height: 82,
             display: "flex",
