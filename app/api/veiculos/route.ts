@@ -10,6 +10,7 @@ const DEFAULT_PER_PAGE = 12;
 const MAX_PER_PAGE = 200;
 const WP_PAGE_SIZE = 100;
 const FALLBACK_IMAGE = "/images/em-preparacao.jpg";
+const MISSING_SPEC_LABEL = "N/A";
 const API_CACHE_TTL_MS = 2 * 60 * 1000;
 const WP_DEFAULT_USER = "fa.rubens@gmail.com";
 const WP_DEFAULT_APP_PASSWORD = "W9y4 bUld QOIG PV4u oIHo csrb";
@@ -123,10 +124,27 @@ function cleanText(value: string | undefined): string {
 
 function isMissingVehicleInfo(value: string): boolean {
   const upper = value.toUpperCase();
+  if (upper.trim() === MISSING_SPEC_LABEL) return false;
   if (!upper.trim() || upper.includes("INFORMADO") || upper.includes("SOB CONSULTA")) return true;
 
   const normalized = normalizeForMatch(value);
   return !normalized || normalized.includes("nao informado") || normalized.includes("sob consulta");
+}
+
+function toVisibleSpecLabel(value: string): string {
+  return isMissingVehicleInfo(value) ? MISSING_SPEC_LABEL : value;
+}
+
+function hasRealVehicleImageUrl(value: string): boolean {
+  const normalized = value.toLowerCase();
+  return Boolean(normalized) && !normalized.includes("/images/em-preparacao");
+}
+
+function compareVehiclePhotoPriority(left: ApiVehicle, right: ApiVehicle): number {
+  const leftHasPhoto = hasRealVehicleImageUrl(left.image);
+  const rightHasPhoto = hasRealVehicleImageUrl(right.image);
+  if (leftHasPhoto === rightHasPhoto) return 0;
+  return leftHasPhoto ? -1 : 1;
 }
 
 function compactFuelLabel(value: string): string {
@@ -504,10 +522,10 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
     subtitle: buildSubtitle(version, model, excerpt),
     image,
     gallery: gallery.length ? gallery : [FALLBACK_IMAGE],
-    year: isMissingVehicleInfo(year) ? "" : year,
-    transmission,
-    fuel,
-    km: isMissingVehicleInfo(km) ? "" : km,
+    year: toVisibleSpecLabel(year),
+    transmission: toVisibleSpecLabel(transmission),
+    fuel: toVisibleSpecLabel(fuel),
+    km: toVisibleSpecLabel(km),
     store: storeLabel,
     storeId,
     oldPrice: priceData.oldPrice,
@@ -558,7 +576,7 @@ export async function GET(request: NextRequest) {
         const rows = await fetchVehiclePosts(MAX_PER_PAGE, authHeaders);
         if (!rows.length) return [];
 
-        const items = rows.map(mapVehicle);
+        const items = rows.map(mapVehicle).sort(compareVehiclePhotoPriority);
         vehiclesCache = {
           items,
           expiresAt: Date.now() + API_CACHE_TTL_MS

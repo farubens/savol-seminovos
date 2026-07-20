@@ -22,11 +22,11 @@ type CatalogCategoryOption =
   | { kind: "energy"; slug: "eletrico" | "hibrido"; label: string; count: number };
 
 const DEFAULT_TRANSMISSION_OPTIONS: OptionEntry[] = [
-  ["automatico", "Automático"],
-  ["manual", "Manual"],
+  ["aut", "AUT."],
+  ["man", "MAN."],
   ["cvt", "CVT"],
   ["dct", "DCT"],
-  ["automatizado", "Automatizado"]
+  ["automatizado", "AUT."]
 ];
 
 function normalize(value: string): string {
@@ -107,6 +107,17 @@ function formatPriceValue(value: number): string {
 
 function formatKmValue(value: number): string {
   return `${new Intl.NumberFormat("pt-BR").format(value)} km`;
+}
+
+function hasRealVehiclePhoto(vehicle: ApiVehicle): boolean {
+  return Boolean(vehicle.image) && !vehicle.image.toLowerCase().includes("/images/em-preparacao");
+}
+
+function comparePhotoPriority(left: ApiVehicle, right: ApiVehicle): number {
+  const leftHasPhoto = hasRealVehiclePhoto(left);
+  const rightHasPhoto = hasRealVehiclePhoto(right);
+  if (leftHasPhoto === rightHasPhoto) return 0;
+  return leftHasPhoto ? -1 : 1;
 }
 
 function buildOptionEntries(values: string[]): OptionEntry[] {
@@ -630,13 +641,23 @@ export function VehicleCatalog() {
     const base = [...filteredVehicles];
 
     if (sort === "price_asc") {
-      base.sort((a, b) => (parsePriceValue(a.price) ?? Number.POSITIVE_INFINITY) - (parsePriceValue(b.price) ?? Number.POSITIVE_INFINITY));
+      base.sort(
+        (a, b) =>
+          comparePhotoPriority(a, b) ||
+          (parsePriceValue(a.price) ?? Number.POSITIVE_INFINITY) - (parsePriceValue(b.price) ?? Number.POSITIVE_INFINITY)
+      );
     } else if (sort === "price_desc") {
-      base.sort((a, b) => (parsePriceValue(b.price) ?? 0) - (parsePriceValue(a.price) ?? 0));
+      base.sort((a, b) => comparePhotoPriority(a, b) || (parsePriceValue(b.price) ?? 0) - (parsePriceValue(a.price) ?? 0));
     } else if (sort === "km_asc") {
-      base.sort((a, b) => (parseKmValue(a.km) ?? Number.POSITIVE_INFINITY) - (parseKmValue(b.km) ?? Number.POSITIVE_INFINITY));
+      base.sort(
+        (a, b) =>
+          comparePhotoPriority(a, b) ||
+          (parseKmValue(a.km) ?? Number.POSITIVE_INFINITY) - (parseKmValue(b.km) ?? Number.POSITIVE_INFINITY)
+      );
     } else if (sort === "year_desc") {
-      base.sort((a, b) => (parseYearValue(b.year) ?? 0) - (parseYearValue(a.year) ?? 0));
+      base.sort((a, b) => comparePhotoPriority(a, b) || (parseYearValue(b.year) ?? 0) - (parseYearValue(a.year) ?? 0));
+    } else {
+      base.sort(comparePhotoPriority);
     }
 
     return base;

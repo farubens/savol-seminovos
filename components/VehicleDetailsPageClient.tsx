@@ -325,6 +325,10 @@ function isVisibleVehicleSpecValue(value?: string | null): value is string {
   return Boolean(value && !isUnknownValue(value));
 }
 
+function isConcreteVehicleSpecValue(value?: string | null): value is string {
+  return isVisibleVehicleSpecValue(value) && normalize(value) !== "n/a";
+}
+
 function isPreparationImage(src: string): boolean {
   return src.toLowerCase().includes(PREPARATION_IMAGE_TOKEN);
 }
@@ -666,7 +670,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
     if (!vehicle) return "";
 
     const base = `${vehicle.name}${isVisibleVehicleSpecValue(vehicle.subtitle) ? ` ${vehicle.subtitle}` : ""}.`;
-    const usageSpecs = [vehicle.transmission, vehicle.fuel].filter(isVisibleVehicleSpecValue).map((item) => item.toLowerCase());
+    const usageSpecs = [vehicle.transmission, vehicle.fuel].filter(isConcreteVehicleSpecValue).map((item) => item.toLowerCase());
     if (!usageSpecs.length) return `${base} Veículo pronto para uso diário com conforto, segurança e tecnologia.`;
     return `${base} Veículo com ${usageSpecs.join(" e ")}, pronto para uso diário com conforto, segurança e tecnologia.`;
   }, [vehicle]);
