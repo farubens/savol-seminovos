@@ -192,6 +192,89 @@ function normalizeForMatch(value: string): string {
     .replace(/[\u0300-\u036f]/g, "");
 }
 
+const KNOWN_BRAND_MODEL_PATTERNS: Array<[brand: string, patterns: string[]]> = [
+  ["CHEVROLET", ["onix", "tracker", "cruze", "cobalt", "prisma", "spin", "s10", "montana"]],
+  ["FIAT", ["fastback", "argo", "mobi", "toro", "strada", "cronos", "pulse", "uno", "palio", "siena"]],
+  ["VOLKSWAGEN", ["polo", "t-cross", "t cross", "nivus", "fox", "gol", "taos", "tera", "saveiro", "tiguan", "virtus", "jetta"]],
+  ["KIA", ["kia", "sportage", "sorento", "cerato", "picanto", "seltos", "soul", "carnival"]],
+  ["JEEP", ["compass", "renegade", "commander"]],
+  ["HYUNDAI", ["hb20", "creta", "tucson", "ix35", "santa fe"]],
+  ["TOYOTA", ["corolla", "yaris", "hilux", "sw4", "etios", "rav4"]],
+  ["PEUGEOT", ["208", "2008", "3008", "partner"]],
+  ["CITROEN", ["c3", "c4", "aircross", "jumpy"]],
+  ["FORD", ["ecosport", "ka", "ranger", "fiesta", "focus"]],
+  ["HONDA", ["city", "civic", "fit", "hr-v", "hrv", "wr-v", "wrv"]],
+  ["RENAULT", ["kwid", "logan", "sandero", "captur", "duster"]],
+  ["NISSAN", ["versa", "kicks", "sentra", "frontier"]],
+  ["CHERY", ["tiggo", "arrizo"]],
+  ["BYD", ["song", "dolphin", "yuan", "seal"]],
+  ["GWM", ["haval", "ora", "tank"]],
+  ["MG", ["mg", "zs", "hs"]]
+];
+
+function normalizeMatchWords(value: string): string {
+  return ` ${normalizeForMatch(value).replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim()} `;
+}
+
+function isMultibrandLabel(value: string): boolean {
+  const normalized = normalizeForMatch(value).replace(/[^a-z0-9]+/g, "");
+  return normalized === "multimarca" || normalized === "multmarca";
+}
+
+function removeMultibrandLabel(value: string): string {
+  return cleanText(value.replace(/\bMULTI?MARCA\b/gi, " ").replace(/\bMULTMARCA\b/gi, " "));
+}
+
+function inferVehicleBrandFromText(value: string): string {
+  const source = normalizeMatchWords(value);
+  for (const [brand, patterns] of KNOWN_BRAND_MODEL_PATTERNS) {
+    if (patterns.some((pattern) => source.includes(normalizeMatchWords(pattern)))) {
+      return brand;
+    }
+  }
+  return "";
+}
+
+function normalizeVehicleBrandLabel(value: string, context = ""): string {
+  const cleaned = removeMultibrandLabel(cleanText(value));
+  const normalized = normalizeForMatch(cleaned).replace(/[^a-z0-9]+/g, " ").trim();
+  if (normalized === "kia" || normalized === "kia motors") return "KIA";
+  if (!cleaned || isMultibrandLabel(value)) return inferVehicleBrandFromText(context);
+  return cleaned;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function stripLeadingBrandFromLabel(value: string, brand: string): string {
+  let cleaned = removeMultibrandLabel(cleanText(value));
+  if (!cleaned || !brand) return cleaned;
+  const brandAliases = brand === "KIA" ? ["KIA MOTORS", "KIA"] : [brand];
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const alias of brandAliases) {
+      const aliasWords = normalizeMatchWords(alias).trim();
+      const cleanedWords = normalizeMatchWords(cleaned).trim();
+      if (cleanedWords === aliasWords) return "";
+      if (cleanedWords.startsWith(`${aliasWords} `)) {
+        const aliasPattern = alias
+          .trim()
+          .split(/\s+/)
+          .map(escapeRegExp)
+          .join("[^A-Za-z0-9]+");
+        const nextCleaned = cleanText(cleaned.replace(new RegExp(`^${aliasPattern}\\s*`, "i"), ""));
+        if (nextCleaned === cleaned) return cleaned;
+        cleaned = nextCleaned;
+        changed = true;
+        break;
+      }
+    }
+  }
+  return cleaned;
+}
+
 function toMetaString(value: unknown): string {
   if (value == null) return "";
   if (typeof value === "string") return value.trim();
@@ -450,8 +533,15 @@ function buildStoreLabel(value: string): string {
 }
 
 function parseBrandModelVersionFromTitle(title: string): { brand: string; model: string; version: string } {
-  const cleaned = cleanText(title.replace(TITLE_YEAR_REGEX, "").trim());
+  const cleaned = removeMultibrandLabel(title.replace(TITLE_YEAR_REGEX, "").trim());
   if (!cleaned) return { brand: "", model: "", version: "" };
+  const inferredBrand = inferVehicleBrandFromText(cleaned);
+  if (inferredBrand) {
+    const withoutBrand = stripLeadingBrandFromLabel(cleaned, inferredBrand);
+    const inferredParts = withoutBrand.split(" ").filter(Boolean);
+    if (!inferredParts.length) return { brand: inferredBrand, model: "", version: "" };
+    return { brand: inferredBrand, model: inferredParts[0], version: inferredParts.slice(1).join(" ") };
+  }
   const parts = cleaned.split(" ").filter(Boolean);
   if (!parts.length) return { brand: "", model: "", version: "" };
   if (parts.length === 1) return { brand: parts[0], model: "", version: "" };
@@ -461,13 +551,13 @@ function parseBrandModelVersionFromTitle(title: string): { brand: string; model:
 
 function buildName(brand: string, model: string, version: string, title: string): string {
   if (brand && model) return version ? `${brand} ${model} ${version}`.trim() : `${brand} ${model}`.trim();
-  return title || "Veículo sem título";
+  return removeMultibrandLabel(title) || "Veículo sem título";
 }
 
 function buildSubtitle(version: string, model: string, excerpt: string): string {
-  if (version) return version;
-  if (model) return model;
-  if (excerpt) return excerpt;
+  if (version) return removeMultibrandLabel(version);
+  if (model) return removeMultibrandLabel(model);
+  if (excerpt) return removeMultibrandLabel(excerpt);
   return "Versão não informada";
 }
 
@@ -476,10 +566,15 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
   const content = stripHtml(vehicle.content?.raw ?? vehicle.content?.rendered);
   const excerpt = stripHtml(vehicle.excerpt?.raw ?? vehicle.excerpt?.rendered);
 
+  const sanitizedTitle = removeMultibrandLabel(title);
   const fallbackFromTitle = parseBrandModelVersionFromTitle(title);
-  const brand = getEmbeddedTerm(vehicle, "veiculo_marca") || fallbackFromTitle.brand;
-  const model = getEmbeddedTerm(vehicle, "veiculo_modelo") || fallbackFromTitle.model;
-  const version = getEmbeddedTerm(vehicle, "veiculo_versao") || fallbackFromTitle.version;
+  const rawBrand = getEmbeddedTerm(vehicle, "veiculo_marca") || fallbackFromTitle.brand;
+  const rawModel = getEmbeddedTerm(vehicle, "veiculo_modelo") || fallbackFromTitle.model;
+  const rawVersion = getEmbeddedTerm(vehicle, "veiculo_versao") || fallbackFromTitle.version;
+  const brandContext = [title, rawBrand, rawModel, rawVersion].join(" ");
+  const brand = normalizeVehicleBrandLabel(rawBrand, brandContext);
+  const model = stripLeadingBrandFromLabel(rawModel, brand);
+  const version = stripLeadingBrandFromLabel(rawVersion, brand);
   const color = getEmbeddedTerm(vehicle, "veiculo_cor");
   const city = getEmbeddedTerm(vehicle, "veiculo_cidade");
   const uf = getEmbeddedTerm(vehicle, "veiculo_uf");
@@ -518,7 +613,7 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
     slug: vehicle.slug ?? String(vehicle.id),
     url: `/veiculos/${vehicle.slug ?? vehicle.id}`,
     absoluteUrl: `${SITE_BASE_URL}/veiculos/${vehicle.slug ?? vehicle.id}`,
-    name: buildName(brand, model, version, title),
+    name: buildName(brand, model, version, sanitizedTitle),
     subtitle: buildSubtitle(version, model, excerpt),
     image,
     gallery: gallery.length ? gallery : [FALLBACK_IMAGE],

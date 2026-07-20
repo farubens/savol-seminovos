@@ -3200,6 +3200,11 @@ JS;
             }
         }
 
+        $context = $description . ' ' . (string) ($parsed['modelName'] ?? '');
+        $parsed['brandName'] = self::normalize_vehicle_brand_name((string) ($parsed['brandName'] ?? ''), $context);
+        $parsed['modelName'] = self::strip_vehicle_multibrand_label((string) ($parsed['modelName'] ?? ''));
+        $parsed['modelName'] = self::strip_vehicle_leading_brand_label((string) $parsed['modelName'], (string) $parsed['brandName']);
+
         return $parsed;
     }
 
@@ -3248,6 +3253,7 @@ JS;
             'comments' => (string) ($apolo_item['des_veiculo'] ?? ''),
             'value' => self::parse_money_value($apolo_item['valor_venda'] ?? null) > 0 ? (string) self::parse_money_value($apolo_item['valor_venda'] ?? null) : '',
         ];
+        $field_map = self::normalize_vehicle_identity($field_map, (string) ($apolo_item['des_veiculo'] ?? ''));
 
         foreach ($field_map as $key => $value) {
             if ($value !== '') {
@@ -3256,6 +3262,105 @@ JS;
         }
 
         return $vehicle;
+    }
+
+    private static function normalize_vehicle_identity(array $vehicle, string $context = ''): array {
+        $brand = (string) ($vehicle['brandName'] ?? '');
+        $model = (string) ($vehicle['modelName'] ?? '');
+        $version = (string) ($vehicle['versionName'] ?? '');
+        $full_context = trim($context . ' ' . $brand . ' ' . $model . ' ' . $version);
+
+        $vehicle['brandName'] = self::normalize_vehicle_brand_name($brand, $full_context);
+        $vehicle['modelName'] = self::strip_vehicle_leading_brand_label(self::strip_vehicle_multibrand_label($model), (string) $vehicle['brandName']);
+        $vehicle['versionName'] = self::strip_vehicle_leading_brand_label(self::strip_vehicle_multibrand_label($version), (string) $vehicle['brandName']);
+
+        return $vehicle;
+    }
+
+    private static function normalize_vehicle_brand_name(string $brand, string $context = ''): string {
+        $brand = self::strip_vehicle_multibrand_label($brand);
+        $normalized = self::canonicalize_text($brand);
+
+        if ($normalized === 'kia' || $normalized === 'kia motors') {
+            return 'KIA';
+        }
+
+        if ($brand === '' || $normalized === 'multimarca' || $normalized === 'multmarca') {
+            return self::infer_vehicle_brand_from_text($context);
+        }
+
+        return trim($brand);
+    }
+
+    private static function strip_vehicle_multibrand_label(string $value): string {
+        $value = preg_replace('/\bMULTI?MARCA\b|\bMULTMARCA\b/iu', ' ', $value);
+        $value = preg_replace('/\s+/', ' ', (string) $value);
+        return trim((string) $value);
+    }
+
+    private static function strip_vehicle_leading_brand_label(string $value, string $brand): string {
+        $value = trim($value);
+        if ($value === '' || $brand === '') {
+            return $value;
+        }
+
+        $aliases = strtoupper($brand) === 'KIA' ? ['KIA MOTORS', 'KIA'] : [$brand];
+        $changed = true;
+        while ($changed) {
+            $changed = false;
+            foreach ($aliases as $alias) {
+                $alias_words = self::canonicalize_text($alias);
+                $value_words = self::canonicalize_text($value);
+                if ($value_words === $alias_words) {
+                    return '';
+                }
+                if (str_starts_with($value_words, $alias_words . ' ')) {
+                    $alias_pattern = preg_replace('/\s+/', '[^[:alnum:]]+', preg_quote($alias, '/'));
+                    $next_value = trim((string) preg_replace('/^' . $alias_pattern . '\s*/iu', '', $value));
+                    if ($next_value === $value) {
+                        return $value;
+                    }
+                    $value = $next_value;
+                    $changed = true;
+                    break;
+                }
+            }
+        }
+
+        return $value;
+    }
+
+    private static function infer_vehicle_brand_from_text(string $text): string {
+        $source = ' ' . self::canonicalize_text($text) . ' ';
+        $patterns = [
+            'CHEVROLET' => ['onix', 'tracker', 'cruze', 'cobalt', 'prisma', 'spin', 's10', 'montana'],
+            'FIAT' => ['fastback', 'argo', 'mobi', 'toro', 'strada', 'cronos', 'pulse', 'uno', 'palio', 'siena'],
+            'VOLKSWAGEN' => ['polo', 't cross', 'nivus', 'fox', 'gol', 'taos', 'tera', 'saveiro', 'tiguan', 'virtus', 'jetta'],
+            'KIA' => ['kia', 'sportage', 'sorento', 'cerato', 'picanto', 'seltos', 'soul', 'carnival'],
+            'JEEP' => ['compass', 'renegade', 'commander'],
+            'HYUNDAI' => ['hb20', 'creta', 'tucson', 'ix35', 'santa fe'],
+            'TOYOTA' => ['corolla', 'yaris', 'hilux', 'sw4', 'etios', 'rav4'],
+            'PEUGEOT' => ['208', '2008', '3008', 'partner'],
+            'CITROEN' => ['c3', 'c4', 'aircross', 'jumpy'],
+            'FORD' => ['ecosport', 'ka', 'ranger', 'fiesta', 'focus'],
+            'HONDA' => ['city', 'civic', 'fit', 'hr v', 'hrv', 'wr v', 'wrv'],
+            'RENAULT' => ['kwid', 'logan', 'sandero', 'captur', 'duster'],
+            'NISSAN' => ['versa', 'kicks', 'sentra', 'frontier'],
+            'CHERY' => ['tiggo', 'arrizo'],
+            'BYD' => ['song', 'dolphin', 'yuan', 'seal'],
+            'GWM' => ['haval', 'ora', 'tank'],
+            'MG' => ['mg', 'zs', 'hs'],
+        ];
+
+        foreach ($patterns as $brand => $brand_patterns) {
+            foreach ($brand_patterns as $pattern) {
+                if (str_contains($source, ' ' . self::canonicalize_text($pattern) . ' ')) {
+                    return $brand;
+                }
+            }
+        }
+
+        return '';
     }
 
     private static function resolve_apolo_external_id(array $apolo_item): string {
@@ -3401,6 +3506,7 @@ JS;
         $post_id_by_plate_oldest = $plate !== '' ? self::find_oldest_post_id_by_plate($plate) : 0;
         $post_id_by_vin_oldest = $vin !== '' ? self::find_oldest_post_id_by_vin($vin) : 0;
         $post_id = $post_id_by_plate_oldest > 0 ? $post_id_by_plate_oldest : ($post_id_by_vin_oldest > 0 ? $post_id_by_vin_oldest : $post_id_by_external);
+        $vehicle = self::normalize_vehicle_identity($vehicle);
 
         $title_parts = [
             isset($vehicle['brandName']) ? (string) $vehicle['brandName'] : '',

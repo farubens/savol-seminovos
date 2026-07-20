@@ -66,7 +66,7 @@ const values = [
 const brandLogos = [
   { name: "Volkswagen", logo: "/images/brands/volkswagen.png" },
   { name: "Toyota", logo: "/images/brands/toyota.png" },
-  { name: "Kia", logo: "/images/brands/kia.png" },
+  { name: "Kia", logo: "/images/brands/kia.svg" },
   { name: "Fiat", logo: "/images/brands/fiat.svg" },
   { name: "Peugeot", logo: "/images/brands/peugeot.svg" },
   { name: "Citroen", logo: "/images/brands/citroen.png" },

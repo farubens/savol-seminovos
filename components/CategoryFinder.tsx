@@ -56,7 +56,7 @@ const brandLogoMap: Record<string, string> = {
   fiat: "/images/brands/fiat.svg",
   volkswagen: "/images/brands/volkswagen.png",
   peugeot: "/images/brands/peugeot.svg",
-  kia: "/images/brands/kia.png",
+  kia: "/images/brands/kia.svg",
   mg: "/images/brands/mg.png",
   abarth: "/images/brands/abarth.webp",
   jetour: "/images/brands/jetour.webp",
