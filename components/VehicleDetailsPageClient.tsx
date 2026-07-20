@@ -1181,6 +1181,9 @@ export function VehicleDetailsPageClient({ slug }: Props) {
               <button type="button" className={`vehicle-quick-btn${isCurrentVehicleFavorite ? " is-favorite" : ""}`} onClick={() => vehicle && toggleFavorite(toSavedVehicle(vehicle))}>
                 <Heart size={16} fill={isCurrentVehicleFavorite ? "currentColor" : "none"} /> {isCurrentVehicleFavorite ? "Favorito" : "Favoritar"}
               </button>
+              <button type="button" className="vehicle-quick-btn" onClick={() => setIsDirectionsOpen(true)}>
+                <MapPin size={16} /> Como chegar
+              </button>
             </div>
           </article>
 
