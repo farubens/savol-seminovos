@@ -1,0 +1,278 @@
+import { ImageResponse } from "next/og";
+import type { ApiVehicle } from "@/types/home";
+
+export const runtime = "edge";
+export const alt = "Oferta SAVOL Seminovos";
+export const size = {
+  width: 1200,
+  height: 630
+};
+export const contentType = "image/png";
+
+const SITE_BASE_URL = (process.env.NEXT_PUBLIC_SITE_URL?.trim() || "https://www.savolseminovos.com.br").replace(/\/+$/, "");
+const FALLBACK_IMAGE = "/images/em-preparacao.jpg";
+
+type ImageProps = {
+  params: Promise<{ slug: string }> | { slug: string };
+};
+
+type VehicleApiResponse = {
+  items?: ApiVehicle[];
+};
+
+function absoluteUrl(value: string | undefined): string {
+  const cleanValue = String(value || "").trim();
+  if (!cleanValue) return `${SITE_BASE_URL}${FALLBACK_IMAGE}`;
+  if (/^https?:\/\//i.test(cleanValue)) return cleanValue;
+  return `${SITE_BASE_URL}${cleanValue.startsWith("/") ? cleanValue : `/${cleanValue}`}`;
+}
+
+async function getVehicleBySlug(slug: string): Promise<ApiVehicle | null> {
+  try {
+    const response = await fetch(`${SITE_BASE_URL}/api/veiculos?slug=${encodeURIComponent(slug)}`, {
+      cache: "no-store"
+    });
+
+    if (!response.ok) return null;
+
+    const payload = (await response.json()) as VehicleApiResponse;
+    return payload.items?.[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function splitVehicleName(vehicle: ApiVehicle): { headline: string; details: string } {
+  const brandModel = [vehicle.brand, vehicle.model].filter(Boolean).join(" ").trim();
+  const headline = brandModel || vehicle.name;
+  const details = vehicle.version || vehicle.subtitle || vehicle.name.replace(headline, "").trim();
+  return {
+    headline: headline.toUpperCase(),
+    details: details.toUpperCase()
+  };
+}
+
+function yearLabel(year: string): string {
+  const parts = String(year || "").match(/\d{4}/g);
+  return parts?.at(-1) ?? "";
+}
+
+function mainBadge(vehicle: ApiVehicle): string {
+  if (vehicle.secondaryHighlights?.some((item) => /baixa\s*km|baixa\s*quilometragem/i.test(item))) {
+    return "BAIXA QUILOMETRAGEM";
+  }
+  if (vehicle.negotiating) return "EM NEGOCIACAO";
+  if (vehicle.armored) return "BLINDADO";
+  return "TOP OFERTA";
+}
+
+export default async function VehicleOpenGraphImage({ params }: ImageProps) {
+  const { slug } = await params;
+  const vehicle = await getVehicleBySlug(slug);
+
+  if (!vehicle) {
+    return new ImageResponse(
+      (
+        <div
+          style={{
+            width: "100%",
+            height: "100%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "#f4f6fb",
+            color: "#002b66",
+            fontSize: 64,
+            fontWeight: 900
+          }}
+        >
+          SAVOL SEMINOVOS
+        </div>
+      ),
+      size
+    );
+  }
+
+  const { headline, details } = splitVehicleName(vehicle);
+  const imageUrl = absoluteUrl(vehicle.image);
+  const badge = mainBadge(vehicle);
+  const modelYear = yearLabel(vehicle.year);
+  const specs = [
+    vehicle.km,
+    vehicle.transmission,
+    vehicle.fuel,
+    vehicle.store?.replace(/^loja:\s*/i, "")
+  ].filter(Boolean);
+
+  return new ImageResponse(
+    (
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          position: "relative",
+          display: "flex",
+          overflow: "hidden",
+          background: "#f6f7f9",
+          color: "#0a1630",
+          fontFamily: "Arial"
+        }}
+      >
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: "linear-gradient(135deg, #ffffff 0%, #f8f8f8 48%, #e9edf3 100%)"
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            right: -30,
+            bottom: 70,
+            width: 760,
+            height: 430,
+            borderRadius: 34,
+            overflow: "hidden",
+            border: "8px solid rgba(255,255,255,0.82)"
+          }}
+        >
+          <img
+            src={imageUrl}
+            alt=""
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover"
+            }}
+          />
+        </div>
+        <div
+          style={{
+            position: "absolute",
+            left: -34,
+            top: 0,
+            width: 470,
+            height: 104,
+            display: "flex",
+            alignItems: "center",
+            paddingLeft: 72,
+            background: "#111317",
+            color: "#ffffff",
+            borderBottomRightRadius: 36
+          }}
+        >
+          <div style={{ display: "flex", flexDirection: "column", lineHeight: 0.85 }}>
+            <span style={{ fontSize: 56, fontWeight: 900, letterSpacing: 1 }}>SAVOL</span>
+            <span style={{ fontSize: 28, fontWeight: 700, letterSpacing: 5 }}>SEMINOVOS</span>
+          </div>
+        </div>
+        <div
+          style={{
+            position: "absolute",
+            right: 40,
+            top: 0,
+            width: 342,
+            height: 94,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "linear-gradient(135deg, #f9d878, #b98622)",
+            color: "#171717",
+            borderBottomLeftRadius: 22,
+            borderBottomRightRadius: 22,
+            fontSize: 40,
+            fontWeight: 900
+          }}
+        >
+          TOP OFERTA
+        </div>
+        <div
+          style={{
+            position: "absolute",
+            left: 42,
+            top: 150,
+            width: 600,
+            display: "flex",
+            flexDirection: "column"
+          }}
+        >
+          <div style={{ fontSize: headline.length > 22 ? 62 : 76, fontWeight: 900, letterSpacing: -1, lineHeight: 0.95 }}>
+            {headline}
+          </div>
+          <div style={{ marginTop: 14, fontSize: 30, color: "#222936", lineHeight: 1.12 }}>{details}</div>
+          {modelYear ? (
+            <div style={{ marginTop: 24, fontSize: 46, color: "#c5102f", fontWeight: 900, letterSpacing: 4 }}>{modelYear}</div>
+          ) : null}
+          <div style={{ marginTop: 18, fontSize: 44, color: "#002b66", fontWeight: 900 }}>{vehicle.price}</div>
+        </div>
+        <div
+          style={{
+            position: "absolute",
+            right: 44,
+            top: 132,
+            width: 148,
+            height: 148,
+            borderRadius: 999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            textAlign: "center",
+            background: "linear-gradient(135deg, #181a20, #323642)",
+            border: "10px solid #c99c3a",
+            color: "#ffffff",
+            fontSize: 25,
+            fontWeight: 900,
+            lineHeight: 1.05
+          }}
+        >
+          GARANTIA SAVOL 90 DIAS
+        </div>
+        <div
+          style={{
+            position: "absolute",
+            right: 36,
+            bottom: 116,
+            width: 300,
+            height: 82,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            textAlign: "center",
+            background: "linear-gradient(135deg, #d71934, #8f0b1d)",
+            color: "#ffffff",
+            borderRadius: 16,
+            fontSize: 30,
+            fontWeight: 900,
+            lineHeight: 1
+          }}
+        >
+          {badge}
+        </div>
+        <div
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: 82,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-around",
+            background: "#111317",
+            color: "#ffffff",
+            fontSize: 24,
+            fontWeight: 700
+          }}
+        >
+          {specs.slice(0, 4).map((spec) => (
+            <div key={spec} style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "0 20px" }}>
+              {String(spec).toUpperCase()}
+            </div>
+          ))}
+        </div>
+      </div>
+    ),
+    size
+  );
+}
