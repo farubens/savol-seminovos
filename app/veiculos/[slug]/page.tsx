@@ -51,7 +51,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const title = `${vehicle.name} | SAVOL Seminovos`;
   const description = [vehicle.price, vehicle.year, vehicle.km, vehicle.store].filter(Boolean).join(" - ");
   const pageUrl = absoluteUrl(vehicle.url);
-  const imageUrl = absoluteUrl(`/veiculos/${vehicle.slug || slug}/opengraph-image`);
+  const imageUrl = absoluteUrl(`/veiculos/${vehicle.slug || slug}/opengraph-image?v=2`);
 
   return {
     title,

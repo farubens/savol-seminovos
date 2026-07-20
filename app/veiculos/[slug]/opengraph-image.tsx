@@ -2,12 +2,14 @@ import { ImageResponse } from "next/og";
 import type { ApiVehicle } from "@/types/home";
 
 export const runtime = "edge";
+export const dynamic = "force-dynamic";
 export const alt = "Oferta SAVOL Seminovos";
 export const size = {
   width: 1200,
   height: 630
 };
 export const contentType = "image/png";
+export const revalidate = 0;
 
 const SITE_BASE_URL = (process.env.NEXT_PUBLIC_SITE_URL?.trim() || "https://www.savolseminovos.com.br").replace(/\/+$/, "");
 const FALLBACK_IMAGE = "/images/em-preparacao.jpg";
@@ -107,14 +109,15 @@ export default async function VehicleOpenGraphImage({ params }: ImageProps) {
   return new ImageResponse(
     (
       <div
-        style={{
-          width: "100%",
-          height: "100%",
-          position: "relative",
-          display: "flex",
-          overflow: "hidden",
-          background: "#f6f7f9",
-          color: "#0a1630",
+          style={{
+            width: "100%",
+            height: "100%",
+            position: "relative",
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
+            background: "#f6f7f9",
+            color: "#0a1630",
           fontFamily: "Arial"
         }}
       >
@@ -122,6 +125,7 @@ export default async function VehicleOpenGraphImage({ params }: ImageProps) {
           style={{
             position: "absolute",
             inset: 0,
+            display: "flex",
             background: "linear-gradient(135deg, #ffffff 0%, #f8f8f8 48%, #e9edf3 100%)"
           }}
         />
@@ -132,6 +136,7 @@ export default async function VehicleOpenGraphImage({ params }: ImageProps) {
             bottom: 70,
             width: 760,
             height: 430,
+            display: "flex",
             borderRadius: 34,
             overflow: "hidden",
             border: "8px solid rgba(255,255,255,0.82)"
@@ -197,14 +202,14 @@ export default async function VehicleOpenGraphImage({ params }: ImageProps) {
             flexDirection: "column"
           }}
         >
-          <div style={{ fontSize: headline.length > 22 ? 62 : 76, fontWeight: 900, letterSpacing: -1, lineHeight: 0.95 }}>
+          <div style={{ display: "flex", fontSize: headline.length > 22 ? 62 : 76, fontWeight: 900, letterSpacing: -1, lineHeight: 0.95 }}>
             {headline}
           </div>
-          <div style={{ marginTop: 14, fontSize: 30, color: "#222936", lineHeight: 1.12 }}>{details}</div>
+          <div style={{ display: "flex", marginTop: 14, fontSize: 30, color: "#222936", lineHeight: 1.12 }}>{details}</div>
           {modelYear ? (
-            <div style={{ marginTop: 24, fontSize: 46, color: "#c5102f", fontWeight: 900, letterSpacing: 4 }}>{modelYear}</div>
+            <div style={{ display: "flex", marginTop: 24, fontSize: 46, color: "#c5102f", fontWeight: 900, letterSpacing: 4 }}>{modelYear}</div>
           ) : null}
-          <div style={{ marginTop: 18, fontSize: 44, color: "#002b66", fontWeight: 900 }}>{vehicle.price}</div>
+          <div style={{ display: "flex", marginTop: 18, fontSize: 44, color: "#002b66", fontWeight: 900 }}>{vehicle.price}</div>
         </div>
         <div
           style={{
