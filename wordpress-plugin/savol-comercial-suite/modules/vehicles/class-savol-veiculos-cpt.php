@@ -57,7 +57,12 @@ final class Savol_Veiculos_CPT {
     private const AUTOSYNC_BATCH_SIZE = 10;
     private const AUTOSYNC_BATCH_TIME_LIMIT = 45;
     private const APOLO_STOCK_URL = 'https://drive.google.com/uc?export=download&id=1zyCN8JXUa5kUD-kjeIsO49y7J3wRmFd4';
-    private const APOLO_ALLOWED_COMPANIES = ['16', '17'];
+    private const APOLO_ALLOWED_COMPANY_RESELLERS = [
+        '16:1',
+        '17:1',
+        '1:1',
+        '1:2',
+    ];
     private const APOLO_ALLOWED_SITUATIONS = ['ES', 'ED'];
     private const APOLO_DRAFT_REASONS = [
         'Não cadastrado no APOLO',
@@ -2917,6 +2922,7 @@ JS;
             $description = trim((string) ($row['des_veiculo'] ?? ($row['descricao'] ?? '')));
             $item = [
                 'empresa' => preg_replace('/\D+/', '', (string) ($row['empresa'] ?? '')),
+                'revenda_origem' => preg_replace('/\D+/', '', (string) ($row['revenda_origem'] ?? '')),
                 'situacao' => strtoupper(trim((string) ($row['situacao'] ?? ''))),
                 'val_compra' => self::parse_money_value($row['val_compra'] ?? null),
                 'valor_venda' => self::parse_money_value($row['valor_venda'] ?? null),
@@ -2988,7 +2994,7 @@ JS;
 
         if ($apolo_item === null) {
             $reason = 'Não cadastrado no APOLO';
-        } elseif (!in_array((string) $apolo_item['empresa'], self::APOLO_ALLOWED_COMPANIES, true)) {
+        } elseif (!self::is_allowed_apolo_company_reseller($apolo_item)) {
             $reason = 'Empresa não autorizada no APOLO';
         } elseif (!in_array((string) $apolo_item['situacao'], self::APOLO_ALLOWED_SITUATIONS, true)) {
             $reason = 'Situação não permitida no APOLO';
@@ -3007,6 +3013,17 @@ JS;
             'reason' => $reason,
             'apolo' => $apolo_item ?? [],
         ];
+    }
+
+    private static function is_allowed_apolo_company_reseller(array $apolo_item): bool {
+        $company = preg_replace('/\D+/', '', (string) ($apolo_item['empresa'] ?? ''));
+        $reseller = preg_replace('/\D+/', '', (string) ($apolo_item['revenda_origem'] ?? ''));
+
+        if ($company === '' || $reseller === '') {
+            return false;
+        }
+
+        return in_array($company . ':' . $reseller, self::APOLO_ALLOWED_COMPANY_RESELLERS, true);
     }
 
     private static function find_apolo_stock_item_for_vehicle(array $vehicle, array $apolo_stock_index): ?array {
@@ -3207,6 +3224,7 @@ JS;
             'photos' => $photo_urls,
             'apolo' => [
                 'empresa' => (string) ($apolo_reconciliation['apolo']['empresa'] ?? ''),
+                'revenda_origem' => (string) ($apolo_reconciliation['apolo']['revenda_origem'] ?? ''),
                 'situacao' => (string) ($apolo_reconciliation['apolo']['situacao'] ?? ''),
                 'val_compra' => self::parse_money_value($apolo_reconciliation['apolo']['val_compra'] ?? null),
                 'valor_venda' => self::parse_money_value($apolo_reconciliation['apolo']['valor_venda'] ?? null),
@@ -3371,6 +3389,7 @@ JS;
         update_post_meta($post_id, 'preco', $published_price);
         update_post_meta($post_id, 'status', isset($vehicle['status']) ? (string) $vehicle['status'] : '');
         update_post_meta($post_id, 'apolo_empresa', (string) ($apolo_reconciliation['apolo']['empresa'] ?? ''));
+        update_post_meta($post_id, 'apolo_revenda_origem', (string) ($apolo_reconciliation['apolo']['revenda_origem'] ?? ''));
         update_post_meta($post_id, 'apolo_situacao', (string) ($apolo_reconciliation['apolo']['situacao'] ?? ''));
         update_post_meta($post_id, 'apolo_val_compra', self::parse_money_value($apolo_reconciliation['apolo']['val_compra'] ?? null));
         update_post_meta($post_id, 'apolo_valor_venda', self::parse_money_value($apolo_reconciliation['apolo']['valor_venda'] ?? null));
