@@ -13,7 +13,7 @@ export const revalidate = 0;
 
 const SITE_BASE_URL = (process.env.NEXT_PUBLIC_SITE_URL?.trim() || "https://www.savolseminovos.com.br").replace(/\/+$/, "");
 const FALLBACK_IMAGE = "/images/em-preparacao.jpg";
-const LOGO_IMAGE = "/images/logo-branco.png";
+const LOGO_IMAGE = "/images/logo.png";
 
 type ImageProps = {
   params: Promise<{ slug: string }> | { slug: string };
@@ -45,11 +45,12 @@ async function getVehicleBySlug(slug: string): Promise<ApiVehicle | null> {
   }
 }
 
-function splitVehicleName(vehicle: ApiVehicle): { headline: string; details: string } {
-  const brandModel = [vehicle.brand, vehicle.model].filter(Boolean).join(" ").trim();
-  const headline = brandModel || vehicle.name;
-  const details = vehicle.version || vehicle.subtitle || vehicle.name.replace(headline, "").trim();
+function splitVehicleName(vehicle: ApiVehicle): { brand: string; headline: string; details: string } {
+  const brand = vehicle.brand || "";
+  const headline = vehicle.model || vehicle.name.replace(new RegExp(`^${brand}\\s+`, "i"), "").trim() || vehicle.name;
+  const details = vehicle.version || vehicle.subtitle || vehicle.name.replace(`${brand} ${headline}`, "").trim();
   return {
+    brand: brand.toUpperCase(),
     headline: headline.toUpperCase(),
     details: details.toUpperCase()
   };
@@ -121,13 +122,13 @@ export default async function VehicleOpenGraphImage({ params }: ImageProps) {
     );
   }
 
-  const { headline, details } = splitVehicleName(vehicle);
+  const { brand, headline, details } = splitVehicleName(vehicle);
   const imageUrl = absoluteUrl(vehicle.image);
   const logoUrl = absoluteUrl(LOGO_IMAGE);
   const badge = mainBadge(vehicle);
   const modelYear = yearLabel(vehicle.year);
-  const headlineLines = wrapText(headline, headline.length > 30 ? 18 : 16, 3);
-  const detailLines = wrapText(details, 34, 2);
+  const headlineLines = wrapText(headline, 22, 2);
+  const detailLines = wrapText(details, 38, 2);
   const specs = [
     vehicle.km,
     vehicle.transmission,
@@ -158,24 +159,18 @@ export default async function VehicleOpenGraphImage({ params }: ImageProps) {
             background: "linear-gradient(135deg, #ffffff 0%, #f8f8f8 48%, #e9edf3 100%)"
           }}
         />
-        <div
+        <img
+          src={logoUrl}
+          alt=""
           style={{
             position: "absolute",
-            left: 0,
-            top: 0,
-            width: 420,
-            height: 112,
-            display: "flex",
-            alignItems: "center",
-            paddingLeft: 34,
-            paddingRight: 44,
-            background: "#111317",
-            color: "#ffffff",
-            borderBottomRightRadius: 36
+            left: 34,
+            top: 24,
+            width: 310,
+            height: "auto",
+            objectFit: "contain"
           }}
-        >
-          <img src={logoUrl} alt="" style={{ width: 290, height: "auto", objectFit: "contain" }} />
-        </div>
+        />
         <div
           style={{
             position: "absolute",
@@ -200,26 +195,31 @@ export default async function VehicleOpenGraphImage({ params }: ImageProps) {
           style={{
             position: "absolute",
             left: 42,
-            top: 154,
+            top: 132,
             width: 448,
             display: "flex",
             flexDirection: "column"
           }}
         >
-          <div style={{ display: "flex", flexDirection: "column", fontSize: headline.length > 28 ? 60 : 70, fontWeight: 900, letterSpacing: 0, lineHeight: 0.94 }}>
+          {brand ? (
+            <div style={{ display: "flex", fontSize: 28, color: "#526078", fontWeight: 900, letterSpacing: 1, lineHeight: 1 }}>
+              {brand}
+            </div>
+          ) : null}
+          <div style={{ display: "flex", flexDirection: "column", marginTop: 10, fontSize: 38, fontWeight: 900, letterSpacing: 0, lineHeight: 0.96 }}>
             {headlineLines.map((line) => (
               <span key={line}>{line}</span>
             ))}
           </div>
-          <div style={{ display: "flex", flexDirection: "column", marginTop: 18, fontSize: 27, color: "#222936", lineHeight: 1.08 }}>
+          <div style={{ display: "flex", flexDirection: "column", marginTop: 14, fontSize: 22, color: "#222936", lineHeight: 1.08 }}>
             {detailLines.map((line) => (
               <span key={line}>{line}</span>
             ))}
           </div>
           {modelYear ? (
-            <div style={{ display: "flex", marginTop: 24, fontSize: 46, color: "#c5102f", fontWeight: 900, letterSpacing: 4 }}>{modelYear}</div>
+            <div style={{ display: "flex", marginTop: 20, fontSize: 40, color: "#c5102f", fontWeight: 900, letterSpacing: 4 }}>{modelYear}</div>
           ) : null}
-          <div style={{ display: "flex", marginTop: 18, fontSize: 44, color: "#002b66", fontWeight: 900 }}>{vehicle.price}</div>
+          <div style={{ display: "flex", marginTop: 16, fontSize: 44, color: "#002b66", fontWeight: 900 }}>{vehicle.price}</div>
         </div>
         <div
           style={{
