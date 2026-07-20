@@ -48,6 +48,8 @@ final class Savol_Veiculos_CPT {
     private const AUTOSYNC_ENDPOINT_OPTION = 'savol_veiculos_autosync_endpoint';
     private const AUTOSYNC_ENTITY_IDS_OPTION = 'savol_veiculos_autosync_entity_ids';
     private const AUTOSYNC_CNPJS_OPTION = 'savol_veiculos_autosync_cnpjs';
+    private const APOLO_ALLOWED_SITUATIONS_OPTION = 'savol_apolo_allowed_situations';
+    private const APOLO_ALLOWED_COMPANY_RESELLERS_OPTION = 'savol_apolo_allowed_company_resellers';
     private const AUTOSYNC_LAST_API_CALL_OPTION = 'savol_veiculos_autosync_last_api_call';
     private const AUTOSYNC_API_LOCK_OPTION = 'savol_veiculos_autosync_api_lock';
     private const AUTOSYNC_API_MIN_INTERVAL = 180;
@@ -57,13 +59,13 @@ final class Savol_Veiculos_CPT {
     private const AUTOSYNC_BATCH_SIZE = 10;
     private const AUTOSYNC_BATCH_TIME_LIMIT = 45;
     private const APOLO_STOCK_URL = 'https://drive.google.com/uc?export=download&id=1zyCN8JXUa5kUD-kjeIsO49y7J3wRmFd4';
-    private const APOLO_ALLOWED_COMPANY_RESELLERS = [
+    private const APOLO_ALLOWED_COMPANY_RESELLERS_DEFAULT = [
         '16:1',
         '17:1',
         '1:1',
         '1:2',
     ];
-    private const APOLO_ALLOWED_SITUATIONS = ['ES', 'ED'];
+    private const APOLO_ALLOWED_SITUATIONS_DEFAULT = ['ES', 'ED'];
     private const APOLO_DRAFT_REASONS = [
         'Não cadastrado no APOLO',
         'Sem dados no AutoSync',
@@ -2441,6 +2443,30 @@ JS;
                             <p class="description">Opcional. Informe um ou varios CNPJs, separados por virgula, espaco ou linha. Apenas numeros serao salvos; o filtro sera aplicado nas chaves do JSON retornado pela API.</p>
                         </td>
                     </tr>
+                    <tr>
+                        <th scope="row">Situacoes APOLO permitidas</th>
+                        <td>
+                            <fieldset>
+                                <?php $allowed_situations = self::get_apolo_allowed_situations(); ?>
+                                <?php foreach (self::apolo_situation_choices() as $situation) : ?>
+                                    <label style="display:inline-block;margin-right:16px;margin-bottom:6px;">
+                                        <input type="checkbox" name="savol_apolo_allowed_situations[]" value="<?php echo esc_attr($situation); ?>" <?php checked(in_array($situation, $allowed_situations, true)); ?> />
+                                        <?php echo esc_html($situation); ?>
+                                    </label>
+                                <?php endforeach; ?>
+                            </fieldset>
+                            <label for="savol_apolo_allowed_situations_extra" style="display:block;margin-top:8px;">Outras situacoes</label>
+                            <input type="text" id="savol_apolo_allowed_situations_extra" name="savol_apolo_allowed_situations_extra" class="regular-text code" value="<?php echo esc_attr(self::get_apolo_allowed_situations_extra_text()); ?>" placeholder="Ex.: XX, YY" />
+                            <p class="description">Selecione as situacoes do APOLO que podem ser publicadas no site. Padrao: ES e ED.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="savol_apolo_company_resellers">Empresas / revendas APOLO permitidas</label></th>
+                        <td>
+                            <textarea id="savol_apolo_company_resellers" name="savol_apolo_company_resellers" rows="5" class="large-text code" placeholder="16/1&#10;17/1&#10;1/1&#10;1/2"><?php echo esc_textarea(self::get_apolo_allowed_company_resellers_text()); ?></textarea>
+                            <p class="description">Informe um par empresa/revenda por linha. Tambem aceita formatos como <code>16/1</code>, <code>16:1</code> ou <code>empresa 16 revenda 1</code>.</p>
+                        </td>
+                    </tr>
                 </table>
                 <?php submit_button('Salvar configuracoes'); ?>
             </form>
@@ -2487,11 +2513,23 @@ JS;
         $endpoint = isset($_POST['savol_autosync_endpoint']) ? trim((string) wp_unslash($_POST['savol_autosync_endpoint'])) : '';
         $entity_ids = isset($_POST['savol_autosync_entity_ids']) ? self::normalize_autosync_list((string) wp_unslash($_POST['savol_autosync_entity_ids']), false) : [];
         $cnpjs = isset($_POST['savol_autosync_cnpjs']) ? self::normalize_autosync_list((string) wp_unslash($_POST['savol_autosync_cnpjs']), true) : [];
+        $apolo_allowed_situations = isset($_POST['savol_apolo_allowed_situations'])
+            ? self::normalize_apolo_situations((array) wp_unslash($_POST['savol_apolo_allowed_situations']))
+            : [];
+        $apolo_allowed_situations_extra = isset($_POST['savol_apolo_allowed_situations_extra'])
+            ? self::normalize_apolo_situations_text((string) wp_unslash($_POST['savol_apolo_allowed_situations_extra']))
+            : [];
+        $apolo_company_resellers = isset($_POST['savol_apolo_company_resellers'])
+            ? self::normalize_apolo_company_resellers((string) wp_unslash($_POST['savol_apolo_company_resellers']))
+            : [];
         if ($endpoint !== '') {
             update_option(self::AUTOSYNC_ENDPOINT_OPTION, esc_url_raw($endpoint), false);
         }
         update_option(self::AUTOSYNC_ENTITY_IDS_OPTION, $entity_ids, false);
         update_option(self::AUTOSYNC_CNPJS_OPTION, $cnpjs, false);
+        $apolo_allowed_situations = array_values(array_unique(array_merge($apolo_allowed_situations, $apolo_allowed_situations_extra)));
+        update_option(self::APOLO_ALLOWED_SITUATIONS_OPTION, !empty($apolo_allowed_situations) ? $apolo_allowed_situations : self::APOLO_ALLOWED_SITUATIONS_DEFAULT, false);
+        update_option(self::APOLO_ALLOWED_COMPANY_RESELLERS_OPTION, !empty($apolo_company_resellers) ? $apolo_company_resellers : self::APOLO_ALLOWED_COMPANY_RESELLERS_DEFAULT, false);
         if ($token !== '') {
             update_option(self::AUTOSYNC_OPTION, self::encrypt_token($token), false);
         }
@@ -2996,7 +3034,7 @@ JS;
             $reason = 'Não cadastrado no APOLO';
         } elseif (!self::is_allowed_apolo_company_reseller($apolo_item)) {
             $reason = 'Empresa não autorizada no APOLO';
-        } elseif (!in_array((string) $apolo_item['situacao'], self::APOLO_ALLOWED_SITUATIONS, true)) {
+        } elseif (!in_array((string) $apolo_item['situacao'], self::get_apolo_allowed_situations(), true)) {
             $reason = 'Situação não permitida no APOLO';
         } elseif (empty($vehicle['_autosync_found'])) {
             $reason = 'Sem dados no AutoSync';
@@ -3023,7 +3061,7 @@ JS;
             return false;
         }
 
-        return in_array($company . ':' . $reseller, self::APOLO_ALLOWED_COMPANY_RESELLERS, true);
+        return in_array($company . ':' . $reseller, self::get_apolo_allowed_company_resellers(), true);
     }
 
     private static function find_apolo_stock_item_for_vehicle(array $vehicle, array $apolo_stock_index): ?array {
@@ -4038,6 +4076,84 @@ JS;
 
     private static function get_autosync_cnpjs_text(): string {
         return implode("\n", self::get_stored_autosync_list(self::AUTOSYNC_CNPJS_OPTION));
+    }
+
+    private static function apolo_situation_choices(): array {
+        return array_values(array_unique(array_merge(
+            self::APOLO_ALLOWED_SITUATIONS_DEFAULT,
+            ['TM', 'SD']
+        )));
+    }
+
+    private static function get_apolo_allowed_situations(): array {
+        $stored = get_option(self::APOLO_ALLOWED_SITUATIONS_OPTION, []);
+        $situations = is_array($stored)
+            ? self::normalize_apolo_situations($stored)
+            : self::normalize_apolo_situations([(string) $stored]);
+
+        return !empty($situations) ? $situations : self::APOLO_ALLOWED_SITUATIONS_DEFAULT;
+    }
+
+    private static function get_apolo_allowed_situations_extra_text(): string {
+        $extra = array_values(array_diff(self::get_apolo_allowed_situations(), self::apolo_situation_choices()));
+        return implode(', ', $extra);
+    }
+
+    private static function normalize_apolo_situations(array $items): array {
+        $clean = [];
+        foreach ($items as $item) {
+            $value = strtoupper(preg_replace('/[^A-Z0-9]+/i', '', (string) $item));
+            if ($value !== '' && strlen($value) <= 10 && !in_array($value, $clean, true)) {
+                $clean[] = $value;
+            }
+        }
+
+        return array_slice($clean, 0, 20);
+    }
+
+    private static function normalize_apolo_situations_text(string $raw): array {
+        return self::normalize_apolo_situations((array) preg_split('/[\s,;]+/', $raw));
+    }
+
+    private static function get_apolo_allowed_company_resellers_text(): string {
+        return implode("\n", array_map(static function (string $pair): string {
+            return str_replace(':', '/', $pair);
+        }, self::get_apolo_allowed_company_resellers()));
+    }
+
+    private static function get_apolo_allowed_company_resellers(): array {
+        $stored = get_option(self::APOLO_ALLOWED_COMPANY_RESELLERS_OPTION, []);
+        $pairs = is_array($stored)
+            ? self::normalize_apolo_company_resellers(implode("\n", array_map('strval', $stored)))
+            : self::normalize_apolo_company_resellers((string) $stored);
+
+        return !empty($pairs) ? $pairs : self::APOLO_ALLOWED_COMPANY_RESELLERS_DEFAULT;
+    }
+
+    private static function normalize_apolo_company_resellers(string $raw): array {
+        $items = preg_split('/[\r\n,;]+/', $raw);
+        $clean = [];
+        foreach ((array) $items as $item) {
+            if (!preg_match('/(\d+)\D+(\d+)/', (string) $item, $matches)) {
+                continue;
+            }
+
+            $company = ltrim($matches[1], '0');
+            $reseller = ltrim($matches[2], '0');
+            if ($company === '') {
+                $company = '0';
+            }
+            if ($reseller === '') {
+                $reseller = '0';
+            }
+
+            $pair = $company . ':' . $reseller;
+            if (!in_array($pair, $clean, true)) {
+                $clean[] = $pair;
+            }
+        }
+
+        return array_slice($clean, 0, 100);
     }
 
     private static function get_stored_autosync_list(string $option): array {
