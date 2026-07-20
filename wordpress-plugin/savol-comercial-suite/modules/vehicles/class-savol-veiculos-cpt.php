@@ -2861,6 +2861,7 @@ JS;
                 $vehicle = self::build_vehicle_from_apolo_item($apolo_item);
             } else {
                 $vehicle['_autosync_found'] = true;
+                $vehicle = self::apply_apolo_item_to_vehicle($vehicle, $apolo_item);
             }
 
             self::upsert_vehicle($vehicle, $apolo_stock_index, $apolo_item);
@@ -2964,6 +2965,11 @@ JS;
                 'situacao' => strtoupper(trim((string) ($row['situacao'] ?? ''))),
                 'val_compra' => self::parse_money_value($row['val_compra'] ?? null),
                 'valor_venda' => self::parse_money_value($row['valor_venda'] ?? null),
+                'des_cor' => trim((string) ($row['des_cor'] ?? '')),
+                'des_combustivel' => trim((string) ($row['des_combustivel'] ?? '')),
+                'ano_fabricacao' => is_numeric($row['ano_fabricacao'] ?? null) ? (string) (int) $row['ano_fabricacao'] : '',
+                'ano_modelo' => is_numeric($row['ano_modelo'] ?? null) ? (string) (int) $row['ano_modelo'] : '',
+                'km_atual' => is_numeric($row['km_atual'] ?? null) ? (string) (float) $row['km_atual'] : '',
                 'nome_fantasia' => trim((string) ($row['nome_fantasia'] ?? '')),
                 'cnpj' => preg_replace('/\D+/', '', (string) ($row['cnpj'] ?? '')),
                 'placa' => self::normalize_plate((string) ($row['placa'] ?? '')),
@@ -3036,8 +3042,6 @@ JS;
             $reason = 'Empresa não autorizada no APOLO';
         } elseif (!in_array((string) $apolo_item['situacao'], self::get_apolo_allowed_situations(), true)) {
             $reason = 'Situação não permitida no APOLO';
-        } elseif (empty($vehicle['_autosync_found'])) {
-            $reason = 'Sem dados no AutoSync';
         } else {
             $purchase_price = self::parse_money_value($apolo_item['val_compra'] ?? null);
             $sale_price = self::resolve_vehicle_sale_price($vehicle, $apolo_item);
@@ -3202,7 +3206,7 @@ JS;
             : self::parse_apolo_vehicle_description((string) ($apolo_item['des_veiculo'] ?? ''));
         $apolo_id = self::resolve_apolo_external_id($apolo_item);
 
-        return [
+        return self::apply_apolo_item_to_vehicle([
             'id' => $apolo_id,
             'brandName' => (string) ($parsed['brandName'] ?? ''),
             'modelName' => (string) ($parsed['modelName'] ?? ($apolo_item['veiculo'] ?? '')),
@@ -3218,7 +3222,37 @@ JS;
             'comments' => (string) ($apolo_item['des_veiculo'] ?? ''),
             'value' => '',
             '_autosync_found' => false,
+        ], $apolo_item);
+    }
+
+    private static function apply_apolo_item_to_vehicle(array $vehicle, array $apolo_item): array {
+        $parsed = isset($apolo_item['parsed']) && is_array($apolo_item['parsed'])
+            ? $apolo_item['parsed']
+            : self::parse_apolo_vehicle_description((string) ($apolo_item['des_veiculo'] ?? ''));
+
+        $field_map = [
+            'brandName' => (string) ($parsed['brandName'] ?? ''),
+            'modelName' => (string) ($parsed['modelName'] ?? ($apolo_item['veiculo'] ?? '')),
+            'manufacturingYear' => (string) ($apolo_item['ano_fabricacao'] ?? ($parsed['manufacturingYear'] ?? '')),
+            'modelYear' => (string) ($apolo_item['ano_modelo'] ?? ($parsed['modelYear'] ?? '')),
+            'kilometers' => (string) ($apolo_item['km_atual'] ?? ''),
+            'colorName' => (string) ($apolo_item['des_cor'] ?? ($parsed['colorName'] ?? '')),
+            'fuelName' => (string) ($apolo_item['des_combustivel'] ?? ($parsed['fuelName'] ?? '')),
+            'plate' => (string) ($apolo_item['placa'] ?? ''),
+            'vin' => (string) ($apolo_item['chassi'] ?? ''),
+            'renavam' => (string) ($parsed['renavam'] ?? ''),
+            'entityName' => (string) ($apolo_item['nome_fantasia'] ?? ''),
+            'comments' => (string) ($apolo_item['des_veiculo'] ?? ''),
+            'value' => self::parse_money_value($apolo_item['valor_venda'] ?? null) > 0 ? (string) self::parse_money_value($apolo_item['valor_venda'] ?? null) : '',
         ];
+
+        foreach ($field_map as $key => $value) {
+            if ($value !== '') {
+                $vehicle[$key] = $value;
+            }
+        }
+
+        return $vehicle;
     }
 
     private static function resolve_apolo_external_id(array $apolo_item): string {
@@ -3266,6 +3300,11 @@ JS;
                 'situacao' => (string) ($apolo_reconciliation['apolo']['situacao'] ?? ''),
                 'val_compra' => self::parse_money_value($apolo_reconciliation['apolo']['val_compra'] ?? null),
                 'valor_venda' => self::parse_money_value($apolo_reconciliation['apolo']['valor_venda'] ?? null),
+                'des_cor' => (string) ($apolo_reconciliation['apolo']['des_cor'] ?? ''),
+                'des_combustivel' => (string) ($apolo_reconciliation['apolo']['des_combustivel'] ?? ''),
+                'ano_fabricacao' => (string) ($apolo_reconciliation['apolo']['ano_fabricacao'] ?? ''),
+                'ano_modelo' => (string) ($apolo_reconciliation['apolo']['ano_modelo'] ?? ''),
+                'km_atual' => (string) ($apolo_reconciliation['apolo']['km_atual'] ?? ''),
                 'nome_fantasia' => (string) ($apolo_reconciliation['apolo']['nome_fantasia'] ?? ''),
                 'cnpj' => (string) ($apolo_reconciliation['apolo']['cnpj'] ?? ''),
                 'placa' => (string) ($apolo_reconciliation['apolo']['placa'] ?? ''),
@@ -3431,6 +3470,11 @@ JS;
         update_post_meta($post_id, 'apolo_situacao', (string) ($apolo_reconciliation['apolo']['situacao'] ?? ''));
         update_post_meta($post_id, 'apolo_val_compra', self::parse_money_value($apolo_reconciliation['apolo']['val_compra'] ?? null));
         update_post_meta($post_id, 'apolo_valor_venda', self::parse_money_value($apolo_reconciliation['apolo']['valor_venda'] ?? null));
+        update_post_meta($post_id, 'apolo_des_cor', (string) ($apolo_reconciliation['apolo']['des_cor'] ?? ''));
+        update_post_meta($post_id, 'apolo_des_combustivel', (string) ($apolo_reconciliation['apolo']['des_combustivel'] ?? ''));
+        update_post_meta($post_id, 'apolo_ano_fabricacao', (string) ($apolo_reconciliation['apolo']['ano_fabricacao'] ?? ''));
+        update_post_meta($post_id, 'apolo_ano_modelo', (string) ($apolo_reconciliation['apolo']['ano_modelo'] ?? ''));
+        update_post_meta($post_id, 'apolo_km_atual', (string) ($apolo_reconciliation['apolo']['km_atual'] ?? ''));
         update_post_meta($post_id, 'apolo_nome_fantasia', (string) ($apolo_reconciliation['apolo']['nome_fantasia'] ?? ''));
         update_post_meta($post_id, 'apolo_cnpj', (string) ($apolo_reconciliation['apolo']['cnpj'] ?? ''));
         update_post_meta($post_id, 'apolo_negociacao', !empty($apolo_reconciliation['apolo']['negociacao']) ? 1 : 0);
