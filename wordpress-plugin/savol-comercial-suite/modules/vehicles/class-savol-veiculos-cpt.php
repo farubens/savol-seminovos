@@ -63,7 +63,7 @@ final class Savol_Veiculos_CPT {
         '1:1',
         '1:2',
     ];
-    private const APOLO_ALLOWED_SITUATIONS = ['ES', 'ED', 'TM'];
+    private const APOLO_ALLOWED_SITUATIONS = ['ES', 'ED'];
     private const APOLO_DRAFT_REASONS = [
         'Não cadastrado no APOLO',
         'Sem dados no AutoSync',
