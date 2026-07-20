@@ -167,7 +167,7 @@ export default async function VehicleOpenGraphImage({ params }: ImageProps) {
             left: 34,
             top: 24,
             width: 310,
-            height: "auto",
+            height: 82,
             objectFit: "contain"
           }}
         />
