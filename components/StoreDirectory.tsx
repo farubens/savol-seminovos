@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { type UIEvent, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, MapPin, Navigation, PhoneCall, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, MapPin, Navigation, PhoneCall } from "lucide-react";
 import { useHomeSessionData } from "@/components/HomeSessionDataProvider";
 import { MapDirectionsModal } from "@/components/MapDirectionsModal";
 import { StoreDetailsModal } from "@/components/StoreDetailsModal";
@@ -22,6 +22,42 @@ type LocationSuggestion = {
   lat: number;
   lng: number;
   cep?: string;
+};
+
+type GeoSearchResult = {
+  lat: string;
+  lon: string;
+  class?: string;
+  type?: string;
+  addresstype?: string;
+  display_name?: string;
+  address?: {
+    road?: string;
+    suburb?: string;
+    city?: string;
+    town?: string;
+    village?: string;
+    municipality?: string;
+    county?: string;
+    state?: string;
+    postcode?: string;
+    "ISO3166-2-lvl4"?: string;
+  };
+};
+
+type ViaCepAddress = {
+  cep?: string;
+  logradouro?: string;
+  bairro?: string;
+  localidade?: string;
+  uf?: string;
+  erro?: boolean;
+};
+
+type ViaCepSearchIntent = {
+  uf: string;
+  city: string;
+  street: string;
 };
 
 type KnownLocation = {
@@ -241,6 +277,231 @@ function looksLikeAddressQuery(value: string): boolean {
   return /\b(rua|r|avenida|av|alameda|travessa|tv|estrada|rodovia|rod|praca|pc)\b/.test(normalized);
 }
 
+function buildAddressSearchQueries(rawInput: string): string[] {
+  const input = rawInput.replace(/\s+/g, " ").trim();
+  const viaCepIntent = parseViaCepSearchIntent(input);
+  if (viaCepIntent) {
+    return [
+      `${viaCepIntent.street}, ${viaCepIntent.city}, ${viaCepIntent.uf}, Brasil`,
+      `${input.replace(/\s+em\s+/i, ", ")}, Brasil`,
+      `${viaCepIntent.city}, ${viaCepIntent.uf}, Brasil`
+    ];
+  }
+
+  const normalized = normalizeForMatch(input);
+  const hasCityHint = [
+    "santo andre",
+    "sao caetano",
+    "sao bernardo",
+    "sao paulo",
+    "maua",
+    "praia grande"
+  ].some((city) => normalized.includes(city));
+
+  if (hasCityHint) return [`${input}, Brasil`];
+
+  return [
+    `${input}, Santo André, SP, Brasil`,
+    `${input}, São Caetano do Sul, SP, Brasil`,
+    `${input}, São Bernardo do Campo, SP, Brasil`,
+    `${input}, São Paulo, SP, Brasil`,
+    `${input}, Brasil`
+  ];
+}
+
+function parseViaCepSearchIntent(rawInput: string): ViaCepSearchIntent | null {
+  const input = rawInput.replace(/\s+/g, " ").trim();
+  if (!looksLikeAddressQuery(input) || normalizeCep(input).length === 8) return null;
+
+  const explicitEm = input.match(/^(.+?)\s+em\s+([A-Za-zÀ-ÿ\s]+?)(?:\s*[-,/]\s*([A-Za-z]{2})|\s+([A-Za-z]{2}))?$/i);
+  if (explicitEm) {
+    return {
+      street: explicitEm[1].trim(),
+      city: explicitEm[2].trim(),
+      uf: (explicitEm[3] || explicitEm[4] || "SP").toUpperCase()
+    };
+  }
+
+  const parts = input.split(",").map((part) => part.trim()).filter(Boolean);
+  if (parts.length >= 2) {
+    const cityPart = parts[1] ?? "";
+    const cityMatch = cityPart.match(/^(.+?)(?:\s*[-/]\s*([A-Za-z]{2})|\s+([A-Za-z]{2}))?$/);
+    return {
+      street: parts[0],
+      city: (cityMatch?.[1] || cityPart).trim(),
+      uf: (cityMatch?.[2] || cityMatch?.[3] || "SP").toUpperCase()
+    };
+  }
+
+  return null;
+}
+
+function viaCepAddressToLabel(address: ViaCepAddress): string {
+  return [
+    address.logradouro,
+    address.bairro,
+    address.localidade,
+    address.uf,
+    address.cep ? `cep ${formatCep(address.cep)}` : ""
+  ].filter(Boolean).join(", ");
+}
+
+function getResultCity(item: GeoSearchResult): string {
+  return item.address?.city ?? item.address?.town ?? item.address?.village ?? item.address?.municipality ?? item.address?.county ?? "";
+}
+
+function getResultUf(item: GeoSearchResult): string {
+  const stateIso = item.address?.["ISO3166-2-lvl4"] ?? "";
+  const ufFromIso = stateIso.includes("-") ? stateIso.split("-")[1] : "";
+  return (ufFromIso || toUf(item.address?.state ?? "")).toUpperCase();
+}
+
+function formatOriginSuggestionLabel(item: GeoSearchResult): string {
+  const road = item.address?.road ?? "";
+  const suburb = item.address?.suburb ?? "";
+  const city = getResultCity(item);
+  const uf = getResultUf(item);
+  const cep = normalizeCep(item.address?.postcode ?? "");
+  const type = normalizeForMatch(`${item.addresstype ?? ""} ${item.type ?? ""}`);
+
+  if (road) {
+    return [
+      road,
+      city,
+      uf,
+      cep ? `cep ${formatCep(cep)}` : ""
+    ].filter(Boolean).join(", ");
+  }
+
+  if (suburb || type.includes("suburb") || type.includes("neighbourhood") || type.includes("neighborhood")) {
+    return [`Bairro ${suburb || item.display_name?.split(",")[0] || ""}`.trim(), city, uf].filter(Boolean).join(", ");
+  }
+
+  if (city) {
+    return uf ? `${city} / ${uf}` : city;
+  }
+
+  return cleanSuggestionLabel(item.display_name ?? "Local");
+}
+
+function cleanSuggestionLabel(value: string): string {
+  return value
+    .replace(/,\s*Brasil$/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isRelevantOriginResult(item: GeoSearchResult): boolean {
+  const type = normalizeForMatch(`${item.class ?? ""} ${item.type ?? ""} ${item.addresstype ?? ""}`);
+  return Boolean(
+    item.address?.road ||
+    item.address?.suburb ||
+    getResultCity(item) ||
+    type.includes("postcode") ||
+    type.includes("suburb") ||
+    type.includes("neighbourhood") ||
+    type.includes("neighborhood") ||
+    type.includes("city") ||
+    type.includes("town") ||
+    type.includes("village")
+  );
+}
+
+function geoResultToSuggestion(item: GeoSearchResult, index: number, prefix: string): LocationSuggestion | null {
+  const lat = Number(item.lat);
+  const lng = Number(item.lon);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || !isRelevantOriginResult(item)) return null;
+
+  const label = formatOriginSuggestionLabel(item);
+  if (!label) return null;
+
+  return {
+    id: `${prefix}-${index}-${normalizeText(label)}`,
+    label,
+    lat,
+    lng,
+    cep: normalizeCep(item.address?.postcode ?? "")
+  };
+}
+
+async function resolveViaCepAddressPoint(address: ViaCepAddress, signal: AbortSignal): Promise<GeoPoint | null> {
+  const queries = [
+    [address.logradouro, address.bairro, address.localidade, address.uf, "Brasil"].filter(Boolean).join(", "),
+    [address.bairro, address.localidade, address.uf, "Brasil"].filter(Boolean).join(", "),
+    [address.localidade, address.uf, "Brasil"].filter(Boolean).join(", ")
+  ].filter(Boolean);
+
+  for (const query of queries) {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=1&countrycodes=br&q=${encodeURIComponent(query)}`,
+      { headers: { Accept: "application/json" }, cache: "no-store", signal }
+    );
+    const payload = (await response.json()) as GeoSearchResult[];
+    const first = payload?.[0];
+    if (response.ok && first) {
+      const lat = Number(first.lat);
+      const lng = Number(first.lon);
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        return { lat, lng };
+      }
+    }
+  }
+
+  return null;
+}
+
+async function fetchViaCepStreetSuggestions(intent: ViaCepSearchIntent, signal: AbortSignal): Promise<LocationSuggestion[]> {
+  const response = await fetch(
+    `https://viacep.com.br/ws/${encodeURIComponent(intent.uf)}/${encodeURIComponent(intent.city)}/${encodeURIComponent(intent.street)}/json/`,
+    { cache: "no-store", signal }
+  );
+  const payload = (await response.json()) as ViaCepAddress[] | { erro?: boolean };
+  if (!response.ok || !Array.isArray(payload)) return [];
+
+  const suggestions: LocationSuggestion[] = [];
+  for (const [index, address] of payload.entries()) {
+    if (address.erro || !address.cep || !address.localidade || !address.uf) continue;
+    const point = await resolveViaCepAddressPoint(address, signal);
+    if (!point) continue;
+    suggestions.push({
+      id: `viacep-${normalizeCep(address.cep)}-${index}`,
+      label: viaCepAddressToLabel(address),
+      lat: point.lat,
+      lng: point.lng,
+      cep: normalizeCep(address.cep)
+    });
+  }
+
+  return suggestions;
+}
+
+function rankOriginSuggestions(items: LocationSuggestion[]): LocationSuggestion[] {
+  const dedup = new Map<string, LocationSuggestion>();
+  for (const item of items) {
+    const key = normalizeText(item.label);
+    const existing = dedup.get(key);
+    if (!existing) {
+      dedup.set(key, item);
+      continue;
+    }
+    const existingCep = normalizeCep(existing.cep ?? "");
+    const nextCep = normalizeCep(item.cep ?? "");
+    if (!existingCep || (nextCep && nextCep < existingCep)) {
+      dedup.set(key, item);
+    }
+  }
+
+  return Array.from(dedup.values())
+    .sort((a, b) => {
+      const aCep = normalizeCep(a.cep ?? "");
+      const bCep = normalizeCep(b.cep ?? "");
+      if (aCep && bCep && aCep !== bCep) return aCep.localeCompare(bCep);
+      if (aCep !== bCep) return aCep ? -1 : 1;
+      return a.label.localeCompare(b.label, "pt-BR");
+    })
+    .slice(0, 5);
+}
+
 function matchTokenScore(haystack: string, terms: string[]): number {
   if (!terms.length) return 0;
   let matches = 0;
@@ -417,6 +678,7 @@ export function StoreDirectory() {
   const storeCardRefs = useRef(new Map<number, HTMLElement>());
   const skipAutoScrollRef = useRef(false);
   const suggestionsRef = useRef<HTMLDivElement | null>(null);
+  const originSuggestionsCacheRef = useRef(new Map<string, LocationSuggestion[]>());
 
   const requestUserLocation = () => {
     if (!("geolocation" in navigator)) {
@@ -489,7 +751,8 @@ export function StoreDirectory() {
   };
 
   const applyTextLocation = async (rawInput: string) => {
-    const knownLocation = findBestKnownLocation(rawInput);
+    const isAddressQuery = looksLikeAddressQuery(rawInput);
+    const knownLocation = isAddressQuery ? null : findBestKnownLocation(rawInput);
     if (knownLocation) {
       setLocationInput(knownLocation.label);
       setUserPoint({ lat: knownLocation.lat, lng: knownLocation.lng });
@@ -505,16 +768,28 @@ export function StoreDirectory() {
     }
     setLocationStatus("Localizando endereço...");
     try {
-      const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=1&countrycodes=br&q=${encodeURIComponent(`${rawInput}, Brasil`)}`;
-      const response = await fetch(url, { headers: { Accept: "application/json" }, cache: "no-store" });
-      const payload = (await response.json()) as Array<{ lat: string; lon: string }>;
-      const first = payload?.[0];
-      if (!response.ok || !first) {
+      let first: GeoSearchResult | null = null;
+      for (const query of buildAddressSearchQueries(rawInput)) {
+        const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=1&countrycodes=br&q=${encodeURIComponent(query)}`;
+        const response = await fetch(url, { headers: { Accept: "application/json" }, cache: "no-store" });
+        const payload = (await response.json()) as GeoSearchResult[];
+        if (response.ok && payload?.[0]) {
+          first = payload[0];
+          break;
+        }
+      }
+      if (!first) {
         setLocationStatus("Não foi possível localizar esse endereço.");
         return;
       }
       setUserPoint({ lat: Number(first.lat), lng: Number(first.lon) });
       setSelectedCep("");
+      if (isAddressQuery) {
+        const city = first.address?.city ?? first.address?.town ?? first.address?.municipality ?? "";
+        const state = first.address?.state ?? "";
+        const label = [first.address?.road, first.address?.suburb, city && state ? `${city} - ${state}` : city || state, first.address?.postcode].filter(Boolean).join(", ");
+        if (label) setLocationInput(label);
+      }
       setLocationStatus("Local aplicado. Lojas ordenadas por proximidade.");
     } catch {
       setLocationStatus("Falha ao consultar o endereço. Tente novamente.");
@@ -568,39 +843,31 @@ export function StoreDirectory() {
 
   useEffect(() => {
     const input = locationInput.trim();
-    if (input.length < 2) {
+    const cepDigits = normalizeCep(input);
+    const shouldSearch = input.length >= 3 || cepDigits.length === 8;
+
+    if (!shouldSearch) {
       setSuggestions([]);
       setCepSuggestion(null);
+      setIsFetchingSuggestions(false);
       return;
     }
 
-    const expandedRaw = expandLocationAliases(input.toLowerCase());
-    const expanded = normalizeForMatch(expandedRaw);
-    const exactAlias = resolveExactAlias(input);
-    const aliasExpanded = exactAlias ? normalizeForMatch(exactAlias) : "";
-    const known = getKnownLocationSuggestions(input).slice(0, 6);
-    const local = localSuggestions
-      .map((item) => ({ item, score: Math.max(fuzzyScore(item.label, expanded), fuzzyScore(item.label, input)) }))
-      .filter((entry) => entry.score >= 0.4)
-      .sort((a, b) => b.score - a.score)
-      .map((entry) => entry.item)
-      .slice(0, 6);
-    const typedPoint =
-      known[0] ? { lat: known[0].lat, lng: known[0].lng } : GEO_HINTS.find((hint) => hint.keys.some((key) => normalizeText(expanded).includes(key)))?.point ?? DEFAULT_REFERENCE_POINT;
-    const typedSuggestion: LocationSuggestion = {
-      id: `typed-${normalizeText(input)}`,
-      label: exactAlias ? exactAlias.replace(/\b\w/g, (char) => char.toUpperCase()) : input,
-      lat: typedPoint.lat,
-      lng: typedPoint.lng
-    };
+    const cacheKey = normalizeText(input);
+    const cached = originSuggestionsCacheRef.current.get(cacheKey);
+    if (cached) {
+      setSuggestions(cached);
+      setIsFetchingSuggestions(false);
+      return;
+    }
 
     const controller = new AbortController();
     const timeoutId = window.setTimeout(async () => {
       try {
         setIsFetchingSuggestions(true);
-        let cepSuggestionCandidate: LocationSuggestion | null = null;
-        const cepDigits = normalizeCep(input);
-        if (isCepLike(input) && cepDigits.length === 8) {
+        const found: LocationSuggestion[] = [];
+
+        if (cepDigits.length === 8) {
           const cepResponse = await fetch(`https://viacep.com.br/ws/${cepDigits}/json/`, { cache: "no-store", signal: controller.signal });
           const cepPayload = (await cepResponse.json()) as {
             erro?: boolean;
@@ -610,145 +877,75 @@ export function StoreDirectory() {
             uf?: string;
           };
           if (cepResponse.ok && !cepPayload?.erro) {
-            const label = [cepPayload.logradouro, cepPayload.bairro, cepPayload.localidade && cepPayload.uf ? `${cepPayload.localidade} - ${cepPayload.uf}` : cepPayload.localidade, formatCep(cepDigits)]
-              .filter(Boolean)
-              .join(", ");
-            const queryAddress = [cepPayload.logradouro, cepPayload.localidade, cepPayload.uf, "Brasil"].filter(Boolean).join(", ");
+            const queryAddress = [cepPayload.logradouro, cepPayload.bairro, cepPayload.localidade, cepPayload.uf, "Brasil"].filter(Boolean).join(", ");
             const geoResponse = await fetch(
-              `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=br&q=${encodeURIComponent(queryAddress)}`,
+              `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=1&countrycodes=br&q=${encodeURIComponent(queryAddress)}`,
               { headers: { Accept: "application/json" }, cache: "no-store", signal: controller.signal }
             );
-            const geoPayload = (await geoResponse.json()) as Array<{ lat: string; lon: string }>;
+            const geoPayload = (await geoResponse.json()) as GeoSearchResult[];
             const first = geoPayload?.[0];
             if (geoResponse.ok && first) {
-              cepSuggestionCandidate = {
+              found.push({
                 id: `cep-${cepDigits}`,
-                label,
+                label: [
+                  cepPayload.logradouro,
+                  cepPayload.bairro,
+                  cepPayload.localidade,
+                  cepPayload.uf,
+                  `cep ${formatCep(cepDigits)}`
+                ].filter(Boolean).join(", "),
                 lat: Number(first.lat),
                 lng: Number(first.lon),
                 cep: cepDigits
-              };
-              setCepSuggestion(cepSuggestionCandidate);
+              });
             }
           }
-        } else {
+        }
+
+        if (cepDigits.length !== 8) {
+          const viaCepIntent = parseViaCepSearchIntent(input);
+          if (viaCepIntent) {
+            const viaCepSuggestions = await fetchViaCepStreetSuggestions(viaCepIntent, controller.signal);
+            found.push(...viaCepSuggestions);
+          }
+
+          const queries = buildAddressSearchQueries(input);
+          for (const query of queries) {
+            if (found.length >= 5) break;
+            const response = await fetch(
+              `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=5&countrycodes=br&q=${encodeURIComponent(query)}`,
+              { headers: { Accept: "application/json" }, cache: "no-store", signal: controller.signal }
+            );
+            const payload = (await response.json()) as GeoSearchResult[];
+            if (!response.ok || !Array.isArray(payload)) continue;
+            payload.forEach((item, index) => {
+              const suggestion = geoResultToSuggestion(item, index, `origin-${normalizeText(query)}`);
+              if (suggestion) found.push(suggestion);
+            });
+          }
+        }
+
+        const ranked = rankOriginSuggestions(found);
+        originSuggestionsCacheRef.current.set(cacheKey, ranked);
+        setSuggestions(ranked);
+        setCepSuggestion(ranked.find((item) => Boolean(item.cep)) ?? null);
+      } catch {
+        if (!controller.signal.aborted) {
+          setSuggestions([]);
           setCepSuggestion(null);
         }
-
-        const queryTerm = exactAlias || expandedRaw || input;
-        const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=6&countrycodes=br&q=${encodeURIComponent(`${queryTerm}, Brasil`)}`;
-        const response = await fetch(url, { headers: { Accept: "application/json" }, cache: "no-store", signal: controller.signal });
-        const payload = (await response.json()) as Array<{
-          lat: string;
-          lon: string;
-          class?: string;
-          type?: string;
-          addresstype?: string;
-          address?: {
-            road?: string;
-            suburb?: string;
-            city?: string;
-            town?: string;
-            village?: string;
-            municipality?: string;
-            county?: string;
-            state?: string;
-            postcode?: string;
-            "ISO3166-2-lvl4"?: string;
-          };
-        }>;
-        const rawItems = Array.isArray(payload) ? payload : [];
-        const normalizedInput = normalizeForMatch(input);
-        const inputTokens = tokens(input);
-        const looksLikeCityQuery = !/\d/.test(input) && inputTokens.length > 0;
-        const isAddressQuery = looksLikeAddressQuery(input);
-
-        const cityFirst = rawItems.sort((a, b) => {
-          const cityTypes = ["city", "town", "village", "municipality", "administrative"];
-          const aCity = cityTypes.includes(a.type ?? "") ? 0 : 1;
-          const bCity = cityTypes.includes(b.type ?? "") ? 0 : 1;
-          return aCity - bCity;
-        });
-
-        const external = cityFirst.map((item, index): LocationSuggestion | null => {
-          const road = item.address?.road ?? "";
-          const suburb = item.address?.suburb ?? "";
-          const city = item.address?.city ?? item.address?.town ?? item.address?.village ?? item.address?.municipality ?? item.address?.county ?? "";
-          const state = item.address?.state ?? "";
-          const stateIso = item.address?.["ISO3166-2-lvl4"] ?? "";
-          const ufFromIso = stateIso.includes("-") ? stateIso.split("-")[1] : "";
-          const uf = (ufFromIso || toUf(state)).toUpperCase();
-          const postcode = item.address?.postcode ?? "";
-          const isCityLike = ["city", "town", "village", "municipality", "administrative"].includes(item.type ?? "");
-          const normalizedCity = normalizeForMatch(city);
-          const anyField = normalizeForMatch([city, road, suburb, state, postcode].join(" "));
-          const cityScore = matchTokenScore(normalizedCity, inputTokens);
-          const overallScore = matchTokenScore(anyField, inputTokens);
-          const fuzzy = Math.max(fuzzyScore(anyField, expanded), fuzzyScore(anyField, input));
-          const cityTokenMatch = cityScore >= 0.4;
-          const genericTokenMatch = overallScore >= 0.4 || fuzzy >= 0.4;
-
-          if (aliasExpanded && fuzzyScore(anyField, aliasExpanded) < 0.4) {
-            return null;
-          }
-          if (looksLikeCityQuery && !isAddressQuery && !isCityLike && !cityTokenMatch && !genericTokenMatch) {
-            return null;
-          }
-          if (isAddressQuery && !genericTokenMatch) {
-            return null;
-          }
-
-          const label = isCityLike || normalizedInput.length <= 4
-            ? [city, uf].filter(Boolean).join(" - ")
-            : [road, suburb, [city, uf].filter(Boolean).join(" - "), postcode].filter(Boolean).join(", ");
-
-          return {
-            id: `ext-${index}-${normalizeText(label || `${item.lat}-${item.lon}`)}`,
-            label: label || [city, uf].filter(Boolean).join(" - ") || "Local",
-            lat: Number(item.lat),
-            lng: Number(item.lon),
-            cep: normalizeCep(postcode)
-          };
-        }).filter((item): item is LocationSuggestion => item !== null);
-        const merged = [cepSuggestionCandidate, ...known, typedSuggestion, ...external, ...local].filter(Boolean) as LocationSuggestion[];
-        const dedup = new Map<string, LocationSuggestion>();
-        for (const item of merged) {
-          const key = normalizeText(item.label);
-          if (!dedup.has(key)) dedup.set(key, item);
-        }
-        const rawInputUpper = input.replace(/\s+/g, "").toUpperCase();
-        const ranked = Array.from(dedup.values()).sort((a, b) => {
-          const aNorm = normalizeForMatch(a.label);
-          const bNorm = normalizeForMatch(b.label);
-          const aScore = matchTokenScore(aNorm, inputTokens);
-          const bScore = matchTokenScore(bNorm, inputTokens);
-          const aFuzzy = Math.max(fuzzyScore(a.label, input), fuzzyScore(a.label, expanded));
-          const bFuzzy = Math.max(fuzzyScore(b.label, input), fuzzyScore(b.label, expanded));
-          const aAcr = acronymOf(a.label);
-          const bAcr = acronymOf(b.label);
-          const aAcrHit = rawInputUpper.length >= 2 && aAcr.includes(rawInputUpper) ? 1 : 0;
-          const bAcrHit = rawInputUpper.length >= 2 && bAcr.includes(rawInputUpper) ? 1 : 0;
-          if (aAcrHit !== bAcrHit) return bAcrHit - aAcrHit;
-          if (aFuzzy !== bFuzzy) return bFuzzy - aFuzzy;
-          return bScore - aScore;
-        });
-        setSuggestions(
-          ranked
-            .filter((item) => Math.max(fuzzyScore(item.label, input), fuzzyScore(item.label, expanded)) >= 0.4)
-            .slice(0, 8)
-        );
-      } catch {
-        setSuggestions([...known, typedSuggestion, ...local]);
       } finally {
-        setIsFetchingSuggestions(false);
+        if (!controller.signal.aborted) {
+          setIsFetchingSuggestions(false);
+        }
       }
-    }, 220);
+    }, 260);
 
     return () => {
       window.clearTimeout(timeoutId);
       controller.abort();
     };
-  }, [locationInput, localSuggestions]);
+  }, [locationInput]);
   const selectSuggestion = (item: LocationSuggestion) => {
     setLocationInput(item.label);
     setSelectedCep(normalizeCep(item.cep ?? ""));
@@ -925,7 +1122,7 @@ export function StoreDirectory() {
                 <input
                   id="stores-location"
                   type="text"
-                  placeholder="Digite CEP, cidade, estado etc."
+                  placeholder="Digite o CEP, rua, bairro ou cidade"
                   value={locationInput}
                   onFocus={() => setShowSuggestions(true)}
                   onChange={(event) => {
@@ -936,32 +1133,23 @@ export function StoreDirectory() {
                     setSelectedCep("");
                     setShowSuggestions(true);
                   }}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      void handleFindNearestStore();
-                    }
-                  }}
                 />
               </label>
 
-              {showSuggestions && (suggestions.length > 0 || isFetchingSuggestions) ? (
+              {showSuggestions && (locationInput.trim().length >= 3 || suggestions.length > 0 || isFetchingSuggestions) ? (
                 <div className="stores-search-suggestions" role="listbox" aria-label="Sugestões de local">
+                  <p className="stores-search-suggestions-title">Selecione o endereço de origem</p>
                   {suggestions.map((item) => (
                     <button key={item.id} type="button" className="stores-search-suggestion" onClick={() => selectSuggestion(item)}>
                       <MapPin size={14} />
                       <span>{item.cep ? `${item.label.replace(item.cep, formatCep(item.cep))}` : item.label}</span>
                     </button>
                   ))}
-                  {isFetchingSuggestions ? <p className="stores-search-loading">Buscando mais opções...</p> : null}
+                  {isFetchingSuggestions ? <p className="stores-search-loading">Buscando endereços...</p> : null}
+                  {!isFetchingSuggestions && suggestions.length === 0 ? <p className="stores-search-loading">Nenhum endereço encontrado.</p> : null}
                 </div>
               ) : null}
             </div>
-
-            <button type="button" className="stores-filter-input" aria-label="Buscar loja mais próxima" onClick={() => void handleFindNearestStore()}>
-              <Search size={17} />
-              <span>Buscar</span>
-            </button>
           </div>
 
           {locationStatus ? <p className="stores-location-status">{locationStatus}</p> : null}

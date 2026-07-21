@@ -7338,12 +7338,13 @@ h2 {
 
 .stores-directory-toolbar {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(120px, 132px);
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
 }
 
 .stores-search-autocomplete {
   position: relative;
+  width: 100%;
 }
 
 .stores-directory-location-row {
@@ -7410,11 +7411,13 @@ h2 {
 
 .stores-search-input,
 .stores-filter-input {
+  width: 100%;
+  box-sizing: border-box;
   min-height: 50px;
   border: 1px solid #cfdbf3;
   border-radius: 12px;
   background: #fff;
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 9px;
   color: #3e5687;
@@ -7450,6 +7453,13 @@ h2 {
   padding: 6px;
 }
 
+.stores-search-suggestions-title {
+  margin: 4px 8px 6px;
+  color: #283955;
+  font-size: 14px;
+  font-weight: 700;
+}
+
 .stores-search-suggestion {
   width: 100%;
   min-height: 42px;
@@ -7463,7 +7473,6 @@ h2 {
   gap: 8px;
   text-align: left;
   padding: 8px 10px;
-  cursor: pointer;
 }
 
 .stores-search-suggestion:hover {

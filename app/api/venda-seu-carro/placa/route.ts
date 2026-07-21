@@ -71,6 +71,12 @@ function normalizeYear(value: unknown): string {
   return match?.[0] ?? text;
 }
 
+function readSupplierError(payload: unknown): string {
+  if (typeof payload === "string") return payload;
+  if (!isRecord(payload)) return "";
+  return cleanText(payload.error ?? payload.message ?? payload.detail);
+}
+
 function normalizeVehicle(payload: unknown, plate: string): PlateVehicleData {
   return {
     plate,
@@ -113,10 +119,27 @@ export async function GET(request: NextRequest) {
   }
 
   if (!response.ok) {
+    const supplierError = readSupplierError(payload);
+    const isSupplierMappingError = /no enum constant/i.test(supplierError);
+
+    if (response.status === 404) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: isSupplierMappingError
+            ? "A consulta da placa está indisponível para este veículo no fornecedor. Continue preenchendo manualmente."
+            : "Não conseguimos consultar essa placa agora. Continue preenchendo manualmente.",
+          code: isSupplierMappingError ? "supplier_mapping_error" : "plate_lookup_unavailable",
+          status: response.status
+        },
+        { status: 404 }
+      );
+    }
+
     return NextResponse.json(
       {
         ok: false,
-        error: "Nao foi possivel consultar a placa.",
+        error: "Não foi possível consultar a placa agora. Continue preenchendo manualmente.",
         status: response.status
       },
       { status: response.status }

@@ -82,6 +82,8 @@ type PlateLookupResponse = {
   ok?: boolean;
   vehicle?: PlateLookupVehicle;
   error?: string;
+  code?: string;
+  status?: number;
 };
 
 const STEPS: Array<{ id: Step; label: string }> = [
@@ -342,16 +344,21 @@ export function SellYourCarWizard() {
     }
 
     const controller = new AbortController();
+    setPlateLookupStatus("loading");
+    setPlateLookupMessage("Consultando dados do veículo...");
     const timer = window.setTimeout(() => {
-      setPlateLookupStatus("loading");
-      setPlateLookupMessage("Consultando dados do veiculo...");
-
       fetch(`/api/venda-seu-carro/placa?placa=${encodeURIComponent(form.plate)}`, {
         method: "GET",
         signal: controller.signal
       })
         .then(async (response) => {
           const payload = (await response.json().catch(() => ({}))) as PlateLookupResponse;
+          if (response.status === 404 || payload.code === "plate_not_found" || payload.code === "plate_lookup_unavailable" || payload.code === "supplier_mapping_error") {
+            setPlateLookupStatus("not-found");
+            setPlateLookupMessage(payload.error || "Não conseguimos consultar essa placa agora. Continue preenchendo manualmente.");
+            return;
+          }
+
           if (!response.ok || !payload.ok || !payload.vehicle) {
             throw new Error(payload.error || "lookup");
           }
@@ -370,13 +377,18 @@ export function SellYourCarWizard() {
               color: vehicle.color || current.color
             };
           });
+          setErrors((current) => {
+            if (!current.plate) return current;
+            const { plate: _removed, ...rest } = current;
+            return rest;
+          });
           setPlateLookupStatus(hasData ? "found" : "not-found");
-          setPlateLookupMessage(hasData ? "Dados encontrados. Revise e complete o que faltar." : "Placa consultada. Complete os dados do veiculo.");
+          setPlateLookupMessage(hasData ? "Dados encontrados. Revise e complete o que faltar." : "Placa consultada. Complete os dados do veículo.");
         })
         .catch((error: unknown) => {
           if (error instanceof DOMException && error.name === "AbortError") return;
           setPlateLookupStatus("error");
-          setPlateLookupMessage("Nao conseguimos consultar essa placa agora. Voce pode continuar preenchendo manualmente.");
+          setPlateLookupMessage("Não conseguimos consultar essa placa agora. Você pode continuar preenchendo manualmente.");
         });
     }, 350);
 
@@ -410,6 +422,9 @@ export function SellYourCarWizard() {
     const nextErrors: Record<string, string> = {};
     if (targetStep === 1) {
       if (form.plate.length !== 7) nextErrors.plate = "Informe a placa completa";
+      if (form.plate.length === 7 && (plateLookupStatus === "idle" || plateLookupStatus === "loading")) {
+        nextErrors.plate = "Aguarde a consulta da placa terminar.";
+      }
     }
     if (targetStep === 2) {
       if (!form.brand) nextErrors.brand = "Informe a marca";

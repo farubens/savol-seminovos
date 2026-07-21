@@ -1,4 +1,7 @@
 obsolete/
+.next*
+*.log
+tsconfig.tsbuildinfo
 Assinatura-logo-branca-png.png
 Assinatura-logo-preta-png.png
 public/images/savol-credenciais.zip
