@@ -305,15 +305,16 @@ function canUseVwfsOnCurrentHost(): boolean {
 
 const galleryCacheByVehicle = new Map<number, string[]>();
 const galleryInFlightByVehicle = new Map<number, Promise<string[]>>();
-const FALLBACK_IMAGE = "/images/em-preparacao.jpg";
-const PREPARATION_IMAGE_TOKEN = "/images/em-preparacao";
+const FALLBACK_IMAGE = "/images/fallback-atualizado.webp";
+const PREPARATION_IMAGE_TOKENS = ["/images/em-preparacao", "/images/fallback-atualizado"];
 const VWFS_DEFAULT_SCRIPT = "https://seller.vwfsbrasil.com.br/partners/simulator.js";
 const VWFS_DEFAULT_CLIENT_KEY = "A7a4bq5l8zEVvP0wNR9wvkMmxrYWJZ6d1OjXDnBy";
 const VWFS_DEFAULT_CLIENT_TOKEN = "73697e9cda39da51b4fe07dfd94d5389a630670759a3dced21444ad8bfb25fab";
 const VWFS_DEFAULT_STORE_ID = 123454;
 
 function isPreparationImage(src: string): boolean {
-  return src.toLowerCase().includes(PREPARATION_IMAGE_TOKEN);
+  const normalizedSrc = src.toLowerCase();
+  return PREPARATION_IMAGE_TOKENS.some((token) => normalizedSrc.includes(token));
 }
 
 async function loadVehicleGallery(vehicleId: number): Promise<string[]> {
@@ -384,7 +385,7 @@ export function VehicleOfferCard({
   const router = useRouter();
   const { hasVisited, isFavorite, toggleFavorite } = useSavolAccount();
   const financeId = useId();
-  const safeImage = image || FALLBACK_IMAGE;
+  const safeImage = !image || isPreparationImage(image) ? FALLBACK_IMAGE : image;
   const isPreparationFallback = isPreparationImage(safeImage);
   const calculationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const galleryLoadingGuardRef = useRef<ReturnType<typeof setTimeout> | null>(null);
