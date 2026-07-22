@@ -15,12 +15,14 @@ export type StoreMapPoint = {
 type StoresLeafletMapProps = {
   stores: StoreMapPoint[];
   selectedStoreId: number | null;
+  focusStoreId: number | null;
   layoutSignal: string;
   onSelectStore: (storeId: number) => void;
 };
 
 const DEFAULT_CENTER: LatLngExpression = [-23.66, -46.55];
 const DEFAULT_ZOOM = 12;
+const FOCUSED_ZOOM = 15;
 
 function buildMarkerIcon(index: number, isActive: boolean): L.DivIcon {
   const markerClass = isActive ? "stores-map-pin is-active" : "stores-map-pin";
@@ -32,16 +34,16 @@ function buildMarkerIcon(index: number, isActive: boolean): L.DivIcon {
   });
 }
 
-function FocusController({ stores, selectedStoreId }: { stores: StoreMapPoint[]; selectedStoreId: number | null }) {
+function FocusController({ stores, focusStoreId }: { stores: StoreMapPoint[]; focusStoreId: number | null }) {
   const map = useMap();
 
   useEffect(() => {
     if (!stores.length) return;
 
-    if (selectedStoreId != null) {
-      const selected = stores.find((store) => store.id === selectedStoreId);
+    if (focusStoreId != null) {
+      const selected = stores.find((store) => store.id === focusStoreId);
       if (selected) {
-        map.flyTo([selected.lat, selected.lng], Math.max(map.getZoom(), 11), {
+        map.flyTo([selected.lat, selected.lng], FOCUSED_ZOOM, {
           animate: true,
           duration: 0.7
         });
@@ -54,7 +56,7 @@ function FocusController({ stores, selectedStoreId }: { stores: StoreMapPoint[];
       animate: true,
       duration: 0.7
     });
-  }, [map, selectedStoreId, stores]);
+  }, [focusStoreId, map, stores]);
 
   return null;
 }
@@ -72,7 +74,7 @@ function ResizeController({ layoutSignal }: { layoutSignal: string }) {
   return null;
 }
 
-export function StoresLeafletMap({ stores, selectedStoreId, layoutSignal, onSelectStore }: StoresLeafletMapProps) {
+export function StoresLeafletMap({ stores, selectedStoreId, focusStoreId, layoutSignal, onSelectStore }: StoresLeafletMapProps) {
   const bounds = useMemo<LatLngBoundsExpression | undefined>(() => {
     if (!stores.length) return undefined;
     return stores.map((store) => [store.lat, store.lng] as [number, number]);
@@ -116,7 +118,7 @@ export function StoresLeafletMap({ stores, selectedStoreId, layoutSignal, onSele
         );
       })}
 
-      <FocusController stores={stores} selectedStoreId={selectedStoreId} />
+      <FocusController stores={stores} focusStoreId={focusStoreId} />
       <ResizeController layoutSignal={layoutSignal} />
     </MapContainer>
   );

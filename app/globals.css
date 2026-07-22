@@ -7547,6 +7547,7 @@ button.stores-filter-input svg {
   border-radius: 12px;
   background: #fff;
   padding: 10px;
+  cursor: pointer;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -7602,17 +7603,10 @@ button.stores-filter-input svg {
   margin-top: 8px;
 }
 
-.stores-card-count {
-  margin: 8px 0 0;
-  color: #637ca9;
-  font-size: 14px;
-  font-weight: 600;
-}
-
 .stores-card-actions {
   margin-top: 10px;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
 }
 

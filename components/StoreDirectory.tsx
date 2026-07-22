@@ -669,6 +669,7 @@ export function StoreDirectory() {
   const [locationStatus, setLocationStatus] = useState("");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [selectedStoreId, setSelectedStoreId] = useState<number | null>(null);
+  const [mapFocusStoreId, setMapFocusStoreId] = useState<number | null>(null);
   const [storeModal, setStoreModal] = useState<ApiStore | null>(null);
   const [routeModalStore, setRouteModalStore] = useState<ApiStore | null>(null);
   const [userPoint, setUserPoint] = useState<GeoPoint | null>(null);
@@ -676,7 +677,6 @@ export function StoreDirectory() {
   const [cepSuggestion, setCepSuggestion] = useState<LocationSuggestion | null>(null);
   const storesListRef = useRef<HTMLDivElement | null>(null);
   const storeCardRefs = useRef(new Map<number, HTMLElement>());
-  const skipAutoScrollRef = useRef(false);
   const suggestionsRef = useRef<HTMLDivElement | null>(null);
   const originSuggestionsCacheRef = useRef(new Map<string, LocationSuggestion[]>());
 
@@ -955,7 +955,6 @@ export function StoreDirectory() {
   };
 
   const handleFindNearestStore = async () => {
-    skipAutoScrollRef.current = true;
     const sanitizedCep = normalizeCep(selectedCep || locationInput);
     if (sanitizedCep.length === 8) {
       await applyCepLocation(sanitizedCep);
@@ -995,38 +994,17 @@ export function StoreDirectory() {
   }, [filteredStores, selectedStoreId]);
 
   useEffect(() => {
-    if (selectedStoreId == null || isSidebarCollapsed) return;
-    if (skipAutoScrollRef.current) {
-      skipAutoScrollRef.current = false;
-      return;
-    }
+    if (!userPoint || !storesWithGeo.length) return;
 
-    let timerId: number | null = null;
-    const rafId = window.requestAnimationFrame(() => {
-      timerId = window.setTimeout(() => {
-        const list = storesListRef.current;
-        const card = storeCardRefs.current.get(selectedStoreId);
-        if (!list || !card) return;
-
-        const listRect = list.getBoundingClientRect();
-        const cardRect = card.getBoundingClientRect();
-        const isAbove = cardRect.top < listRect.top;
-        const isBelow = cardRect.bottom > listRect.bottom;
-
-        if (isAbove || isBelow) {
-          card.scrollIntoView({
-            behavior: "smooth",
-            block: "nearest"
-          });
-        }
-      }, 120);
+    const nearestStore = storesWithGeo.reduce((nearest, store) => {
+      const nearestDistance = distanceInKm(userPoint, { lat: nearest.lat, lng: nearest.lng });
+      const storeDistance = distanceInKm(userPoint, { lat: store.lat, lng: store.lng });
+      return storeDistance < nearestDistance ? store : nearest;
     });
 
-    return () => {
-      window.cancelAnimationFrame(rafId);
-      if (timerId != null) window.clearTimeout(timerId);
-    };
-  }, [filteredStores, isSidebarCollapsed, selectedStoreId]);
+    setSelectedStoreId(nearestStore.id);
+    setMapFocusStoreId(nearestStore.id);
+  }, [storesWithGeo, userPoint]);
 
   const selectedStore = useMemo(
     () => filteredStores.find((store) => store.id === selectedStoreId) ?? null,
@@ -1051,6 +1029,7 @@ export function StoreDirectory() {
 
   const handleStorePinSelect = (storeId: number) => {
     setSelectedStoreId(storeId);
+    setMapFocusStoreId(storeId);
     if (isSidebarCollapsed) {
       setIsSidebarCollapsed(false);
     }
@@ -1063,7 +1042,6 @@ export function StoreDirectory() {
   const scrollStoreCardIntoView = (storeId: number) => {
     const card = storeCardRefs.current.get(storeId);
     if (!card) return;
-    skipAutoScrollRef.current = true;
     card.scrollIntoView({
       behavior: "smooth",
       block: "nearest",
@@ -1073,6 +1051,7 @@ export function StoreDirectory() {
 
   const selectStoreFromCarousel = (storeId: number) => {
     setSelectedStoreId(storeId);
+    setMapFocusStoreId(storeId);
     scrollStoreCardIntoView(storeId);
   };
 
@@ -1088,6 +1067,8 @@ export function StoreDirectory() {
 
   const handleStoreListScroll = (event: UIEvent<HTMLDivElement>) => {
     const list = event.currentTarget;
+    if (list.scrollWidth <= list.clientWidth + 1) return;
+
     const firstCard = list.querySelector<HTMLElement>(".stores-directory-card");
     if (!firstCard) return;
 
@@ -1177,7 +1158,10 @@ export function StoreDirectory() {
                     }}
                     className={`stores-directory-card ${isActive ? "is-active" : ""}`}
                     onMouseEnter={() => setSelectedStoreId(store.id)}
-                    onClick={() => setSelectedStoreId(store.id)}
+                    onClick={() => {
+                      setSelectedStoreId(store.id);
+                      setMapFocusStoreId(store.id);
+                    }}
                   >
                     <div className="stores-card-top">
                       <span className="stores-card-brand">{store.brand}</span>
@@ -1190,18 +1174,7 @@ export function StoreDirectory() {
                     <p className="stores-card-detail">
                       <PhoneCall size={16} /> {store.phone}
                     </p>
-                    <p className="stores-card-count">{store.vehiclesCount} veículos</p>
                     <div className="stores-card-actions">
-                      <button
-                        type="button"
-                        className="store-btn-primary"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          setStoreModal(store);
-                        }}
-                      >
-                        Ver loja
-                      </button>
                       <button
                         type="button"
                         className="store-btn-ghost"
@@ -1264,6 +1237,7 @@ export function StoreDirectory() {
           <StoresLeafletMap
             stores={mapPoints}
             selectedStoreId={selectedStoreId}
+            focusStoreId={mapFocusStoreId}
             layoutSignal={isSidebarCollapsed ? "collapsed" : "expanded"}
             onSelectStore={handleStorePinSelect}
           />

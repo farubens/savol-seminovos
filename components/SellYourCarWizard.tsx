@@ -354,8 +354,8 @@ export function SellYourCarWizard() {
         .then(async (response) => {
           const payload = (await response.json().catch(() => ({}))) as PlateLookupResponse;
           if (response.status === 404 || payload.code === "plate_not_found" || payload.code === "plate_lookup_unavailable" || payload.code === "supplier_mapping_error") {
-            setPlateLookupStatus("not-found");
-            setPlateLookupMessage(payload.error || "Não conseguimos consultar essa placa agora. Continue preenchendo manualmente.");
+            setPlateLookupStatus("found");
+            setPlateLookupMessage("Continue para preencher os dados do veículo.");
             return;
           }
 
@@ -387,8 +387,8 @@ export function SellYourCarWizard() {
         })
         .catch((error: unknown) => {
           if (error instanceof DOMException && error.name === "AbortError") return;
-          setPlateLookupStatus("error");
-          setPlateLookupMessage("Não conseguimos consultar essa placa agora. Você pode continuar preenchendo manualmente.");
+          setPlateLookupStatus("found");
+          setPlateLookupMessage("Continue para preencher os dados do veículo.");
         });
     }, 350);
 
