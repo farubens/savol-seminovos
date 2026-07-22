@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { ExternalLink, MapPin, Navigation, PhoneCall, Store, X } from "lucide-react";
+import { MapPin, Navigation, PhoneCall, Store, X } from "lucide-react";
 import type { ApiStore } from "@/types/home";
 
 type StoreDetailsModalProps = {
@@ -150,10 +150,6 @@ export function StoreDetailsModal({ open, store, onClose, onOpenDirections }: St
             <Navigation size={15} />
             Como chegar
           </button>
-          <a className="store-btn-ghost" href={store.storeUrl} target="_blank" rel="noopener noreferrer">
-            Ver página da loja
-            <ExternalLink size={14} />
-          </a>
         </div>
       </div>
     </div>

@@ -7873,19 +7873,14 @@ button.stores-filter-input svg {
 .store-details-actions {
   margin-top: 12px;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
 }
 
-.store-details-actions .store-btn-primary,
-.store-details-actions .store-btn-ghost {
+.store-details-actions .store-btn-primary {
   min-height: 50px;
   width: 100%;
   border: 0;
-}
-
-.store-details-actions .store-btn-ghost {
-  border: 2px solid var(--blue);
 }
 
 .stores-directory-empty {
