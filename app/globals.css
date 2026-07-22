@@ -1643,7 +1643,7 @@ h2 {
 }
 
 .offer-media--preparation img {
-  object-fit: contain;
+  object-fit: cover;
 }
 
 .offer-tag {
@@ -3947,7 +3947,7 @@ h2 {
 }
 
 .vehicle-media-hit--preparation img {
-  object-fit: contain;
+  object-fit: cover;
 }
 
 .vehicle-media-badge {
