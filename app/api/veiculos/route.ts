@@ -549,8 +549,18 @@ function parseBrandModelVersionFromTitle(title: string): { brand: string; model:
   return { brand: parts[0], model: parts[1], version: parts.slice(2).join(" ") };
 }
 
-function buildName(brand: string, model: string, version: string, title: string): string {
-  if (brand && model) return version ? `${brand} ${model} ${version}`.trim() : `${brand} ${model}`.trim();
+function buildName(brand: string, model: string, version: string, year: string, title: string): string {
+  if (brand && model) {
+    const normalizedModel = normalizeMatchWords(model);
+    const normalizedVersion = normalizeMatchWords(version).trim();
+    const modelAlreadyContainsVersion = Boolean(
+      normalizedVersion && normalizedModel.includes(` ${normalizedVersion} `)
+    );
+    const nameParts = [brand, model];
+    if (version && !modelAlreadyContainsVersion) nameParts.push(version);
+    if (year) nameParts.push(year);
+    return nameParts.join(" ").trim();
+  }
   return removeMultibrandLabel(title) || "Veículo sem título";
 }
 
@@ -604,6 +614,8 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
   const galleryFromMeta = parseGalleryUrls(metaGalleryUrls);
   const gallery = Array.from(new Set([image, ...galleryFromMeta].filter(Boolean)));
   const year = extractYear(title, content, metaAno, metaAnoModelo);
+  const visibleYear = toVisibleSpecLabel(year);
+  const visibleModelYear = toVisibleSpecLabel(metaAnoModelo || year.split("/").at(-1) || year);
   const transmission = compactTransmissionLabel(extractTransmission(version, content, metaCambio));
   const fuel = compactFuelLabel(extractFuel(version, content, metaFuel));
   const km = formatKm(content, metaKm);
@@ -613,11 +625,11 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
     slug: vehicle.slug ?? String(vehicle.id),
     url: `/veiculos/${vehicle.slug ?? vehicle.id}`,
     absoluteUrl: `${SITE_BASE_URL}/veiculos/${vehicle.slug ?? vehicle.id}`,
-    name: buildName(brand, model, version, sanitizedTitle),
+    name: buildName(brand, model, version, visibleModelYear, sanitizedTitle),
     subtitle: buildSubtitle(version, model, excerpt),
     image,
     gallery: gallery.length ? gallery : [FALLBACK_IMAGE],
-    year: toVisibleSpecLabel(year),
+    year: visibleYear,
     transmission: toVisibleSpecLabel(transmission),
     fuel: toVisibleSpecLabel(fuel),
     km: toVisibleSpecLabel(km),
