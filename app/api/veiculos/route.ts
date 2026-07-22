@@ -549,17 +549,9 @@ function parseBrandModelVersionFromTitle(title: string): { brand: string; model:
   return { brand: parts[0], model: parts[1], version: parts.slice(2).join(" ") };
 }
 
-function buildName(brand: string, model: string, version: string, year: string, title: string): string {
+function buildName(brand: string, model: string, modelYear: string, title: string): string {
   if (brand && model) {
-    const normalizedModel = normalizeMatchWords(model);
-    const normalizedVersion = normalizeMatchWords(version).trim();
-    const modelAlreadyContainsVersion = Boolean(
-      normalizedVersion && normalizedModel.includes(` ${normalizedVersion} `)
-    );
-    const nameParts = [brand, model];
-    if (version && !modelAlreadyContainsVersion) nameParts.push(version);
-    if (year) nameParts.push(year);
-    return nameParts.join(" ").trim();
+    return [brand, model, modelYear].filter(Boolean).join(" ").trim();
   }
   return removeMultibrandLabel(title) || "Veículo sem título";
 }
@@ -625,7 +617,7 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
     slug: vehicle.slug ?? String(vehicle.id),
     url: `/veiculos/${vehicle.slug ?? vehicle.id}`,
     absoluteUrl: `${SITE_BASE_URL}/veiculos/${vehicle.slug ?? vehicle.id}`,
-    name: buildName(brand, model, version, visibleModelYear, sanitizedTitle),
+    name: buildName(brand, model, visibleModelYear, sanitizedTitle),
     subtitle: buildSubtitle(version, model, excerpt),
     image,
     gallery: gallery.length ? gallery : [FALLBACK_IMAGE],
