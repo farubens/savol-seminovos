@@ -293,6 +293,8 @@ final class Savol_Veiculos_CPT {
         add_action('savol_veiculos_run_autosync_cron', [__CLASS__, 'run_autosync_cron_job']);
         add_action('restrict_manage_posts', [__CLASS__, 'render_vehicle_admin_filters']);
         add_action('pre_get_posts', [__CLASS__, 'apply_vehicle_admin_filters']);
+        add_filter('manage_edit-' . self::POST_TYPE . '_sortable_columns', [__CLASS__, 'register_vehicle_sortable_columns']);
+        add_filter('posts_clauses', [__CLASS__, 'apply_vehicle_taxonomy_ordering'], 20, 2);
         add_filter('manage_' . self::SELL_YOUR_CAR_POST_TYPE . '_posts_columns', [__CLASS__, 'register_sell_your_car_columns']);
         add_action('manage_' . self::SELL_YOUR_CAR_POST_TYPE . '_posts_custom_column', [__CLASS__, 'render_sell_your_car_column'], 10, 2);
         add_action('veiculo_cor_add_form_fields', [__CLASS__, 'render_cor_add_fields']);
@@ -1786,6 +1788,64 @@ JS;
             ];
             $query->set('meta_query', $meta_query);
         }
+    }
+
+    public static function register_vehicle_sortable_columns(array $columns): array {
+        foreach (array_keys(self::taxonomies()) as $taxonomy) {
+            $column = 'taxonomy-' . $taxonomy;
+            if (isset($columns[$column])) {
+                $columns[$column] = 'savol_taxonomy_' . $taxonomy;
+            }
+        }
+
+        return $columns;
+    }
+
+    public static function apply_vehicle_taxonomy_ordering(array $clauses, \WP_Query $query): array {
+        if (!is_admin() || !$query->is_main_query()) {
+            return $clauses;
+        }
+
+        $post_type = $query->get('post_type');
+        if (is_array($post_type)) {
+            $post_type = reset($post_type);
+        }
+        if ($post_type !== self::POST_TYPE) {
+            return $clauses;
+        }
+
+        $orderby = (string) $query->get('orderby');
+        $prefix = 'savol_taxonomy_';
+        if (!str_starts_with($orderby, $prefix)) {
+            return $clauses;
+        }
+
+        $taxonomy = substr($orderby, strlen($prefix));
+        if (!array_key_exists($taxonomy, self::taxonomies())) {
+            return $clauses;
+        }
+
+        global $wpdb;
+        $alias = 'savol_taxonomy_sort';
+        if (strpos($clauses['join'], $alias) === false) {
+            $clauses['join'] .= $wpdb->prepare(
+                " LEFT JOIN (
+                    SELECT tr.object_id, MIN(t.name) AS sort_name
+                    FROM {$wpdb->term_relationships} tr
+                    INNER JOIN {$wpdb->term_taxonomy} tt
+                        ON tt.term_taxonomy_id = tr.term_taxonomy_id
+                        AND tt.taxonomy = %s
+                    INNER JOIN {$wpdb->terms} t ON t.term_id = tt.term_id
+                    GROUP BY tr.object_id
+                ) {$alias} ON {$wpdb->posts}.ID = {$alias}.object_id",
+                $taxonomy
+            );
+        }
+
+        $order = strtoupper((string) $query->get('order')) === 'DESC' ? 'DESC' : 'ASC';
+        $clauses['orderby'] = "COALESCE({$alias}.sort_name, '') {$order}, {$wpdb->posts}.post_title ASC";
+
+        return $clauses;
     }
 
     public static function restrict_seller_admin(): void {
@@ -3511,7 +3571,6 @@ JS;
         $title_parts = [
             isset($vehicle['brandName']) ? (string) $vehicle['brandName'] : '',
             isset($vehicle['modelName']) ? (string) $vehicle['modelName'] : '',
-            isset($vehicle['versionName']) ? (string) $vehicle['versionName'] : '',
             isset($vehicle['modelYear']) ? (string) $vehicle['modelYear'] : '',
         ];
         $title = trim(preg_replace('/\s+/', ' ', implode(' ', array_filter($title_parts))));

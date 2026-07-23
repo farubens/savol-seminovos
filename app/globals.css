@@ -1715,9 +1715,9 @@ h2 {
   font-size: 14px;
   margin: 10px 0 4px;
   line-height: 1.34;
-  min-height: 4.15em;
+  min-height: 2.68em;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -2883,16 +2883,10 @@ h2 {
   color: #21335f;
 }
 
-.store-count {
-  margin: 10px 0 0;
-  font-size: 13px;
-  color: #5f6f95;
-}
-
 .store-actions {
   margin-top: auto;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 12px;
   padding-top: 14px;
 }

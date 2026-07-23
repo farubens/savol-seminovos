@@ -8,7 +8,7 @@ if (!class_exists('Savol_Painel_Comercial')) :
 final class Savol_Painel_Comercial {
     private const ROLE = 'gestor_savol';
     private const ROLE_LABEL = 'Gestor SAVOL';
-    private const VERSION = '0.6.1';
+    private const VERSION = '0.6.2';
     private const OPTION_VERSION = 'savol_painel_comercial_version';
     private const ANALYTICS_TABLE = 'savol_painel_analytics';
     private const DASHBOARD_SLUG = 'savol-painel-comercial';
@@ -82,6 +82,7 @@ final class Savol_Painel_Comercial {
         add_filter('update_footer', [__CLASS__, 'admin_footer_text'], 99);
         add_filter('screen_options_show_screen', [__CLASS__, 'hide_screen_options']);
         add_action('admin_head', [__CLASS__, 'remove_help_tabs']);
+        add_action('admin_footer-edit.php', [__CLASS__, 'render_vehicle_table_script']);
         add_filter('post_row_actions', [__CLASS__, 'filter_row_actions'], 10, 2);
         add_filter('bulk_actions-edit-' . self::VEHICLE_POST_TYPE, [__CLASS__, 'filter_bulk_actions']);
         add_filter('bulk_actions-edit-' . self::SELL_LEAD_POST_TYPE, [__CLASS__, 'filter_bulk_actions']);
@@ -1809,6 +1810,44 @@ JS;
         wp_add_inline_style('savol-gestor-admin', self::should_use_savol_ui() ? self::admin_css() : self::dashboard_widget_css());
     }
 
+    public static function render_vehicle_table_script(): void {
+        if (!self::should_use_savol_ui()) {
+            return;
+        }
+
+        $screen = get_current_screen();
+        if (!$screen || $screen->post_type !== self::VEHICLE_POST_TYPE || $screen->base !== 'edit') {
+            return;
+        }
+
+        echo <<<'HTML'
+<script>
+(function () {
+    function prepareVehicleTable() {
+        var table = document.querySelector('.wp-list-table');
+        if (!table || table.closest('.savol-table-scroll')) {
+            return;
+        }
+
+        var wrapper = document.createElement('div');
+        wrapper.className = 'savol-table-scroll';
+        wrapper.setAttribute('role', 'region');
+        wrapper.setAttribute('aria-label', 'Tabela de veículos com rolagem horizontal');
+        wrapper.setAttribute('tabindex', '0');
+        table.parentNode.insertBefore(wrapper, table);
+        wrapper.appendChild(table);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', prepareVehicleTable);
+    } else {
+        prepareVehicleTable();
+    }
+}());
+</script>
+HTML;
+    }
+
     private static function admin_css(): string {
         return <<<'CSS'
 body.savol-gestor-role {
@@ -2521,15 +2560,45 @@ body.savol-gestor-role .button-primary:focus {
     background: var(--savol-blue-dark);
     border-color: var(--savol-blue-dark);
 }
-body.savol-gestor-role .wp-list-table {
+body.savol-gestor-role .savol-table-scroll {
     border: 1px solid var(--savol-line);
     border-radius: 8px;
     box-sizing: border-box;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, .05);
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    position: relative;
+    scrollbar-color: #94a3b8 #e8eef6;
+    scrollbar-width: thin;
+}
+body.savol-gestor-role .savol-table-scroll::-webkit-scrollbar {
+    height: 12px;
+}
+body.savol-gestor-role .savol-table-scroll::-webkit-scrollbar-track {
+    background: #e8eef6;
+}
+body.savol-gestor-role .savol-table-scroll::-webkit-scrollbar-thumb {
+    background: #94a3b8;
+    border: 3px solid #e8eef6;
+    border-radius: 999px;
+}
+body.savol-gestor-role .wp-list-table {
+    border: 1px solid var(--savol-line);
+    border-radius: 8px;
     box-shadow: 0 10px 24px rgba(15, 23, 42, .05);
     display: table;
     overflow: hidden;
     table-layout: fixed;
     width: 100%;
+}
+body.savol-gestor-role .savol-table-scroll .wp-list-table {
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    margin: 0;
+    min-width: 1960px;
+    table-layout: auto;
 }
 body.savol-gestor-role .wp-list-table thead th,
 body.savol-gestor-role .wp-list-table tfoot th {
@@ -2542,9 +2611,15 @@ body.savol-gestor-role .wp-list-table tfoot th {
 body.savol-gestor-role .wp-list-table td,
 body.savol-gestor-role .wp-list-table th {
     border-color: #edf2f7;
-    padding: 16px 14px;
-    vertical-align: top;
+    font-size: 13px;
+    line-height: 1.4;
+    padding: 11px 12px;
+    vertical-align: middle;
     word-break: normal;
+}
+body.savol-gestor-role .savol-table-scroll .wp-list-table td,
+body.savol-gestor-role .savol-table-scroll .wp-list-table th {
+    white-space: nowrap;
 }
 body.savol-gestor-role .wp-list-table tbody tr:nth-child(odd) {
     background: #ffffff;
@@ -2566,18 +2641,88 @@ body.savol-gestor-role .wp-list-table .column-title {
 body.savol-gestor-role .wp-list-table .column-date {
     width: 150px;
 }
+body.savol-gestor-role .savol-table-scroll .wp-list-table .column-title {
+    min-width: 320px;
+    white-space: normal;
+    width: 320px;
+}
+body.savol-gestor-role .savol-table-scroll .wp-list-table .column-title strong > a {
+    font-size: 14px;
+    line-height: 1.35;
+}
+body.savol-gestor-role .savol-table-scroll .wp-list-table .column-date {
+    min-width: 170px;
+    width: 170px;
+}
 body.savol-gestor-role .wp-list-table .check-column {
     padding-left: 12px;
     width: 42px;
 }
-body.savol-gestor-role .wp-list-table .column-marca,
-body.savol-gestor-role .wp-list-table .column-modelo,
-body.savol-gestor-role .wp-list-table .column-versao,
-body.savol-gestor-role .wp-list-table .column-cor,
-body.savol-gestor-role .wp-list-table .column-cidade,
-body.savol-gestor-role .wp-list-table .column-uf,
-body.savol-gestor-role .wp-list-table .column-unidade {
-    min-width: 120px;
+body.savol-gestor-role .savol-table-scroll .wp-list-table .column-taxonomy-veiculo_marca {
+    min-width: 130px;
+    width: 130px;
+}
+body.savol-gestor-role .savol-table-scroll .wp-list-table .column-taxonomy-veiculo_modelo {
+    min-width: 190px;
+    width: 190px;
+}
+body.savol-gestor-role .savol-table-scroll .wp-list-table .column-taxonomy-veiculo_versao {
+    min-width: 230px;
+    width: 230px;
+}
+body.savol-gestor-role .savol-table-scroll .wp-list-table .column-taxonomy-veiculo_cor {
+    min-width: 110px;
+    width: 110px;
+}
+body.savol-gestor-role .savol-table-scroll .wp-list-table .column-taxonomy-veiculo_cidade {
+    min-width: 170px;
+    width: 170px;
+}
+body.savol-gestor-role .savol-table-scroll .wp-list-table .column-taxonomy-veiculo_uf {
+    min-width: 64px;
+    width: 64px;
+}
+body.savol-gestor-role .savol-table-scroll .wp-list-table .column-taxonomy-veiculo_unidade {
+    min-width: 240px;
+    width: 240px;
+}
+body.savol-gestor-role .savol-table-scroll .wp-list-table .column-taxonomy-status-loja {
+    min-width: 160px;
+    width: 160px;
+}
+body.savol-gestor-role .savol-table-scroll .wp-list-table .column-taxonomy-veiculo_informacao_destaque,
+body.savol-gestor-role .savol-table-scroll .wp-list-table .column-taxonomy-veiculo_destaque_secundario {
+    min-width: 190px;
+    width: 190px;
+}
+body.savol-gestor-role .savol-table-scroll .check-column,
+body.savol-gestor-role .savol-table-scroll .column-title {
+    background: #ffffff;
+    position: sticky;
+}
+body.savol-gestor-role .savol-table-scroll .check-column {
+    left: 0;
+    z-index: 4;
+}
+body.savol-gestor-role .savol-table-scroll .column-title {
+    box-shadow: 1px 0 0 #dfe7f1, 8px 0 16px rgba(15, 23, 42, .04);
+    left: 42px;
+    z-index: 3;
+}
+body.savol-gestor-role .savol-table-scroll thead .check-column,
+body.savol-gestor-role .savol-table-scroll thead .column-title,
+body.savol-gestor-role .savol-table-scroll tfoot .check-column,
+body.savol-gestor-role .savol-table-scroll tfoot .column-title {
+    background: #f8fafc;
+    z-index: 6;
+}
+body.savol-gestor-role .savol-table-scroll tbody tr:nth-child(even) .check-column,
+body.savol-gestor-role .savol-table-scroll tbody tr:nth-child(even) .column-title {
+    background: #f8fafc;
+}
+body.savol-gestor-role .savol-table-scroll tbody tr:hover .check-column,
+body.savol-gestor-role .savol-table-scroll tbody tr:hover .column-title {
+    background: #eff6ff;
 }
 body.savol-gestor-role .wp-list-table .row-actions {
     color: transparent;
@@ -2635,6 +2780,30 @@ body.savol-gestor-role .tablenav .one-page .pagination-links {
     body.savol-gestor-role .wrap h1.wp-heading-inline:after,
     body.savol-gestor-role .wrap > h1:first-child:after {
         margin-left: 0;
+    }
+    body.savol-gestor-role .savol-table-scroll .wp-list-table {
+        display: table !important;
+        min-width: 1960px;
+    }
+    body.savol-gestor-role .savol-table-scroll .wp-list-table thead {
+        display: table-header-group !important;
+    }
+    body.savol-gestor-role .savol-table-scroll .wp-list-table tbody {
+        display: table-row-group !important;
+    }
+    body.savol-gestor-role .savol-table-scroll .wp-list-table tfoot {
+        display: table-footer-group !important;
+    }
+    body.savol-gestor-role .savol-table-scroll .wp-list-table tr {
+        display: table-row !important;
+    }
+    body.savol-gestor-role .savol-table-scroll .wp-list-table th,
+    body.savol-gestor-role .savol-table-scroll .wp-list-table td {
+        display: table-cell !important;
+    }
+    body.savol-gestor-role .savol-table-scroll .wp-list-table td::before,
+    body.savol-gestor-role .savol-table-scroll .wp-list-table .toggle-row {
+        display: none !important;
     }
     .savol-gestor-hero,
     .savol-gestor-actions {
