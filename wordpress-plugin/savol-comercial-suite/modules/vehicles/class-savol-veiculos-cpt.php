@@ -237,6 +237,7 @@ final class Savol_Veiculos_CPT {
             'qtd_donos' => ['label' => 'Qtd. de donos', 'type' => 'number'],
             'identificador_externo' => ['label' => 'Identificador externo', 'type' => 'text'],
             'galeria_fotos' => ['label' => 'Galeria de fotos', 'type' => 'gallery'],
+            'quantidade_fotos' => ['label' => 'Quantidade de fotos', 'type' => 'number'],
             'ipva_pago' => ['label' => 'IPVA pago', 'type' => 'boolean'],
             'licenciado' => ['label' => 'Licenciado', 'type' => 'boolean'],
             'blindado' => ['label' => 'Blindado', 'type' => 'boolean'],
@@ -3507,7 +3508,7 @@ JS;
                 'des_veiculo' => (string) ($apolo_reconciliation['apolo']['des_veiculo'] ?? ''),
             ],
             'autosync' => [
-                'highlight_rule_version' => '2026-07-low-km-annual',
+                'highlight_rule_version' => '2026-07-photo-count-v1',
                 'id' => (string) ($vehicle['id'] ?? ''),
                 'brandName' => (string) ($vehicle['brandName'] ?? ''),
                 'modelName' => (string) ($vehicle['modelName'] ?? ''),
@@ -3726,6 +3727,7 @@ JS;
         $photo_urls_text = implode("\n", $photo_urls);
         $previous_photo_urls_text = (string) get_post_meta($post_id, 'autosync_photo_urls', true);
         update_post_meta($post_id, 'autosync_photo_urls', $photo_urls_text);
+        update_post_meta($post_id, 'quantidade_fotos', count($photo_urls));
         if ($photo_urls_text !== '' && $photo_urls_text !== $previous_photo_urls_text) {
             self::import_vehicle_photos_to_gallery($post_id, $vehicle);
         }

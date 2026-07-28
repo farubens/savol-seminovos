@@ -32,6 +32,7 @@ type WpTerm = {
 
 type WpVehicle = {
   id: number;
+  featured_media?: number;
   slug?: string;
   link?: string;
   title?: { raw?: string; rendered?: string };
@@ -347,6 +348,18 @@ function parseGalleryUrls(rawValue: string): string[] {
   return Array.from(new Set(urls)).slice(0, 12);
 }
 
+function parseGalleryIds(rawValue: string): number[] {
+  if (!rawValue) return [];
+  return Array.from(
+    new Set(
+      rawValue
+        .split(",")
+        .map((value) => Number.parseInt(value.trim(), 10))
+        .filter((value) => Number.isFinite(value) && value > 0)
+    )
+  );
+}
+
 function normalizePlateValue(value: string): string {
   return value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 7);
 }
@@ -634,6 +647,8 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
   const metaBody = getMetaField(vehicle, "carroceria") || getMetaField(vehicle, "savol_vsc_vehicle_body_type");
   const metaCondition = getMetaField(vehicle, "condicao");
   const metaGalleryUrls = getMetaField(vehicle, "autosync_photo_urls");
+  const metaGalleryIds = getMetaField(vehicle, "galeria_fotos");
+  const metaPhotoCount = getMetaField(vehicle, "quantidade_fotos");
   const metaMolicar = getMetaField(vehicle, "molicar");
   const metaPlate = normalizePlateValue(getMetaField(vehicle, "placa") || getMetaField(vehicle, "plate"));
   const metaArmored = getMetaField(vehicle, "blindado");
@@ -646,10 +661,19 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
   const image = encodeURI(embeddedImage ?? FALLBACK_IMAGE);
   const galleryFromMeta = parseGalleryUrls(metaGalleryUrls);
   const gallery = Array.from(new Set([image, ...galleryFromMeta].filter(Boolean)));
+  const galleryIds = parseGalleryIds(metaGalleryIds);
+  const mediaIds = Array.from(
+    new Set([Number(vehicle.featured_media ?? 0), ...galleryIds].filter((value) => value > 0))
+  );
   const realPhotoUrls = Array.from(
     new Set([embeddedImage ?? "", ...galleryFromMeta].filter(hasRealVehicleImageUrl))
   );
-  const photoCount = realPhotoUrls.length;
+  const storedPhotoCount = Number.parseInt(metaPhotoCount, 10);
+  const photoCount = Math.max(
+    Number.isFinite(storedPhotoCount) ? storedPhotoCount : 0,
+    mediaIds.length,
+    realPhotoUrls.length
+  );
   const repasse =
     parseBooleanMeta(metaRepasse) ||
     normalizeForMatch(metaApoloProposalSeller) === "repasse";
