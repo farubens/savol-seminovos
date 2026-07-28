@@ -549,11 +549,15 @@ function parseBrandModelVersionFromTitle(title: string): { brand: string; model:
   return { brand: parts[0], model: parts[1], version: parts.slice(2).join(" ") };
 }
 
-function buildName(brand: string, model: string, modelYear: string, title: string): string {
+function buildName(title: string, brand: string, model: string, modelYear: string): string {
+  const officialTitle = removeMultibrandLabel(title);
+  if (officialTitle) {
+    return officialTitle;
+  }
   if (brand && model) {
     return [brand, model, modelYear].filter(Boolean).join(" ").trim();
   }
-  return removeMultibrandLabel(title) || "Veículo sem título";
+  return "Veículo sem título";
 }
 
 function buildSubtitle(version: string, model: string, excerpt: string): string {
@@ -617,7 +621,7 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
     slug: vehicle.slug ?? String(vehicle.id),
     url: `/veiculos/${vehicle.slug ?? vehicle.id}`,
     absoluteUrl: `${SITE_BASE_URL}/veiculos/${vehicle.slug ?? vehicle.id}`,
-    name: buildName(brand, model, visibleModelYear, sanitizedTitle),
+    name: buildName(sanitizedTitle, brand, model, visibleModelYear),
     subtitle: buildSubtitle(version, model, excerpt),
     image,
     gallery: gallery.length ? gallery : [FALLBACK_IMAGE],

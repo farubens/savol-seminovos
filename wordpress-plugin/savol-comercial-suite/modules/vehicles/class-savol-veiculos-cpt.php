@@ -54,6 +54,7 @@ final class Savol_Veiculos_CPT {
     private const AUTOSYNC_API_LOCK_OPTION = 'savol_veiculos_autosync_api_lock';
     private const AUTOSYNC_API_MIN_INTERVAL = 180;
     private const AUTOSYNC_API_LOCK_TTL = 180;
+    private const AUTOSYNC_PROGRESS_STALE_TTL = 300;
     private const AUTOSYNC_ENDPOINT_DEFAULT = 'https://sync-backend.autoavaliar.com.br/vehicle/stock';
     private const AUTOSYNC_BATCH_OPTION = 'savol_veiculos_autosync_batch';
     private const AUTOSYNC_BATCH_SIZE = 10;
@@ -2633,7 +2634,9 @@ JS;
             wp_send_json_error(['message' => 'Token vazio ou invalido.'], 400);
         }
 
-        $progress = get_option(self::AUTOSYNC_PROGRESS_OPTION, []);
+        $progress = self::recover_stale_autosync_progress(
+            get_option(self::AUTOSYNC_PROGRESS_OPTION, [])
+        );
         if (is_array($progress) && isset($progress['status']) && in_array($progress['status'], ['queued', 'running'], true)) {
             wp_send_json_success(['message' => 'Sincronizacao ja em andamento.']);
         }
@@ -2660,7 +2663,9 @@ JS;
         if (!current_user_can('manage_options')) {
             wp_send_json_error(['message' => 'Sem permissao.'], 403);
         }
-        $progress = get_option(self::AUTOSYNC_PROGRESS_OPTION, []);
+        $progress = self::recover_stale_autosync_progress(
+            get_option(self::AUTOSYNC_PROGRESS_OPTION, [])
+        );
         if (!is_array($progress)) {
             $progress = [];
         }
@@ -3027,10 +3032,15 @@ JS;
                 'val_compra' => self::parse_money_value($row['val_compra'] ?? null),
                 'valor_venda' => self::parse_money_value($row['valor_venda'] ?? null),
                 'des_cor' => trim((string) ($row['des_cor'] ?? '')),
+                'des_modelo' => trim((string) ($row['des_modelo'] ?? '')),
                 'des_combustivel' => trim((string) ($row['des_combustivel'] ?? '')),
                 'ano_fabricacao' => is_numeric($row['ano_fabricacao'] ?? null) ? (string) (int) $row['ano_fabricacao'] : '',
                 'ano_modelo' => is_numeric($row['ano_modelo'] ?? null) ? (string) (int) $row['ano_modelo'] : '',
                 'km_atual' => is_numeric($row['km_atual'] ?? null) ? (string) (float) $row['km_atual'] : '',
+                'blindado_informado' => array_key_exists('blindado', $row)
+                    && $row['blindado'] !== null
+                    && (!is_string($row['blindado']) || trim($row['blindado']) !== ''),
+                'blindado' => self::to_boolean_flag($row['blindado'] ?? false),
                 'nome_fantasia' => trim((string) ($row['nome_fantasia'] ?? '')),
                 'cnpj' => preg_replace('/\D+/', '', (string) ($row['cnpj'] ?? '')),
                 'placa' => self::normalize_plate((string) ($row['placa'] ?? '')),
@@ -3321,6 +3331,11 @@ JS;
             }
         }
 
+        if (!empty($apolo_item['blindado_informado'])) {
+            $vehicle['blindado'] = !empty($apolo_item['blindado']);
+            $vehicle['_apolo_blindado_informado'] = true;
+        }
+
         return $vehicle;
     }
 
@@ -3469,6 +3484,7 @@ JS;
                 'val_compra' => self::parse_money_value($apolo_reconciliation['apolo']['val_compra'] ?? null),
                 'valor_venda' => self::parse_money_value($apolo_reconciliation['apolo']['valor_venda'] ?? null),
                 'des_cor' => (string) ($apolo_reconciliation['apolo']['des_cor'] ?? ''),
+                'des_modelo' => (string) ($apolo_reconciliation['apolo']['des_modelo'] ?? ''),
                 'des_combustivel' => (string) ($apolo_reconciliation['apolo']['des_combustivel'] ?? ''),
                 'ano_fabricacao' => (string) ($apolo_reconciliation['apolo']['ano_fabricacao'] ?? ''),
                 'ano_modelo' => (string) ($apolo_reconciliation['apolo']['ano_modelo'] ?? ''),
@@ -3479,6 +3495,8 @@ JS;
                 'chassi' => (string) ($apolo_reconciliation['apolo']['chassi'] ?? ''),
                 'veiculo' => (string) ($apolo_reconciliation['apolo']['veiculo'] ?? ''),
                 'negociacao' => !empty($apolo_reconciliation['apolo']['negociacao']),
+                'blindado_informado' => !empty($apolo_reconciliation['apolo']['blindado_informado']),
+                'blindado' => !empty($apolo_reconciliation['apolo']['blindado']),
                 'des_veiculo' => (string) ($apolo_reconciliation['apolo']['des_veiculo'] ?? ''),
             ],
             'autosync' => [
@@ -3567,10 +3585,19 @@ JS;
         $post_id_by_vin_oldest = $vin !== '' ? self::find_oldest_post_id_by_vin($vin) : 0;
         $post_id = $post_id_by_plate_oldest > 0 ? $post_id_by_plate_oldest : ($post_id_by_vin_oldest > 0 ? $post_id_by_vin_oldest : $post_id_by_external);
         $vehicle = self::normalize_vehicle_identity($vehicle);
+        $apolo_reconciliation = self::reconcile_autosync_vehicle_with_apolo($vehicle, $apolo_stock_index, $apolo_item);
 
+        $title_model = trim((string) ($apolo_reconciliation['apolo']['des_modelo'] ?? ''));
+        if ($title_model === '') {
+            $title_model = (string) ($vehicle['modelName'] ?? '');
+        }
+        $title_model = self::strip_vehicle_leading_brand_label(
+            self::strip_vehicle_multibrand_label($title_model),
+            (string) ($vehicle['brandName'] ?? '')
+        );
         $title_parts = [
             isset($vehicle['brandName']) ? (string) $vehicle['brandName'] : '',
-            isset($vehicle['modelName']) ? (string) $vehicle['modelName'] : '',
+            $title_model,
             isset($vehicle['modelYear']) ? (string) $vehicle['modelYear'] : '',
         ];
         $title = trim(preg_replace('/\s+/', ' ', implode(' ', array_filter($title_parts))));
@@ -3578,7 +3605,6 @@ JS;
             $title = 'Veiculo ' . $external_id;
         }
         $title = self::strip_apolo_draft_reason_from_title($title);
-        $apolo_reconciliation = self::reconcile_autosync_vehicle_with_apolo($vehicle, $apolo_stock_index, $apolo_item);
         if (
             $post_id > 0
             && $apolo_reconciliation['reason'] === self::PRICE_OVERRIDE_REASON
@@ -3639,6 +3665,7 @@ JS;
         update_post_meta($post_id, 'apolo_val_compra', self::parse_money_value($apolo_reconciliation['apolo']['val_compra'] ?? null));
         update_post_meta($post_id, 'apolo_valor_venda', self::parse_money_value($apolo_reconciliation['apolo']['valor_venda'] ?? null));
         update_post_meta($post_id, 'apolo_des_cor', (string) ($apolo_reconciliation['apolo']['des_cor'] ?? ''));
+        update_post_meta($post_id, 'apolo_des_modelo', (string) ($apolo_reconciliation['apolo']['des_modelo'] ?? ''));
         update_post_meta($post_id, 'apolo_des_combustivel', (string) ($apolo_reconciliation['apolo']['des_combustivel'] ?? ''));
         update_post_meta($post_id, 'apolo_ano_fabricacao', (string) ($apolo_reconciliation['apolo']['ano_fabricacao'] ?? ''));
         update_post_meta($post_id, 'apolo_ano_modelo', (string) ($apolo_reconciliation['apolo']['ano_modelo'] ?? ''));
@@ -3646,6 +3673,13 @@ JS;
         update_post_meta($post_id, 'apolo_nome_fantasia', (string) ($apolo_reconciliation['apolo']['nome_fantasia'] ?? ''));
         update_post_meta($post_id, 'apolo_cnpj', (string) ($apolo_reconciliation['apolo']['cnpj'] ?? ''));
         update_post_meta($post_id, 'apolo_negociacao', !empty($apolo_reconciliation['apolo']['negociacao']) ? 1 : 0);
+        update_post_meta(
+            $post_id,
+            'apolo_blindado',
+            !empty($apolo_reconciliation['apolo']['blindado_informado'])
+                ? (!empty($apolo_reconciliation['apolo']['blindado']) ? 1 : 0)
+                : ''
+        );
         update_post_meta($post_id, 'apolo_reconciliacao_motivo', (string) $apolo_reconciliation['reason']);
         update_post_meta($post_id, 'combustivel', (string) ($vehicle['fuelName'] ?? ''));
         update_post_meta($post_id, 'cambio', (string) ($vehicle['transmissionName'] ?? ''));
@@ -3806,6 +3840,10 @@ JS;
     }
 
     private static function is_vehicle_armored(array $vehicle): bool {
+        if (!empty($vehicle['_apolo_blindado_informado'])) {
+            return self::to_boolean_flag($vehicle['blindado'] ?? false);
+        }
+
         foreach (['blindado', 'blindagem', 'isBlindado', 'is_blindado', 'armored', 'armor', 'isArmored', 'is_armored', 'shielded', 'isShielded'] as $key) {
             if (array_key_exists($key, $vehicle) && self::to_boolean_flag($vehicle[$key])) {
                 return true;
@@ -4049,7 +4087,59 @@ JS;
     }
 
     private static function update_progress(array $progress): void {
+        $progress['updated_at'] = time();
         update_option(self::AUTOSYNC_PROGRESS_OPTION, $progress, false);
+    }
+
+    private static function recover_stale_autosync_progress($progress): array {
+        if (!is_array($progress)) {
+            return [];
+        }
+
+        $status = (string) ($progress['status'] ?? '');
+        if (!in_array($status, ['queued', 'running'], true)) {
+            return $progress;
+        }
+
+        $now = time();
+        $batch = get_option(self::AUTOSYNC_BATCH_OPTION, []);
+        $has_batch = is_array($batch) && !empty($batch['rows']) && isset($batch['index'], $batch['total']);
+        $last_activity = (int) ($progress['updated_at'] ?? 0);
+        if ($last_activity <= 0 && $has_batch) {
+            $last_activity = (int) ($batch['started_at'] ?? 0);
+        }
+
+        $next_event = wp_next_scheduled('savol_veiculos_run_autosync_cron');
+        if ($last_activity > 0) {
+            $is_stale = ($now - $last_activity) > self::AUTOSYNC_PROGRESS_STALE_TTL;
+        } elseif ($has_batch) {
+            $is_stale = true;
+        } elseif ($next_event === false) {
+            $is_stale = true;
+        } else {
+            $is_stale = ((int) $next_event) < ($now - self::AUTOSYNC_PROGRESS_STALE_TTL);
+        }
+
+        if (!$is_stale) {
+            return $progress;
+        }
+
+        delete_option(self::AUTOSYNC_BATCH_OPTION);
+        delete_option(self::AUTOSYNC_API_LOCK_OPTION);
+        wp_clear_scheduled_hook('savol_veiculos_run_autosync_cron');
+
+        $message = 'A sincronizacao anterior foi interrompida. O botao foi liberado para uma nova tentativa.';
+        update_option(self::AUTOSYNC_LAST_ERROR_OPTION, $message, false);
+        $recovered = [
+            'status' => 'error',
+            'processed' => (int) ($progress['processed'] ?? 0),
+            'total' => (int) ($progress['total'] ?? 0),
+            'percent' => 100,
+            'message' => $message,
+        ];
+        self::update_progress($recovered);
+
+        return array_merge($recovered, ['updated_at' => time()]);
     }
 
     private static function get_autosync_api_wait_seconds(): int {
