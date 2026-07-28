@@ -1856,9 +1856,9 @@ h2 {
 }
 
 .offer-highlight--repasse {
-  border-color: #f3b7b7;
-  background: #fff1f1;
-  color: #b42318;
+  border-color: #9bd38f;
+  background: #effbea;
+  color: #22651e;
 }
 
 .offer-highlight--garantia {
@@ -1912,6 +1912,39 @@ h2 {
 .offer-highlight--completo svg,
 .offer-highlight--default svg {
   color: currentColor;
+}
+
+.offer-repasse-notice,
+.vehicle-repasse-notice {
+  width: 100%;
+  min-height: 34px;
+  border: 1px solid #78bf6b;
+  border-radius: 7px;
+  background: #e9f8e5;
+  color: #1c5e18;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 7px 10px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: 0;
+  text-align: center;
+  cursor: pointer;
+}
+
+.offer-repasse-notice:hover,
+.vehicle-repasse-notice:hover {
+  border-color: #4f9e45;
+  background: #dff3da;
+}
+
+.offer-repasse-notice svg,
+.vehicle-repasse-notice svg {
+  flex: 0 0 auto;
 }
 
 .offer-footer {
@@ -2889,6 +2922,130 @@ h2 {
   grid-template-columns: 1fr;
   gap: 12px;
   padding-top: 14px;
+}
+
+.repasse-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1600;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(5, 17, 39, 0.68);
+}
+
+.repasse-modal {
+  position: relative;
+  box-sizing: border-box;
+  width: min(100%, 620px);
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  border: 1px solid #b9dcb2;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 22px 60px rgba(6, 24, 52, 0.24);
+  padding: 28px;
+  color: var(--blue-dark);
+}
+
+.repasse-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: #ffffff;
+  color: var(--blue-dark);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.repasse-modal-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 8px;
+  background: #e8f7e4;
+  color: #2d7a27;
+  display: grid;
+  place-items: center;
+}
+
+.repasse-modal-kicker {
+  margin: 18px 0 7px;
+  color: #2d7a27;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.repasse-modal h2 {
+  max-width: 540px;
+  margin: 0;
+  color: var(--blue-dark);
+  font-size: 21px;
+  line-height: 1.3;
+  letter-spacing: 0;
+}
+
+.repasse-modal-explanation {
+  margin-top: 18px;
+  border-left: 4px solid #67ae5d;
+  border-radius: 4px;
+  background: #f1faee;
+  color: #294f25;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  padding: 14px;
+}
+
+.repasse-modal-explanation svg {
+  margin-top: 1px;
+}
+
+.repasse-modal-explanation p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.repasse-modal-actions {
+  margin-top: 22px;
+  display: grid;
+  grid-template-columns: minmax(120px, 0.7fr) minmax(220px, 1.3fr);
+  gap: 10px;
+}
+
+.repasse-modal-actions button,
+.repasse-modal-actions a {
+  min-height: 44px;
+  border-radius: 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 14px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.repasse-modal-actions button {
+  border: 1px solid var(--line);
+  background: #ffffff;
+  color: var(--blue-dark);
+}
+
+.repasse-modal-actions a {
+  border: 1px solid #2d7a27;
+  background: #2d7a27;
+  color: #ffffff;
 }
 
 .store-btn-primary,
@@ -4172,6 +4329,14 @@ h2 {
   margin-top: 8px;
 }
 
+.vehicle-repasse-notice {
+  width: fit-content;
+  max-width: 100%;
+  margin-top: 10px;
+  padding-inline: 12px;
+  font-size: 12px;
+}
+
 .vehicle-year-badge {
   width: fit-content;
   margin: 10px 0 0;
@@ -4570,9 +4735,9 @@ h2 {
 }
 
 .vehicle-extra-badges .vehicle-extra-badge--repasse {
-  border-color: #f3b7b7;
-  background: #fff1f1;
-  color: #b42318;
+  border-color: #9bd38f;
+  background: #effbea;
+  color: #22651e;
 }
 
 .vehicle-extra-badges .vehicle-extra-badge--garantia {
@@ -11222,6 +11387,32 @@ button.stores-filter-input svg {
   40% {
     opacity: 1;
     transform: translateY(-3px);
+  }
+}
+
+@media (max-width: 600px) {
+  .repasse-modal-backdrop {
+    padding: 10px;
+  }
+
+  .repasse-modal {
+    max-height: calc(100vh - 20px);
+    padding: 22px 18px 18px;
+  }
+
+  .repasse-modal h2 {
+    padding-right: 24px;
+    font-size: 18px;
+  }
+
+  .repasse-modal-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .offer-repasse-notice {
+    min-height: 28px;
+    padding: 5px 8px;
+    font-size: 9px;
   }
 }
 

@@ -76,6 +76,9 @@ type ApiVehicle = {
   plate?: string;
   armored: boolean;
   negotiating: boolean;
+  repasse: boolean;
+  preparing: boolean;
+  photoCount: number;
 };
 
 type CachedVehicles = {
@@ -137,14 +140,45 @@ function toVisibleSpecLabel(value: string): string {
 
 function hasRealVehicleImageUrl(value: string): boolean {
   const normalized = value.toLowerCase();
-  return Boolean(normalized) && !normalized.includes("/images/em-preparacao");
+  return (
+    Boolean(normalized) &&
+    !normalized.includes("/images/em-preparacao") &&
+    !normalized.includes("/images/fallback-atualizado")
+  );
 }
 
-function compareVehiclePhotoPriority(left: ApiVehicle, right: ApiVehicle): number {
-  const leftHasPhoto = hasRealVehicleImageUrl(left.image);
-  const rightHasPhoto = hasRealVehicleImageUrl(right.image);
-  if (leftHasPhoto === rightHasPhoto) return 0;
-  return leftHasPhoto ? -1 : 1;
+function getVehicleListingGroup(vehicle: ApiVehicle): number {
+  if (vehicle.negotiating) return 2;
+  if (vehicle.preparing) return 1;
+  return 0;
+}
+
+function getSaoPauloDayKey(date = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).format(date);
+}
+
+function getDailyVehicleRank(vehicleId: number, dayKey: string): number {
+  const input = `${dayKey}:${vehicleId}`;
+  let hash = 2166136261;
+  for (let index = 0; index < input.length; index += 1) {
+    hash ^= input.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function compareVehicleListingOrder(left: ApiVehicle, right: ApiVehicle, dayKey: string): number {
+  const groupDifference = getVehicleListingGroup(left) - getVehicleListingGroup(right);
+  if (groupDifference !== 0) return groupDifference;
+
+  const rankDifference = getDailyVehicleRank(left.id, dayKey) - getDailyVehicleRank(right.id, dayKey);
+  if (rankDifference !== 0) return rankDifference;
+  return left.id - right.id;
 }
 
 function compactFuelLabel(value: string): string {
@@ -604,11 +638,21 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
   const metaPlate = normalizePlateValue(getMetaField(vehicle, "placa") || getMetaField(vehicle, "plate"));
   const metaArmored = getMetaField(vehicle, "blindado");
   const metaNegotiating = getMetaField(vehicle, "negociacao") || getMetaField(vehicle, "apolo_negociacao");
+  const metaRepasse = getMetaField(vehicle, "repasse");
+  const metaApoloProposalSeller = getMetaField(vehicle, "apolo_vendedor_proposta");
   const priceData = extractPriceData(content, metaPrice);
 
-  const image = encodeURI(getEmbeddedImage(vehicle) ?? FALLBACK_IMAGE);
+  const embeddedImage = getEmbeddedImage(vehicle);
+  const image = encodeURI(embeddedImage ?? FALLBACK_IMAGE);
   const galleryFromMeta = parseGalleryUrls(metaGalleryUrls);
   const gallery = Array.from(new Set([image, ...galleryFromMeta].filter(Boolean)));
+  const realPhotoUrls = Array.from(
+    new Set([embeddedImage ?? "", ...galleryFromMeta].filter(hasRealVehicleImageUrl))
+  );
+  const photoCount = realPhotoUrls.length;
+  const repasse =
+    parseBooleanMeta(metaRepasse) ||
+    normalizeForMatch(metaApoloProposalSeller) === "repasse";
   const year = extractYear(title, content, metaAno, metaAnoModelo);
   const visibleYear = toVisibleSpecLabel(year);
   const visibleModelYear = toVisibleSpecLabel(metaAnoModelo || year.split("/").at(-1) || year);
@@ -633,8 +677,10 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
     storeId,
     oldPrice: priceData.oldPrice,
     price: priceData.price,
-    qualityTag: primaryHighlight,
-    secondaryHighlights,
+    qualityTag: repasse ? "Repasse" : primaryHighlight,
+    secondaryHighlights: repasse
+      ? secondaryHighlights.filter((highlight) => !normalizeForMatch(highlight).includes("repasse"))
+      : secondaryHighlights,
     brand: brand || "Marca não informada",
     model: model || "Modelo não informado",
     version: version || "Versão não informada",
@@ -646,7 +692,10 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
     molicar: metaMolicar || "",
     plate: metaPlate || "",
     armored: parseBooleanMeta(metaArmored),
-    negotiating: parseBooleanMeta(metaNegotiating)
+    negotiating: parseBooleanMeta(metaNegotiating),
+    repasse,
+    preparing: photoCount <= 1,
+    photoCount
   };
 }
 
@@ -679,7 +728,10 @@ export async function GET(request: NextRequest) {
         const rows = await fetchVehiclePosts(MAX_PER_PAGE, authHeaders);
         if (!rows.length) return [];
 
-        const items = rows.map(mapVehicle).sort(compareVehiclePhotoPriority);
+        const dayKey = getSaoPauloDayKey();
+        const items = rows
+          .map(mapVehicle)
+          .sort((left, right) => compareVehicleListingOrder(left, right, dayKey));
         vehiclesCache = {
           items,
           expiresAt: Date.now() + API_CACHE_TTL_MS

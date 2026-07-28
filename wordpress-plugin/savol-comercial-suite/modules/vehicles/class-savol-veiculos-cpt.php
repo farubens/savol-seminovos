@@ -241,6 +241,7 @@ final class Savol_Veiculos_CPT {
             'licenciado' => ['label' => 'Licenciado', 'type' => 'boolean'],
             'blindado' => ['label' => 'Blindado', 'type' => 'boolean'],
             'negociacao' => ['label' => 'Em negociacao', 'type' => 'boolean'],
+            'repasse' => ['label' => 'Repasse', 'type' => 'boolean'],
         ];
     }
 
@@ -3047,6 +3048,9 @@ JS;
                 'chassi' => self::normalize_vehicle_lookup_key((string) ($row['chassi'] ?? '')),
                 'veiculo' => trim((string) ($row['veiculo'] ?? '')),
                 'negociacao' => self::to_boolean_flag($row['negociacao'] ?? false),
+                'proposta' => trim((string) ($row['proposta'] ?? '')),
+                'vendedor_proposta' => trim((string) ($row['vendedor_proposta'] ?? '')),
+                'repasse' => self::canonicalize_text((string) ($row['vendedor_proposta'] ?? '')) === 'repasse',
                 'des_veiculo' => $description,
                 'raw' => $row,
             ];
@@ -3497,6 +3501,9 @@ JS;
                 'negociacao' => !empty($apolo_reconciliation['apolo']['negociacao']),
                 'blindado_informado' => !empty($apolo_reconciliation['apolo']['blindado_informado']),
                 'blindado' => !empty($apolo_reconciliation['apolo']['blindado']),
+                'proposta' => (string) ($apolo_reconciliation['apolo']['proposta'] ?? ''),
+                'vendedor_proposta' => (string) ($apolo_reconciliation['apolo']['vendedor_proposta'] ?? ''),
+                'repasse' => !empty($apolo_reconciliation['apolo']['repasse']),
                 'des_veiculo' => (string) ($apolo_reconciliation['apolo']['des_veiculo'] ?? ''),
             ],
             'autosync' => [
@@ -3673,6 +3680,8 @@ JS;
         update_post_meta($post_id, 'apolo_nome_fantasia', (string) ($apolo_reconciliation['apolo']['nome_fantasia'] ?? ''));
         update_post_meta($post_id, 'apolo_cnpj', (string) ($apolo_reconciliation['apolo']['cnpj'] ?? ''));
         update_post_meta($post_id, 'apolo_negociacao', !empty($apolo_reconciliation['apolo']['negociacao']) ? 1 : 0);
+        update_post_meta($post_id, 'apolo_proposta', (string) ($apolo_reconciliation['apolo']['proposta'] ?? ''));
+        update_post_meta($post_id, 'apolo_vendedor_proposta', (string) ($apolo_reconciliation['apolo']['vendedor_proposta'] ?? ''));
         update_post_meta(
             $post_id,
             'apolo_blindado',
@@ -3697,6 +3706,7 @@ JS;
         update_post_meta($post_id, 'licenciado', 0);
         update_post_meta($post_id, 'blindado', self::is_vehicle_armored($vehicle) ? 1 : 0);
         update_post_meta($post_id, 'negociacao', !empty($apolo_reconciliation['apolo']['negociacao']) ? 1 : 0);
+        update_post_meta($post_id, 'repasse', !empty($apolo_reconciliation['apolo']['repasse']) ? 1 : 0);
 
         self::set_term_if_value($post_id, 'veiculo_marca', (string) ($vehicle['brandName'] ?? ''));
         self::set_term_if_value($post_id, 'veiculo_modelo', (string) ($vehicle['modelName'] ?? ''));
@@ -3706,7 +3716,11 @@ JS;
         self::set_term_if_value($post_id, 'veiculo_cidade', self::extract_city_from_unidade($official_unit_name));
         self::set_term_if_value($post_id, 'veiculo_uf', 'SP');
         self::assign_unidade_term_with_contacts($post_id, $official_unit_name);
-        self::assign_informacao_destaque_terms($post_id, $vehicle);
+        self::assign_informacao_destaque_terms(
+            $post_id,
+            $vehicle,
+            !empty($apolo_reconciliation['apolo']['repasse'])
+        );
         self::assign_destaque_secundario_terms($post_id, $vehicle, $published_price);
 
         $photo_urls_text = implode("\n", $photo_urls);
@@ -3721,8 +3735,11 @@ JS;
         }
     }
 
-    private static function assign_informacao_destaque_terms(int $post_id, array $vehicle): void {
+    private static function assign_informacao_destaque_terms(int $post_id, array $vehicle, bool $is_repasse = false): void {
         $terms = self::extract_named_items($vehicle['VehicleFeatures'] ?? []);
+        if ($is_repasse) {
+            $terms[] = 'Repasse';
+        }
         wp_set_object_terms($post_id, $terms, 'veiculo_informacao_destaque', false);
     }
 

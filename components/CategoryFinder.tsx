@@ -678,6 +678,7 @@ export function CategoryFinder() {
                 variant="grid"
                 armored={vehicle.armored}
                 negotiating={vehicle.negotiating}
+                repasse={vehicle.repasse}
               />
             ))
           )}

@@ -100,6 +100,7 @@ export function VehicleGrid() {
               plate={vehicle.plate}
               armored={vehicle.armored}
               negotiating={vehicle.negotiating}
+              repasse={vehicle.repasse}
             />
           ))}
         </div>

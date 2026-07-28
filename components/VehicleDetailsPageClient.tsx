@@ -21,6 +21,7 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  CircleHelp,
   Fuel,
   Gauge,
   GitBranch,
@@ -37,6 +38,7 @@ import {
   X
 } from "lucide-react";
 import { type SavedVehicle, useSavolAccount } from "@/components/SavolAccountProvider";
+import { RepasseNoticeModal } from "@/components/RepasseNoticeModal";
 import type { ApiVehicle } from "@/types/home";
 
 type Props = {
@@ -157,9 +159,9 @@ function resolveHighlightPriority(value: string): number {
   return 10;
 }
 
-function resolveOrderedHighlights(qualityTag?: string, secondaryHighlights: string[] = []): string[] {
+function resolveOrderedHighlights(qualityTag?: string, secondaryHighlights: string[] = [], repasse = false): string[] {
   const seen = new Set<string>();
-  const highlights = [qualityTag || "", ...secondaryHighlights]
+  const highlights = [repasse ? "Repasse" : "", qualityTag || "", ...secondaryHighlights]
     .map((highlight) => highlight.trim())
     .filter(Boolean)
     .filter((highlight) => {
@@ -367,7 +369,8 @@ function toSavedVehicle(vehicle: ApiVehicle): SavedVehicle {
     molicar: vehicle.molicar,
     plate: vehicle.plate,
     armored: vehicle.armored,
-    negotiating: vehicle.negotiating
+    negotiating: vehicle.negotiating,
+    repasse: vehicle.repasse
   };
 }
 
@@ -400,6 +403,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
   const [isDirectionsOpen, setIsDirectionsOpen] = useState(false);
   const [isOpeningFinanceSimulator, setIsOpeningFinanceSimulator] = useState(false);
   const [isFinanceFollowUpOpen, setIsFinanceFollowUpOpen] = useState(false);
+  const [isRepasseModalOpen, setIsRepasseModalOpen] = useState(false);
 
   const thumbsRef = useRef<HTMLDivElement | null>(null);
   const vwfsCloseWatcherRef = useRef<(() => void) | null>(null);
@@ -645,7 +649,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
       })
     );
   }, [leadVehicleContext, storePhone, storeTitle, vehicle]);
-  const orderedHighlights = vehicle ? resolveOrderedHighlights(vehicle.qualityTag, vehicle.secondaryHighlights) : [];
+  const orderedHighlights = vehicle ? resolveOrderedHighlights(vehicle.qualityTag, vehicle.secondaryHighlights, vehicle.repasse) : [];
   const displayQualityTag = orderedHighlights[0] || "";
   const secondaryHighlights = orderedHighlights.slice(1);
   const specItems = useMemo(
@@ -799,6 +803,10 @@ export function VehicleDetailsPageClient({ slug }: Props) {
 
   const openFinanceSimulator = () => {
     if (!vehicle || isOpeningFinanceSimulator) return;
+    if (vehicle.repasse) {
+      setIsRepasseModalOpen(true);
+      return;
+    }
 
     const normalizedMolicar = normalizeMolicar(vehicle.molicar ?? "");
     const normalizedPlate = normalizePlateValue(vehicle.plate ?? "");
@@ -964,6 +972,10 @@ export function VehicleDetailsPageClient({ slug }: Props) {
   const handleLeadSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!validateLeadForm()) return;
+    if (vehicle?.repasse) {
+      setIsRepasseModalOpen(true);
+      return;
+    }
 
     setIsLeadSubmitting(true);
     setLeadErrors({});
@@ -1143,6 +1155,12 @@ export function VehicleDetailsPageClient({ slug }: Props) {
                 ) : null}
               </div>
             ) : null}
+            {vehicle.repasse ? (
+              <button type="button" className="vehicle-repasse-notice" onClick={() => setIsRepasseModalOpen(true)}>
+                <span>CARRO EXCLUSIVO PARA REPASSE</span>
+                <CircleHelp size={16} aria-label="Entenda a condição de repasse" />
+              </button>
+            ) : null}
             <p className="vehicle-info-subtitle">{vehicle.subtitle}</p>
             <p className="vehicle-year-badge">Ano/Modelo {vehicle.year}</p>
 
@@ -1165,7 +1183,17 @@ export function VehicleDetailsPageClient({ slug }: Props) {
               <button type="button" className="vehicle-quick-btn" onClick={handlePrint}>
                 <Printer size={16} /> Imprimir
               </button>
-              <a href={whatsappHref} className="vehicle-quick-btn" target="_blank" rel="noreferrer">
+              <a
+                href={whatsappHref}
+                className="vehicle-quick-btn"
+                target="_blank"
+                rel="noreferrer"
+                onClick={(event) => {
+                  if (!vehicle.repasse) return;
+                  event.preventDefault();
+                  setIsRepasseModalOpen(true);
+                }}
+              >
                 <Image
                   src="/images/whatsapp_icon.png"
                   alt=""
@@ -1418,6 +1446,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
                   secondaryHighlights={item.secondaryHighlights}
                   armored={item.armored}
                   negotiating={item.negotiating}
+                  repasse={item.repasse}
                   showFinanceButton={false}
                 />
               ))}
@@ -1459,6 +1488,8 @@ export function VehicleDetailsPageClient({ slug }: Props) {
         address={storeAddress}
         onClose={() => setIsDirectionsOpen(false)}
       />
+
+      <RepasseNoticeModal open={isRepasseModalOpen} onClose={() => setIsRepasseModalOpen(false)} />
 
       <FinanceFollowUpModal
         open={isFinanceFollowUpOpen}

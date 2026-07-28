@@ -10,6 +10,7 @@ import {
   ChevronLeft,
   ChevronRight,
   CheckCircle2,
+  CircleHelp,
   Eye,
   Fuel,
   Gauge,
@@ -27,6 +28,7 @@ import {
 import { AnimatePresence, motion } from "framer-motion";
 import { FinanceFollowUpModal } from "@/components/FinanceFollowUpModal";
 import { MapDirectionsModal } from "@/components/MapDirectionsModal";
+import { RepasseNoticeModal } from "@/components/RepasseNoticeModal";
 import { type SavedVehicle, useSavolAccount } from "@/components/SavolAccountProvider";
 import { logLeadmobResponse, logLeadPayload } from "@/lib/leadDebug";
 import { getLeadTrackingPayload } from "@/lib/leadTracking";
@@ -59,6 +61,7 @@ type Props = {
   plate?: string;
   armored?: boolean;
   negotiating?: boolean;
+  repasse?: boolean;
   showFinanceButton?: boolean;
 };
 
@@ -372,6 +375,7 @@ export function VehicleOfferCard({
   plate = "",
   armored = false,
   negotiating = false,
+  repasse = false,
   showFinanceButton = true
 }: Props) {
   type ProposalFormState = {
@@ -395,7 +399,7 @@ export function VehicleOfferCard({
   const resolvedSecondaryHighlights = useMemo(
     () => {
       const seen = new Set<string>();
-      const highlights = sortHighlightsByPriority([qualityTag, ...secondaryHighlights]
+      const highlights = sortHighlightsByPriority([repasse ? "Repasse" : "", qualityTag, ...secondaryHighlights]
         .map((highlight) => highlight.trim())
         .filter(shouldShowCardHighlight)
         .filter((highlight) => {
@@ -407,7 +411,7 @@ export function VehicleOfferCard({
         .slice(0, 4);
       return highlights.length ? highlights : [FALLBACK_HIGHLIGHT];
     },
-    [qualityTag, secondaryHighlights]
+    [qualityTag, repasse, secondaryHighlights]
   );
   const resolvedOldPrice = resolveOldPrice(oldPrice, price);
   const displayStore = store.toLocaleUpperCase("pt-BR");
@@ -446,6 +450,7 @@ export function VehicleOfferCard({
   const [installments, setInstallments] = useState(48);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [isDirectionsOpen, setIsDirectionsOpen] = useState(false);
+  const [isRepasseModalOpen, setIsRepasseModalOpen] = useState(false);
   const [proposalForm, setProposalForm] = useState<ProposalFormState>({
     name: "",
     phone: "",
@@ -674,6 +679,10 @@ export function VehicleOfferCard({
   };
 
   const openVwfsSimulator = () => {
+    if (repasse) {
+      setIsRepasseModalOpen(true);
+      return;
+    }
     if (isSimulatingFinance) return;
     if (!hasVwfsConfig || !hasVehicleIdForVwfs) {
       window.alert("Simulador oficial indisponível para este veículo no momento.");
@@ -846,6 +855,10 @@ export function VehicleOfferCard({
     if (normalizePhone(proposalForm.phone).length < 10) return;
     if (!proposalForm.email.trim()) return;
     if (!proposalForm.consent) return;
+    if (repasse) {
+      setIsRepasseModalOpen(true);
+      return;
+    }
     setProposalSubmitting(true);
     try {
       const tracking = getLeadTrackingPayload({
@@ -923,9 +936,10 @@ export function VehicleOfferCard({
       molicar,
       plate,
       armored,
-      negotiating
+      negotiating,
+      repasse
     }),
-    [armored, fuel, gallery, km, molicar, name, negotiating, oldPrice, plate, price, qualityTag, resolvedDetailUrl, safeImage, secondaryHighlights, store, subtitle, transmission, vehicleId, year]
+    [armored, fuel, gallery, km, molicar, name, negotiating, oldPrice, plate, price, qualityTag, repasse, resolvedDetailUrl, safeImage, secondaryHighlights, store, subtitle, transmission, vehicleId, year]
   );
   const isSavedAsFavorite = isFavorite(vehicleId);
   const wasVisited = hasVisited(vehicleId);
@@ -1043,6 +1057,12 @@ export function VehicleOfferCard({
                 })}
               </div>
             )}
+            {repasse ? (
+              <button type="button" className="offer-repasse-notice" onClick={() => setIsRepasseModalOpen(true)}>
+                <span>CARRO EXCLUSIVO PARA REPASSE</span>
+                <CircleHelp size={15} aria-label="Entenda a condição de repasse" />
+              </button>
+            ) : null}
           </div>
 
           <div className="offer-footer">
@@ -1088,6 +1108,8 @@ export function VehicleOfferCard({
         address=""
         onClose={() => setIsDirectionsOpen(false)}
       />
+
+      <RepasseNoticeModal open={isRepasseModalOpen} onClose={() => setIsRepasseModalOpen(false)} />
 
       <AnimatePresence>
         {isFinanceModalOpen && (

@@ -109,15 +109,14 @@ function formatKmValue(value: number): string {
   return `${new Intl.NumberFormat("pt-BR").format(value)} km`;
 }
 
-function hasRealVehiclePhoto(vehicle: ApiVehicle): boolean {
-  return Boolean(vehicle.image) && !vehicle.image.toLowerCase().includes("/images/em-preparacao");
+function getVehicleListingGroup(vehicle: ApiVehicle): number {
+  if (vehicle.negotiating) return 2;
+  if (vehicle.preparing) return 1;
+  return 0;
 }
 
-function comparePhotoPriority(left: ApiVehicle, right: ApiVehicle): number {
-  const leftHasPhoto = hasRealVehiclePhoto(left);
-  const rightHasPhoto = hasRealVehiclePhoto(right);
-  if (leftHasPhoto === rightHasPhoto) return 0;
-  return leftHasPhoto ? -1 : 1;
+function compareListingPriority(left: ApiVehicle, right: ApiVehicle): number {
+  return getVehicleListingGroup(left) - getVehicleListingGroup(right);
 }
 
 function buildOptionEntries(values: string[]): OptionEntry[] {
@@ -643,21 +642,21 @@ export function VehicleCatalog() {
     if (sort === "price_asc") {
       base.sort(
         (a, b) =>
-          comparePhotoPriority(a, b) ||
+          compareListingPriority(a, b) ||
           (parsePriceValue(a.price) ?? Number.POSITIVE_INFINITY) - (parsePriceValue(b.price) ?? Number.POSITIVE_INFINITY)
       );
     } else if (sort === "price_desc") {
-      base.sort((a, b) => comparePhotoPriority(a, b) || (parsePriceValue(b.price) ?? 0) - (parsePriceValue(a.price) ?? 0));
+      base.sort((a, b) => compareListingPriority(a, b) || (parsePriceValue(b.price) ?? 0) - (parsePriceValue(a.price) ?? 0));
     } else if (sort === "km_asc") {
       base.sort(
         (a, b) =>
-          comparePhotoPriority(a, b) ||
+          compareListingPriority(a, b) ||
           (parseKmValue(a.km) ?? Number.POSITIVE_INFINITY) - (parseKmValue(b.km) ?? Number.POSITIVE_INFINITY)
       );
     } else if (sort === "year_desc") {
-      base.sort((a, b) => comparePhotoPriority(a, b) || (parseYearValue(b.year) ?? 0) - (parseYearValue(a.year) ?? 0));
+      base.sort((a, b) => compareListingPriority(a, b) || (parseYearValue(b.year) ?? 0) - (parseYearValue(a.year) ?? 0));
     } else {
-      base.sort(comparePhotoPriority);
+      base.sort(compareListingPriority);
     }
 
     return base;
@@ -1439,6 +1438,7 @@ export function VehicleCatalog() {
                       plate={vehicle.plate}
                       armored={vehicle.armored}
                       negotiating={vehicle.negotiating}
+                      repasse={vehicle.repasse}
                     />
                   ))}
 

@@ -29,6 +29,9 @@ export type ApiVehicle = {
   plate?: string;
   armored: boolean;
   negotiating: boolean;
+  repasse: boolean;
+  preparing: boolean;
+  photoCount: number;
 };
 
 export type ApiStore = {
