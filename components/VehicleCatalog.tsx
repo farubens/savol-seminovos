@@ -110,8 +110,8 @@ function formatKmValue(value: number): string {
 }
 
 function getVehicleListingGroup(vehicle: ApiVehicle): number {
-  if (vehicle.negotiating) return 2;
-  if (vehicle.preparing) return 1;
+  if (vehicle.preparing) return 2;
+  if (vehicle.negotiating) return 1;
   return 0;
 }
 
