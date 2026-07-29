@@ -129,11 +129,11 @@ function parseLoosePrice(value: string): number | null {
 
 const bg = {
   hatch: "/images/categories/hatch.png",
-  suv: "/images/categories/suv.png",
+  suv: "/images/categories/suv.jpg",
   picape: "/images/categories/picape.png",
   sedan: "/images/categories/sedan.png",
-  esportivo: "/images/categories/eletricos.png",
-  luxo: "/images/categories/eletricos.png",
+  esportivo: "/images/categories/eletricos.jpg",
+  luxo: "/images/categories/eletricos.jpg",
   utilitarios: "/images/categories/utilitarios.png",
   todos: "/images/categories/todos.png"
 };
