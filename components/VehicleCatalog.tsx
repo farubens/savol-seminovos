@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Search, SlidersHorizontal, X } from "lucide-react";
 import type { ApiVehicle } from "@/types/home";
@@ -11,8 +11,7 @@ import { getBodyInfo as getClassifiedBodyInfo, getCategoryInfo as getClassifiedC
 import { parseCurrencyToInteger } from "@/utils/pricing";
 
 const DEFAULT_SORT = "destaques";
-const PAGE_SIZE = 20;
-const LOAD_MORE_DELAY_MS = 350;
+const SKELETON_COUNT = 20;
 
 type OptionEntry = [slug: string, label: string];
 type BodyInfo = { slug: string; label: string };
@@ -265,18 +264,11 @@ export function VehicleCatalog() {
   const searchParams = useSearchParams();
   const searchKey = searchParams.toString();
   const { vehicles, loading } = useHomeSessionData();
-  const loadMoreRef = useRef<HTMLParagraphElement | null>(null);
-  const isLoadingMoreRef = useRef(false);
-  const visibleCountRef = useRef(PAGE_SIZE);
-  const resultLengthRef = useRef(0);
-  const loadMoreTimeoutRef = useRef<number | null>(null);
   const lastSearchKeyRef = useRef(searchKey);
 
   const [isHydrated, setIsHydrated] = useState(false);
   const [showFilters, setShowFilters] = useState(true);
   const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isCatalogRefreshing, setIsCatalogRefreshing] = useState(Boolean(searchKey));
 
   const storesParam = searchParams.get("stores");
@@ -669,9 +661,6 @@ export function VehicleCatalog() {
     return seededShuffle(filteredVehicles, aiSeed).slice(0, 5);
   }, [isAiMock, filteredVehicles, sortedVehicles, aiSeed]);
 
-  const visibleVehicles = useMemo(() => resultVehicles.slice(0, visibleCount), [resultVehicles, visibleCount]);
-  const hasMoreVehicles = visibleCount < resultVehicles.length;
-  const loadMoreSkeletonCount = Math.min(PAGE_SIZE, Math.max(resultVehicles.length - visibleCount, 0));
   const isUrlRefreshing = searchKey !== lastSearchKeyRef.current;
   const isResultsLoading = loading || isCatalogRefreshing || isUrlRefreshing;
 
@@ -684,76 +673,6 @@ export function VehicleCatalog() {
 
     return () => window.clearTimeout(timeoutId);
   }, [isCatalogRefreshing, loading, resultVehicles.length]);
-
-  useEffect(() => {
-    if (loadMoreTimeoutRef.current != null) {
-      window.clearTimeout(loadMoreTimeoutRef.current);
-      loadMoreTimeoutRef.current = null;
-    }
-    setVisibleCount(PAGE_SIZE);
-    setIsLoadingMore(false);
-    isLoadingMoreRef.current = false;
-  }, [resultVehicles]);
-
-  useEffect(() => {
-    visibleCountRef.current = visibleCount;
-  }, [visibleCount]);
-
-  useEffect(() => {
-    resultLengthRef.current = resultVehicles.length;
-  }, [resultVehicles.length]);
-
-  const loadNextVehicleBatch = useCallback(() => {
-    if (isLoadingMoreRef.current) return;
-    if (visibleCountRef.current >= resultLengthRef.current) return;
-
-    isLoadingMoreRef.current = true;
-    setIsLoadingMore(true);
-
-    loadMoreTimeoutRef.current = window.setTimeout(() => {
-      setVisibleCount((current) => Math.min(current + PAGE_SIZE, resultLengthRef.current));
-      isLoadingMoreRef.current = false;
-      setIsLoadingMore(false);
-      loadMoreTimeoutRef.current = null;
-    }, LOAD_MORE_DELAY_MS);
-  }, []);
-
-  useEffect(() => {
-    const target = loadMoreRef.current;
-    if (!target || loading || !hasMoreVehicles) return;
-
-    let frameId = 0;
-
-    const isTargetVisible = () => {
-      const rect = target.getBoundingClientRect();
-      return rect.top <= window.innerHeight && rect.bottom >= 0;
-    };
-
-    const loadIfMessageIsVisible = () => {
-      if (!isTargetVisible()) return;
-      loadNextVehicleBatch();
-    };
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry?.isIntersecting) loadNextVehicleBatch();
-      },
-      { rootMargin: "0px" }
-    );
-
-    observer.observe(target);
-    window.addEventListener("scroll", loadIfMessageIsVisible, { passive: true });
-    window.addEventListener("resize", loadIfMessageIsVisible);
-
-    frameId = window.requestAnimationFrame(loadIfMessageIsVisible);
-
-    return () => {
-      window.cancelAnimationFrame(frameId);
-      window.removeEventListener("scroll", loadIfMessageIsVisible);
-      window.removeEventListener("resize", loadIfMessageIsVisible);
-      observer.disconnect();
-    };
-  }, [hasMoreVehicles, loadNextVehicleBatch, loading, resultVehicles.length]);
 
   const pushQuery = (nextSort = sort) => {
     const priceRange = normalizeOptionalRange(priceMin, priceMax, priceSliderMinBound, priceSliderMaxBound);
@@ -1390,7 +1309,7 @@ export function VehicleCatalog() {
 
             {isResultsLoading && (
               <div className="catalog-results-grid catalog-results-grid--full">
-                {Array.from({ length: PAGE_SIZE }).map((_, index) => (
+                {Array.from({ length: SKELETON_COUNT }).map((_, index) => (
                   <article className="offer-card skeleton" key={`catalog-skeleton-${index}`}>
                     <div className="skeleton-box image" />
                     <div className="skeleton-body">
@@ -1404,66 +1323,45 @@ export function VehicleCatalog() {
               </div>
             )}
 
-            {!isResultsLoading && !visibleVehicles.length && (
+            {!isResultsLoading && !resultVehicles.length && (
               <article className="catalog-empty-state">
                 <h3>Nenhum veículo encontrado</h3>
                 <p>Ajuste os filtros para ampliar sua busca.</p>
               </article>
             )}
 
-            {!isResultsLoading && Boolean(visibleVehicles.length) && (
-              <>
-                <div className="catalog-results-grid catalog-results-grid--full">
-                  {visibleVehicles.map((vehicle, index) => (
-                    <VehicleOfferCard
-                      key={vehicle.id}
-                      vehicleId={vehicle.id}
-                      name={vehicle.name}
-                      subtitle={vehicle.subtitle}
-                      image={vehicle.image}
-                      gallery={vehicle.gallery}
-                      year={vehicle.year}
-                      transmission={vehicle.transmission}
-                      fuel={vehicle.fuel}
-                      km={vehicle.km}
-                      store={vehicle.store}
-                      storeId={vehicle.storeId}
-                      oldPrice={vehicle.oldPrice}
-                      price={vehicle.price}
-                      detailUrl={vehicle.url}
-                      adUrl={vehicle.absoluteUrl}
-                      qualityTag={vehicle.qualityTag}
-                      secondaryHighlights={vehicle.secondaryHighlights}
-                      delay={index * 0.01}
-                      variant="grid"
-                      molicar={vehicle.molicar}
-                      plate={vehicle.plate}
-                      armored={vehicle.armored}
-                      negotiating={vehicle.negotiating}
-                      repasse={vehicle.repasse}
-                    />
-                  ))}
-
-                  {isLoadingMore &&
-                    Array.from({ length: loadMoreSkeletonCount }).map((_, index) => (
-                      <article className="offer-card skeleton" key={`catalog-load-more-skeleton-${index}`}>
-                        <div className="skeleton-box image" />
-                        <div className="skeleton-body">
-                          <div className="skeleton-box title" />
-                          <div className="skeleton-box subtitle" />
-                          <div className="skeleton-box price" />
-                          <div className="skeleton-box button" />
-                        </div>
-                      </article>
-                    ))}
-                </div>
-
-                {hasMoreVehicles && (
-                  <p ref={loadMoreRef} className="catalog-infinite-status">
-                    {isLoadingMore ? "Carregando mais veículos..." : `Exibindo ${visibleVehicles.length} de ${resultVehicles.length} veículos`}
-                  </p>
-                )}
-              </>
+            {!isResultsLoading && Boolean(resultVehicles.length) && (
+              <div className="catalog-results-grid catalog-results-grid--full">
+                {resultVehicles.map((vehicle, index) => (
+                  <VehicleOfferCard
+                    key={vehicle.id}
+                    vehicleId={vehicle.id}
+                    name={vehicle.name}
+                    subtitle={vehicle.subtitle}
+                    image={vehicle.image}
+                    gallery={vehicle.gallery}
+                    year={vehicle.year}
+                    transmission={vehicle.transmission}
+                    fuel={vehicle.fuel}
+                    km={vehicle.km}
+                    store={vehicle.store}
+                    storeId={vehicle.storeId}
+                    oldPrice={vehicle.oldPrice}
+                    price={vehicle.price}
+                    detailUrl={vehicle.url}
+                    adUrl={vehicle.absoluteUrl}
+                    qualityTag={vehicle.qualityTag}
+                    secondaryHighlights={vehicle.secondaryHighlights}
+                    delay={index * 0.01}
+                    variant="grid"
+                    molicar={vehicle.molicar}
+                    plate={vehicle.plate}
+                    armored={vehicle.armored}
+                    negotiating={vehicle.negotiating}
+                    repasse={vehicle.repasse}
+                  />
+                ))}
+              </div>
             )}
           </div>
         </div>
