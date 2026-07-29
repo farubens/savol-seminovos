@@ -358,7 +358,7 @@ function toSavedVehicle(vehicle: ApiVehicle): SavedVehicle {
     km: vehicle.km,
     store: vehicle.store,
     storeId: vehicle.storeId,
-    oldPrice: vehicle.oldPrice,
+    oldPrice: vehicle.repasse ? "" : vehicle.oldPrice,
     price: vehicle.price,
     qualityTag: vehicle.qualityTag,
     secondaryHighlights: vehicle.secondaryHighlights,
@@ -625,7 +625,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
       fuel: vehicle?.fuel,
       transmission: vehicle?.transmission,
       price: vehicle?.price,
-      oldPrice: vehicle?.oldPrice,
+      oldPrice: vehicle?.repasse ? "" : vehicle?.oldPrice,
       store: storeTitle,
       storeId: resolvedStoreId,
       city: vehicle?.city,
@@ -1158,9 +1158,9 @@ export function VehicleDetailsPageClient({ slug }: Props) {
             <p className="vehicle-info-subtitle">{vehicle.subtitle}</p>
             <p className="vehicle-year-badge">Ano/Modelo {vehicle.year}</p>
 
-            {vehicle.oldPrice ? <p className="vehicle-old-price">{vehicle.oldPrice}</p> : null}
+            {!vehicle.repasse && vehicle.oldPrice ? <p className="vehicle-old-price">{vehicle.oldPrice}</p> : null}
             <p className="vehicle-price-line">
-              Por <strong>{vehicle.price}</strong>
+              {vehicle.repasse ? <strong>{vehicle.price}</strong> : <>Por <strong>{vehicle.price}</strong></>}
             </p>
 
             <div className="vehicle-store-block">

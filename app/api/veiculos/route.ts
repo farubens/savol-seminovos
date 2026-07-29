@@ -710,7 +710,7 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
     km: toVisibleSpecLabel(km),
     store: storeLabel,
     storeId,
-    oldPrice: priceData.oldPrice,
+    oldPrice: repasse ? "" : priceData.oldPrice,
     price: priceData.price,
     qualityTag: repasse ? "" : primaryHighlight,
     secondaryHighlights: repasse ? [] : secondaryHighlights,

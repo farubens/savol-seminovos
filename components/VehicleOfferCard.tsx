@@ -415,7 +415,7 @@ export function VehicleOfferCard({
     },
     [qualityTag, repasse, secondaryHighlights]
   );
-  const resolvedOldPrice = resolveOldPrice(oldPrice, price);
+  const resolvedOldPrice = repasse ? "" : resolveOldPrice(oldPrice, price);
   const displayStore = store.toLocaleUpperCase("pt-BR");
   const specItems = useMemo(
     () =>
@@ -1030,7 +1030,7 @@ export function VehicleOfferCard({
             <div className="offer-mobile-commerce">
               {Boolean(resolvedOldPrice) && <p className="offer-mobile-old-price">{resolvedOldPrice}</p>}
               <p className="offer-mobile-price">
-                Por <strong>{price}</strong>
+                {repasse ? <strong>{price}</strong> : <>Por <strong>{price}</strong></>}
               </p>
               <p className="offer-mobile-store">
                 <MapPin size={13} />
@@ -1062,7 +1062,7 @@ export function VehicleOfferCard({
           <div className="offer-footer">
             {Boolean(resolvedOldPrice) && <p className="offer-old-price">{resolvedOldPrice}</p>}
             <p className="offer-price">
-              Por <strong>{price}</strong>
+              {repasse ? <strong>{price}</strong> : <>Por <strong>{price}</strong></>}
             </p>
 
             <div className="offer-store-wrap">
@@ -1201,7 +1201,7 @@ export function VehicleOfferCard({
                       <div className="finance-modal-price">
                         {Boolean(resolvedOldPrice) && <p className="finance-modal-old-price">{resolvedOldPrice}</p>}
                         <p className="finance-modal-current-price">
-                          Por <strong>{price}</strong>
+                          {repasse ? <strong>{price}</strong> : <>Por <strong>{price}</strong></>}
                         </p>
                         <p className="finance-modal-store">
                           <MapPin size={16} /> Loja: {displayStore}
@@ -1214,7 +1214,7 @@ export function VehicleOfferCard({
                         <div className="finance-modal-proposal-meta">
                           {Boolean(resolvedOldPrice) && <p className="finance-modal-old-price">{resolvedOldPrice}</p>}
                           <p className="finance-modal-current-price">
-                            Por <strong>{price}</strong>
+                            {repasse ? <strong>{price}</strong> : <>Por <strong>{price}</strong></>}
                           </p>
                           <p className="finance-modal-store">
                             <MapPin size={16} /> Loja: {displayStore}
