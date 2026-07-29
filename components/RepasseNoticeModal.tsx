@@ -45,7 +45,9 @@ export function RepasseNoticeModal({ open, onClose }: Props) {
           <Store size={24} />
         </span>
         <p className="repasse-modal-kicker">Condição de repasse</p>
-        <h2 id="repasse-modal-title">Veículo em condição de repasse</h2>
+        <h2 id="repasse-modal-title">
+          Venda exclusiva para CNPJ com CNAE de comércio a varejo de automóveis, camionetas e utilitários usados.
+        </h2>
 
         <div className="repasse-modal-explanation">
           <CircleHelp size={19} />

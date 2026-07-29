@@ -1053,7 +1053,7 @@ export function VehicleOfferCard({
             )}
             {repasse ? (
               <button type="button" className="offer-repasse-notice" onClick={() => setIsRepasseModalOpen(true)}>
-                <span>Veículo em condição de repasse</span>
+                <span>Venda exclusiva para CNPJ com CNAE de comércio a varejo de automóveis, camionetas e utilitários usados.</span>
                 <CircleHelp size={15} aria-label="Entenda a condição de repasse" />
               </button>
             ) : null}
