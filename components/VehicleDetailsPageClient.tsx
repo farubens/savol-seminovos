@@ -160,8 +160,10 @@ function resolveHighlightPriority(value: string): number {
 }
 
 function resolveOrderedHighlights(qualityTag?: string, secondaryHighlights: string[] = [], repasse = false): string[] {
+  if (repasse) return [];
+
   const seen = new Set<string>();
-  const highlights = [repasse ? "Repasse" : "", qualityTag || "", ...secondaryHighlights]
+  const highlights = [qualityTag || "", ...secondaryHighlights]
     .map((highlight) => highlight.trim())
     .filter(Boolean)
     .filter((highlight) => {
@@ -803,10 +805,6 @@ export function VehicleDetailsPageClient({ slug }: Props) {
 
   const openFinanceSimulator = () => {
     if (!vehicle || isOpeningFinanceSimulator) return;
-    if (vehicle.repasse) {
-      setIsRepasseModalOpen(true);
-      return;
-    }
 
     const normalizedMolicar = normalizeMolicar(vehicle.molicar ?? "");
     const normalizedPlate = normalizePlateValue(vehicle.plate ?? "");
@@ -972,10 +970,6 @@ export function VehicleDetailsPageClient({ slug }: Props) {
   const handleLeadSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!validateLeadForm()) return;
-    if (vehicle?.repasse) {
-      setIsRepasseModalOpen(true);
-      return;
-    }
 
     setIsLeadSubmitting(true);
     setLeadErrors({});
@@ -1157,7 +1151,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
             ) : null}
             {vehicle.repasse ? (
               <button type="button" className="vehicle-repasse-notice" onClick={() => setIsRepasseModalOpen(true)}>
-                <span>CARRO EXCLUSIVO PARA REPASSE</span>
+                <span>Veículo em condição de repasse</span>
                 <CircleHelp size={16} aria-label="Entenda a condição de repasse" />
               </button>
             ) : null}
@@ -1188,11 +1182,6 @@ export function VehicleDetailsPageClient({ slug }: Props) {
                 className="vehicle-quick-btn"
                 target="_blank"
                 rel="noreferrer"
-                onClick={(event) => {
-                  if (!vehicle.repasse) return;
-                  event.preventDefault();
-                  setIsRepasseModalOpen(true);
-                }}
               >
                 <Image
                   src="/images/whatsapp_icon.png"

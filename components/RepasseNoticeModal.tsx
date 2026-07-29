@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { CircleHelp, Store, X } from "lucide-react";
 import { useEffect } from "react";
 
@@ -46,22 +45,19 @@ export function RepasseNoticeModal({ open, onClose }: Props) {
           <Store size={24} />
         </span>
         <p className="repasse-modal-kicker">Condição de repasse</p>
-        <h2 id="repasse-modal-title">
-          Venda exclusiva para CNPJ com CNAE de comércio a varejo de automóveis, camionetas e utilitários usados.
-        </h2>
+        <h2 id="repasse-modal-title">Veículo em condição de repasse</h2>
 
         <div className="repasse-modal-explanation">
           <CircleHelp size={19} />
           <p>
-            Este veículo é destinado à revenda profissional e pode seguir condições próprias de atacado,
-            incluindo venda no estado em que se encontra e sem garantia comercial da SAVOL. Documentação,
-            vistoria e demais condições devem ser confirmadas no canal para lojistas.
+            Este veículo é comercializado em condição de repasse e pode não passar pelo mesmo processo de
+            preparação dos demais seminovos SAVOL. Consulte a unidade para conhecer seu estado de conservação,
+            histórico, eventuais avarias informadas e as condições da negociação.
           </p>
         </div>
 
         <div className="repasse-modal-actions">
           <button type="button" onClick={onClose}>Entendi</button>
-          <Link href="/venda-por-atacado">Acessar canal para lojistas</Link>
         </div>
       </section>
     </div>

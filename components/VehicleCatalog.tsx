@@ -116,7 +116,9 @@ function getVehicleListingGroup(vehicle: ApiVehicle): number {
 }
 
 function compareListingPriority(left: ApiVehicle, right: ApiVehicle): number {
-  return getVehicleListingGroup(left) - getVehicleListingGroup(right);
+  const groupDifference = getVehicleListingGroup(left) - getVehicleListingGroup(right);
+  if (groupDifference !== 0) return groupDifference;
+  return right.stockDays - left.stockDays;
 }
 
 function buildOptionEntries(values: string[]): OptionEntry[] {

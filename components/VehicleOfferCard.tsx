@@ -398,8 +398,10 @@ export function VehicleOfferCard({
   const isMountedRef = useRef(true);
   const resolvedSecondaryHighlights = useMemo(
     () => {
+      if (repasse) return [];
+
       const seen = new Set<string>();
-      const highlights = sortHighlightsByPriority([repasse ? "Repasse" : "", qualityTag, ...secondaryHighlights]
+      const highlights = sortHighlightsByPriority([qualityTag, ...secondaryHighlights]
         .map((highlight) => highlight.trim())
         .filter(shouldShowCardHighlight)
         .filter((highlight) => {
@@ -679,10 +681,6 @@ export function VehicleOfferCard({
   };
 
   const openVwfsSimulator = () => {
-    if (repasse) {
-      setIsRepasseModalOpen(true);
-      return;
-    }
     if (isSimulatingFinance) return;
     if (!hasVwfsConfig || !hasVehicleIdForVwfs) {
       window.alert("Simulador oficial indisponível para este veículo no momento.");
@@ -855,10 +853,6 @@ export function VehicleOfferCard({
     if (normalizePhone(proposalForm.phone).length < 10) return;
     if (!proposalForm.email.trim()) return;
     if (!proposalForm.consent) return;
-    if (repasse) {
-      setIsRepasseModalOpen(true);
-      return;
-    }
     setProposalSubmitting(true);
     try {
       const tracking = getLeadTrackingPayload({
@@ -1059,7 +1053,7 @@ export function VehicleOfferCard({
             )}
             {repasse ? (
               <button type="button" className="offer-repasse-notice" onClick={() => setIsRepasseModalOpen(true)}>
-                <span>CARRO EXCLUSIVO PARA REPASSE</span>
+                <span>Veículo em condição de repasse</span>
                 <CircleHelp size={15} aria-label="Entenda a condição de repasse" />
               </button>
             ) : null}

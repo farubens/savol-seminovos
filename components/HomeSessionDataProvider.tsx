@@ -9,7 +9,7 @@ type HomeSessionDataContextValue = {
   loading: boolean;
 };
 
-const SESSION_KEY = "savol_home_payload_v7";
+const SESSION_KEY = "savol_home_payload_v8";
 const HOME_API_URL = "/api/home";
 const SESSION_CACHE_TTL_MS = 2 * 60 * 1000;
 

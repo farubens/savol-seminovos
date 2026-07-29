@@ -243,6 +243,7 @@ final class Savol_Veiculos_CPT {
             'blindado' => ['label' => 'Blindado', 'type' => 'boolean'],
             'negociacao' => ['label' => 'Em negociacao', 'type' => 'boolean'],
             'repasse' => ['label' => 'Repasse', 'type' => 'boolean'],
+            'dias_estoque' => ['label' => 'Dias de estoque', 'type' => 'number'],
         ];
     }
 
@@ -3051,7 +3052,10 @@ JS;
                 'negociacao' => self::to_boolean_flag($row['negociacao'] ?? false),
                 'proposta' => trim((string) ($row['proposta'] ?? '')),
                 'vendedor_proposta' => trim((string) ($row['vendedor_proposta'] ?? '')),
-                'repasse' => self::canonicalize_text((string) ($row['vendedor_proposta'] ?? '')) === 'repasse',
+                'repasse' => array_key_exists('repasse', $row)
+                    ? self::to_boolean_flag($row['repasse'])
+                    : self::canonicalize_text((string) ($row['vendedor_proposta'] ?? '')) === 'repasse',
+                'dias_estoque' => self::extract_apolo_stock_days($row),
                 'des_veiculo' => $description,
                 'raw' => $row,
             ];
@@ -3070,6 +3074,28 @@ JS;
         }
 
         return $index;
+    }
+
+    private static function extract_apolo_stock_days(array $row): int {
+        $aliases = [
+            'dias estoque',
+            'dias de estoque',
+            'dias em estoque',
+            'dias no estoque',
+            'qtd dias estoque',
+            'tempo estoque',
+        ];
+
+        foreach ($row as $key => $value) {
+            $normalized_key = self::canonicalize_text((string) $key);
+            if (!in_array($normalized_key, $aliases, true) || !is_numeric($value)) {
+                continue;
+            }
+
+            return max(0, (int) $value);
+        }
+
+        return 0;
     }
 
     private static function build_autosync_stock_index(array $rows): array {
@@ -3505,10 +3531,11 @@ JS;
                 'proposta' => (string) ($apolo_reconciliation['apolo']['proposta'] ?? ''),
                 'vendedor_proposta' => (string) ($apolo_reconciliation['apolo']['vendedor_proposta'] ?? ''),
                 'repasse' => !empty($apolo_reconciliation['apolo']['repasse']),
+                'dias_estoque' => max(0, (int) ($apolo_reconciliation['apolo']['dias_estoque'] ?? 0)),
                 'des_veiculo' => (string) ($apolo_reconciliation['apolo']['des_veiculo'] ?? ''),
             ],
             'autosync' => [
-                'highlight_rule_version' => '2026-07-photo-count-v1',
+                'highlight_rule_version' => '2026-07-repasse-notice-stock-days-v1',
                 'id' => (string) ($vehicle['id'] ?? ''),
                 'brandName' => (string) ($vehicle['brandName'] ?? ''),
                 'modelName' => (string) ($vehicle['modelName'] ?? ''),
@@ -3683,6 +3710,7 @@ JS;
         update_post_meta($post_id, 'apolo_negociacao', !empty($apolo_reconciliation['apolo']['negociacao']) ? 1 : 0);
         update_post_meta($post_id, 'apolo_proposta', (string) ($apolo_reconciliation['apolo']['proposta'] ?? ''));
         update_post_meta($post_id, 'apolo_vendedor_proposta', (string) ($apolo_reconciliation['apolo']['vendedor_proposta'] ?? ''));
+        update_post_meta($post_id, 'apolo_dias_estoque', max(0, (int) ($apolo_reconciliation['apolo']['dias_estoque'] ?? 0)));
         update_post_meta(
             $post_id,
             'apolo_blindado',
@@ -3708,6 +3736,7 @@ JS;
         update_post_meta($post_id, 'blindado', self::is_vehicle_armored($vehicle) ? 1 : 0);
         update_post_meta($post_id, 'negociacao', !empty($apolo_reconciliation['apolo']['negociacao']) ? 1 : 0);
         update_post_meta($post_id, 'repasse', !empty($apolo_reconciliation['apolo']['repasse']) ? 1 : 0);
+        update_post_meta($post_id, 'dias_estoque', max(0, (int) ($apolo_reconciliation['apolo']['dias_estoque'] ?? 0)));
 
         self::set_term_if_value($post_id, 'veiculo_marca', (string) ($vehicle['brandName'] ?? ''));
         self::set_term_if_value($post_id, 'veiculo_modelo', (string) ($vehicle['modelName'] ?? ''));
@@ -3722,7 +3751,12 @@ JS;
             $vehicle,
             !empty($apolo_reconciliation['apolo']['repasse'])
         );
-        self::assign_destaque_secundario_terms($post_id, $vehicle, $published_price);
+        self::assign_destaque_secundario_terms(
+            $post_id,
+            $vehicle,
+            $published_price,
+            !empty($apolo_reconciliation['apolo']['repasse'])
+        );
 
         $photo_urls_text = implode("\n", $photo_urls);
         $previous_photo_urls_text = (string) get_post_meta($post_id, 'autosync_photo_urls', true);
@@ -3738,14 +3772,26 @@ JS;
     }
 
     private static function assign_informacao_destaque_terms(int $post_id, array $vehicle, bool $is_repasse = false): void {
-        $terms = self::extract_named_items($vehicle['VehicleFeatures'] ?? []);
         if ($is_repasse) {
-            $terms[] = 'Repasse';
+            wp_set_object_terms($post_id, [], 'veiculo_informacao_destaque', false);
+            return;
         }
+
+        $terms = self::extract_named_items($vehicle['VehicleFeatures'] ?? []);
         wp_set_object_terms($post_id, $terms, 'veiculo_informacao_destaque', false);
     }
 
-    private static function assign_destaque_secundario_terms(int $post_id, array $vehicle, ?float $published_price = null): void {
+    private static function assign_destaque_secundario_terms(
+        int $post_id,
+        array $vehicle,
+        ?float $published_price = null,
+        bool $is_repasse = false
+    ): void {
+        if ($is_repasse) {
+            wp_set_object_terms($post_id, [], 'veiculo_destaque_secundario', false);
+            return;
+        }
+
         $terms = [];
         $km = is_numeric($vehicle['kilometers'] ?? null) ? (float) $vehicle['kilometers'] : 0;
         $price = $published_price !== null ? $published_price : (is_numeric($vehicle['value'] ?? null) ? (float) $vehicle['value'] : 0);

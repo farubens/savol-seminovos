@@ -80,6 +80,7 @@ type ApiVehicle = {
   repasse: boolean;
   preparing: boolean;
   photoCount: number;
+  stockDays: number;
 };
 
 type CachedVehicles = {
@@ -176,6 +177,9 @@ function getDailyVehicleRank(vehicleId: number, dayKey: string): number {
 function compareVehicleListingOrder(left: ApiVehicle, right: ApiVehicle, dayKey: string): number {
   const groupDifference = getVehicleListingGroup(left) - getVehicleListingGroup(right);
   if (groupDifference !== 0) return groupDifference;
+
+  const stockDaysDifference = right.stockDays - left.stockDays;
+  if (stockDaysDifference !== 0) return stockDaysDifference;
 
   const rankDifference = getDailyVehicleRank(left.id, dayKey) - getDailyVehicleRank(right.id, dayKey);
   if (rankDifference !== 0) return rankDifference;
@@ -655,6 +659,11 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
   const metaNegotiating = getMetaField(vehicle, "negociacao") || getMetaField(vehicle, "apolo_negociacao");
   const metaRepasse = getMetaField(vehicle, "repasse");
   const metaApoloProposalSeller = getMetaField(vehicle, "apolo_vendedor_proposta");
+  const metaStockDays =
+    getMetaField(vehicle, "dias_estoque") ||
+    getMetaField(vehicle, "apolo_dias_estoque") ||
+    getMetaField(vehicle, "dias_de_estoque") ||
+    getMetaField(vehicle, "dias_no_estoque");
   const priceData = extractPriceData(content, metaPrice);
 
   const embeddedImage = getEmbeddedImage(vehicle);
@@ -677,6 +686,8 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
   const repasse =
     parseBooleanMeta(metaRepasse) ||
     normalizeForMatch(metaApoloProposalSeller) === "repasse";
+  const parsedStockDays = Number.parseInt(metaStockDays, 10);
+  const stockDays = Number.isFinite(parsedStockDays) ? Math.max(0, parsedStockDays) : 0;
   const year = extractYear(title, content, metaAno, metaAnoModelo);
   const visibleYear = toVisibleSpecLabel(year);
   const visibleModelYear = toVisibleSpecLabel(metaAnoModelo || year.split("/").at(-1) || year);
@@ -701,10 +712,8 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
     storeId,
     oldPrice: priceData.oldPrice,
     price: priceData.price,
-    qualityTag: repasse ? "Repasse" : primaryHighlight,
-    secondaryHighlights: repasse
-      ? secondaryHighlights.filter((highlight) => !normalizeForMatch(highlight).includes("repasse"))
-      : secondaryHighlights,
+    qualityTag: repasse ? "" : primaryHighlight,
+    secondaryHighlights: repasse ? [] : secondaryHighlights,
     brand: brand || "Marca não informada",
     model: model || "Modelo não informado",
     version: version || "Versão não informada",
@@ -719,7 +728,8 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
     negotiating: parseBooleanMeta(metaNegotiating),
     repasse,
     preparing: photoCount <= 1,
-    photoCount
+    photoCount,
+    stockDays
   };
 }
 

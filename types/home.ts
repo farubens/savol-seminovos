@@ -32,6 +32,7 @@ export type ApiVehicle = {
   repasse: boolean;
   preparing: boolean;
   photoCount: number;
+  stockDays: number;
 };
 
 export type ApiStore = {
