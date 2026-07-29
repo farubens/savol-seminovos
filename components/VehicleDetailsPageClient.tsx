@@ -1151,7 +1151,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
             ) : null}
             {vehicle.repasse ? (
               <button type="button" className="vehicle-repasse-notice" onClick={() => setIsRepasseModalOpen(true)}>
-                <span>Venda exclusiva para CNPJ com CNAE de comércio a varejo de automóveis, camionetas e utilitários usados.</span>
+                <span>Exclusivo para repasse</span>
                 <CircleHelp size={16} aria-label="Entenda a condição de repasse" />
               </button>
             ) : null}
