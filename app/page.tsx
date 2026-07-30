@@ -49,10 +49,10 @@ export default function Home() {
           </div>
           <div className="hero-image-wrap floating">
             <Image
-              src="/images/creta-seminovo.png"
+              src="/images/carro-banner-home.png"
               alt="Carro destaque"
-              width={1200}
-              height={500}
+              width={963}
+              height={520}
               quality={100}
               sizes="(min-width: 1200px) 1060px, (min-width: 768px) 84vw, 96vw"
               className="hero-image"
