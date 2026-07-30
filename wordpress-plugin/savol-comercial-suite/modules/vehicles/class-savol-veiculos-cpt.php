@@ -55,6 +55,9 @@ final class Savol_Veiculos_CPT {
     private const AUTOSYNC_API_MIN_INTERVAL = 180;
     private const AUTOSYNC_API_LOCK_TTL = 180;
     private const AUTOSYNC_PROGRESS_STALE_TTL = 300;
+    private const AUTOSYNC_RECURRING_HOOK = 'savol_veiculos_autosync_recurring';
+    private const AUTOSYNC_RECURRING_SCHEDULE = 'savol_every_40_minutes';
+    private const AUTOSYNC_RECURRING_INTERVAL = 2400;
     private const AUTOSYNC_ENDPOINT_DEFAULT = 'https://sync-backend.autoavaliar.com.br/vehicle/stock';
     private const AUTOSYNC_BATCH_OPTION = 'savol_veiculos_autosync_batch';
     private const AUTOSYNC_BATCH_SIZE = 10;
@@ -295,6 +298,9 @@ final class Savol_Veiculos_CPT {
         add_action('wp_ajax_savol_veiculos_run_autosync', [__CLASS__, 'handle_run_autosync_ajax']);
         add_action('wp_ajax_savol_veiculos_autosync_progress', [__CLASS__, 'handle_autosync_progress_ajax']);
         add_action('savol_veiculos_run_autosync_cron', [__CLASS__, 'run_autosync_cron_job']);
+        add_action(self::AUTOSYNC_RECURRING_HOOK, [__CLASS__, 'run_recurring_autosync_job']);
+        add_filter('cron_schedules', [__CLASS__, 'register_cron_schedules']);
+        add_action('init', [__CLASS__, 'ensure_autosync_schedule'], 100);
         add_action('restrict_manage_posts', [__CLASS__, 'render_vehicle_admin_filters']);
         add_action('pre_get_posts', [__CLASS__, 'apply_vehicle_admin_filters']);
         add_filter('manage_edit-' . self::POST_TYPE . '_sortable_columns', [__CLASS__, 'register_vehicle_sortable_columns']);
@@ -320,11 +326,34 @@ final class Savol_Veiculos_CPT {
         self::register_taxonomies();
         self::register_sell_your_car_api_alias();
         self::sync_seller_role();
+        self::ensure_autosync_schedule();
         flush_rewrite_rules();
     }
 
     public static function deactivate(): void {
+        wp_clear_scheduled_hook(self::AUTOSYNC_RECURRING_HOOK);
+        wp_clear_scheduled_hook('savol_veiculos_run_autosync_cron');
         flush_rewrite_rules();
+    }
+
+    public static function register_cron_schedules(array $schedules): array {
+        if (!isset($schedules[self::AUTOSYNC_RECURRING_SCHEDULE])) {
+            $schedules[self::AUTOSYNC_RECURRING_SCHEDULE] = [
+                'interval' => self::AUTOSYNC_RECURRING_INTERVAL,
+                'display' => 'A cada 40 minutos',
+            ];
+        }
+        return $schedules;
+    }
+
+    public static function ensure_autosync_schedule(): void {
+        if (!wp_next_scheduled(self::AUTOSYNC_RECURRING_HOOK)) {
+            wp_schedule_event(
+                time() + self::AUTOSYNC_RECURRING_INTERVAL,
+                self::AUTOSYNC_RECURRING_SCHEDULE,
+                self::AUTOSYNC_RECURRING_HOOK
+            );
+        }
     }
 
     public static function sync_seller_role(): void {
@@ -2540,6 +2569,7 @@ JS;
                 <button type="button" class="button button-primary" id="savol-autosync-run">Sincronizar estoque agora</button>
                 <span class="description" style="margin-left:8px;">A API permite apenas uma chamada a cada 3 minutos.</span>
             </p>
+            <p class="description">Sincronizacao automatica configurada para executar a cada 40 minutos. O botao acima permanece disponivel para atualizacoes manuais.</p>
             <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="margin:10px 0 18px;">
                 <input type="hidden" name="action" value="savol_veiculos_refresh_unidades" />
                 <?php wp_nonce_field('savol_veiculos_refresh_unidades', 'savol_veiculos_refresh_unidades_nonce'); ?>
@@ -2692,6 +2722,23 @@ JS;
             ]);
             return;
         }
+        self::run_autosync($token);
+    }
+
+    public static function run_recurring_autosync_job(): void {
+        $progress = self::recover_stale_autosync_progress(
+            get_option(self::AUTOSYNC_PROGRESS_OPTION, [])
+        );
+        $status = is_array($progress) ? (string) ($progress['status'] ?? '') : '';
+        if (in_array($status, ['queued', 'running'], true)) {
+            return;
+        }
+
+        $token = self::decrypt_token((string) get_option(self::AUTOSYNC_OPTION, ''));
+        if ($token === '' || self::get_autosync_api_wait_seconds() > 0) {
+            return;
+        }
+
         self::run_autosync($token);
     }
 
@@ -4175,11 +4222,16 @@ JS;
         }
 
         $next_event = wp_next_scheduled('savol_veiculos_run_autosync_cron');
-        if ($last_activity > 0) {
+        $api_lock_started = (int) get_option(self::AUTOSYNC_API_LOCK_OPTION, 0);
+        $has_active_api_lock = $api_lock_started > 0
+            && ($now - $api_lock_started) <= self::AUTOSYNC_API_LOCK_TTL;
+        $has_worker_event = $next_event !== false;
+
+        if (!$has_batch && !$has_worker_event && !$has_active_api_lock) {
+            $is_stale = true;
+        } elseif ($last_activity > 0) {
             $is_stale = ($now - $last_activity) > self::AUTOSYNC_PROGRESS_STALE_TTL;
         } elseif ($has_batch) {
-            $is_stale = true;
-        } elseif ($next_event === false) {
             $is_stale = true;
         } else {
             $is_stale = ((int) $next_event) < ($now - self::AUTOSYNC_PROGRESS_STALE_TTL);
