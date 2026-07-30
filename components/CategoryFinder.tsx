@@ -128,14 +128,14 @@ function parseLoosePrice(value: string): number | null {
 }
 
 const bg = {
-  hatch: "/images/categories/hatch.png",
-  suv: "/images/categories/suv.jpg",
+  hatch: "/images/categories/hatch-novo.jpg",
+  suv: "/images/categories/suv-novo.jpg",
   picape: "/images/categories/picape.png",
-  sedan: "/images/categories/sedan.png",
-  esportivo: "/images/categories/eletricos.jpg",
-  luxo: "/images/categories/eletricos.jpg",
+  sedan: "/images/categories/sedan-novo.jpg",
+  esportivo: "/images/categories/eletricos-novo.jpg",
+  luxo: "/images/categories/eletricos-novo.jpg",
   utilitarios: "/images/categories/utilitarios.png",
-  todos: "/images/categories/todos.png"
+  todos: "/images/categories/todos-novo.jpg"
 };
 
 const iconMap = {
