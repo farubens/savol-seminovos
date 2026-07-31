@@ -241,6 +241,8 @@ export function CategoryFinder() {
     return [...cards, ctaCard];
   }, [activeTab, cards]);
 
+  const categoryDesktopColumns = visualCards.length <= 4 ? Math.max(visualCards.length, 1) : visualCards.length <= 6 ? 3 : 4;
+
   const marcaOptions = useMemo<SelectOption[]>(() => {
     const marcaMap = new Map<string, SelectOption>();
 
@@ -609,7 +611,10 @@ export function CategoryFinder() {
               ))}
             </div>
           ) : (
-            <div className="category-grid category-grid-visual category-slider" ref={sliderRef}>
+            <div
+              className={`category-grid category-grid-visual category-slider category-slider--columns-${categoryDesktopColumns}`}
+              ref={sliderRef}
+            >
               {visualCards.map((card) => {
                 const CardIcon = iconMap[card.icon];
 

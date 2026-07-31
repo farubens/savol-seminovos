@@ -1177,6 +1177,30 @@ h2 {
   scroll-snap-type: none;
 }
 
+@media (min-width: 1081px) {
+  .category-grid-visual.category-slider {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .category-grid-visual.category-slider > .category-card-visual {
+    flex: 0 0 100%;
+  }
+
+  .category-grid-visual.category-slider.category-slider--columns-2 > .category-card-visual {
+    flex-basis: calc((100% - 16px) / 2);
+  }
+
+  .category-grid-visual.category-slider.category-slider--columns-3 > .category-card-visual {
+    flex-basis: calc((100% - 32px) / 3);
+  }
+
+  .category-grid-visual.category-slider.category-slider--columns-4 > .category-card-visual {
+    flex-basis: calc((100% - 48px) / 4);
+  }
+}
+
 .category-nav-btn {
   width: 34px;
   height: 34px;
