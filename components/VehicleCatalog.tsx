@@ -21,11 +21,8 @@ type CatalogCategoryOption =
   | { kind: "energy"; slug: "eletrico" | "hibrido"; label: string; count: number };
 
 const DEFAULT_TRANSMISSION_OPTIONS: OptionEntry[] = [
-  ["aut", "AUT."],
-  ["man", "MAN."],
-  ["cvt", "CVT"],
-  ["dct", "DCT"],
-  ["automatizado", "AUT."]
+  ["automatico", "Automático"],
+  ["manual", "Manual"]
 ];
 
 function normalize(value: string): string {
@@ -38,6 +35,26 @@ function normalize(value: string): string {
 
 function toSlug(value: string): string {
   return normalize(value).replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
+function getTransmissionFilterSlug(value: string): "automatico" | "manual" | "" {
+  const normalized = normalize(value).replace(/[^a-z0-9]+/g, " ").trim();
+  if (!normalized || normalized === "n a" || normalized.includes("nao informado")) return "";
+
+  if (/\b(manual|man|mec|mecanico|mecanica|mt\d*)\b/.test(normalized)) return "manual";
+  if (
+    /\b(automatico|automatica|automatic|aut|auto|automatizado|automatizada|cvt|dct|dsg|edc|pdk|amt|tiptronic|dualogic|sequencial|at\d*)\b/.test(
+      normalized
+    )
+  ) {
+    return "automatico";
+  }
+
+  return "";
+}
+
+function parseTransmissionParam(value: string | null): string[] {
+  return Array.from(new Set(parseListParam(value).map(getTransmissionFilterSlug).filter(Boolean)));
 }
 
 function parseListParam(value: string | null): string[] {
@@ -134,20 +151,6 @@ function buildOptionEntries(values: string[]): OptionEntry[] {
   }
 
   return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1], "pt-BR"));
-}
-
-function mergeOptionEntries(preferredEntries: OptionEntry[], discoveredEntries: OptionEntry[]): OptionEntry[] {
-  const map = new Map<string, string>();
-
-  for (const [slug, label] of preferredEntries) {
-    map.set(slug, label);
-  }
-
-  for (const [slug, label] of discoveredEntries) {
-    if (!map.has(slug)) map.set(slug, label);
-  }
-
-  return Array.from(map.entries());
 }
 
 function getBodyInfo(vehicle: ApiVehicle): BodyInfo {
@@ -302,7 +305,7 @@ export function VehicleCatalog() {
   const urlBrands = useMemo(() => parseListParam(brandsParam), [brandsParam]);
   const urlModels = useMemo(() => parseListParam(modelsParam), [modelsParam]);
   const urlCategories = useMemo(() => parseListParam(categoriesParam), [categoriesParam]);
-  const urlTransmissions = useMemo(() => parseListParam(transmissionsParam), [transmissionsParam]);
+  const urlTransmissions = useMemo(() => parseTransmissionParam(transmissionsParam), [transmissionsParam]);
   const urlColors = useMemo(() => parseListParam(colorsParam), [colorsParam]);
   const urlFuels = useMemo(() => parseListParam(fuelsParam), [fuelsParam]);
   const urlBodies = useMemo(() => parseListParam(bodiesParam), [bodiesParam]);
@@ -443,10 +446,7 @@ export function VehicleCatalog() {
     }
   }, [models, selectedBrands.length, selectedModels]);
 
-  const transmissions = useMemo(
-    () => mergeOptionEntries(DEFAULT_TRANSMISSION_OPTIONS, buildOptionEntries(vehicles.map((vehicle) => vehicle.transmission))),
-    [vehicles]
-  );
+  const transmissions = DEFAULT_TRANSMISSION_OPTIONS;
   const colors = useMemo(() => buildOptionEntries(vehicles.map((vehicle) => vehicle.color)), [vehicles]);
   const fuels = useMemo(() => buildOptionEntries(vehicles.map((vehicle) => vehicle.fuel)), [vehicles]);
 
@@ -550,7 +550,7 @@ export function VehicleCatalog() {
       const vehicleStore = toSlug(vehicle.store);
       const vehicleBrand = toSlug(vehicle.brand);
       const vehicleModel = toSlug(vehicle.model);
-      const vehicleTransmission = toSlug(vehicle.transmission);
+      const vehicleTransmission = getTransmissionFilterSlug(vehicle.transmission);
       const vehicleColor = toSlug(vehicle.color);
       const vehicleFuel = toSlug(vehicle.fuel);
       const body = getClassifiedBodyInfo(vehicle);
