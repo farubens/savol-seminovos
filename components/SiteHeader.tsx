@@ -36,52 +36,54 @@ export function SiteHeader({ active = "home", showEnvNote = false }: HeaderProps
         </div>
       </div>
 
-      <header className={`header container${mobileMenuOpen ? " is-mobile-open" : ""}`}>
-        <Link href="/" aria-label="Ir para a página inicial">
-          <Image src="/images/logo.png" alt="SAVOL" width={200} height={48} className="site-logo" />
-        </Link>
-
-        <button
-          type="button"
-          className="header-menu-btn"
-          aria-label={mobileMenuOpen ? "Fechar menu" : "Abrir menu"}
-          aria-expanded={mobileMenuOpen}
-          onClick={() => setMobileMenuOpen((current) => !current)}
-        >
-          {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
-        </button>
-
-        <nav className={`site-nav${mobileMenuOpen ? " is-open" : ""}`}>
-          <Link className={active === "home" ? "active" : ""} href="/">
-            Home
-          </Link>
-          <Link className={active === "veiculos" ? "active" : ""} href="/veiculos">
-            Veículos
-          </Link>
-          <Link className={active === "lojas" ? "active" : ""} href="/lojas">
-            Lojas
-          </Link>
-          <Link className={active === "venda" ? "active" : ""} href="/venda-seu-carro">
-            Venda seu carro
-          </Link>
-          <Link className={active === "atacado" ? "active" : ""} href="/venda-por-atacado">
-            Venda por atacado
+      <div className="site-header-sticky">
+        <header className={`header container${mobileMenuOpen ? " is-mobile-open" : ""}`}>
+          <Link href="/" aria-label="Ir para a página inicial">
+            <Image src="/images/logo.png" alt="SAVOL" width={200} height={48} className="site-logo" />
           </Link>
 
-          <Link className={active === "institucional" ? "active" : ""} href="/institucional">
-            Institucional
-          </Link>
-          <Link className={`btn btn-sm ${active === "contato" ? "active" : ""}`} href="/contato">
-            Contato
-          </Link>
-          <Link href="/veiculos" className="icon-btn" aria-label="Buscar">
-            <Search size={16} />
-          </Link>
-          <Link href="/minha-conta" className={`icon-btn ${active === "conta" ? "active" : ""}`} aria-label="Minha conta e favoritos">
-            <Heart size={16} />
-          </Link>
-        </nav>
-      </header>
+          <button
+            type="button"
+            className="header-menu-btn"
+            aria-label={mobileMenuOpen ? "Fechar menu" : "Abrir menu"}
+            aria-expanded={mobileMenuOpen}
+            onClick={() => setMobileMenuOpen((current) => !current)}
+          >
+            {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
+          </button>
+
+          <nav className={`site-nav${mobileMenuOpen ? " is-open" : ""}`}>
+            <Link className={active === "home" ? "active" : ""} href="/">
+              Home
+            </Link>
+            <Link className={active === "veiculos" ? "active" : ""} href="/veiculos">
+              Veículos
+            </Link>
+            <Link className={active === "lojas" ? "active" : ""} href="/lojas">
+              Lojas
+            </Link>
+            <Link className={active === "venda" ? "active" : ""} href="/venda-seu-carro">
+              Venda seu carro
+            </Link>
+            <Link className={active === "atacado" ? "active" : ""} href="/venda-por-atacado">
+              Venda por atacado
+            </Link>
+
+            <Link className={active === "institucional" ? "active" : ""} href="/institucional">
+              Institucional
+            </Link>
+            <Link className={`btn btn-sm ${active === "contato" ? "active" : ""}`} href="/contato">
+              Contato
+            </Link>
+            <Link href="/veiculos" className="icon-btn" aria-label="Buscar">
+              <Search size={16} />
+            </Link>
+            <Link href="/minha-conta" className={`icon-btn ${active === "conta" ? "active" : ""}`} aria-label="Minha conta e favoritos">
+              <Heart size={16} />
+            </Link>
+          </nav>
+        </header>
+      </div>
 
       {showEnvNote && (
         <div className="header-env-strip">
