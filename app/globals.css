@@ -1713,10 +1713,10 @@ h2 {
 }
 
 .offer-tag--repasse {
-  background: #fff1f1;
-  color: #b42318;
-  border-color: #f3b7b7;
-  --tag-dot-color: #dc2626;
+  background: #ffedd5;
+  color: #9a3412;
+  border-color: #fdba74;
+  --tag-dot-color: #f97316;
 }
 
 .offer-tag--unico-dono {
@@ -1890,9 +1890,9 @@ h2 {
 }
 
 .offer-highlight--repasse {
-  border-color: #9bd38f;
-  background: #effbea;
-  color: #22651e;
+  border-color: #fdba74;
+  background: #ffedd5;
+  color: #9a3412;
 }
 
 .offer-highlight--garantia {
@@ -1908,9 +1908,9 @@ h2 {
 }
 
 .offer-highlight--baixa-km {
-  border-color: #f4dc7d;
-  background: #fff8d8;
-  color: #7a5700;
+  border-color: #86c979;
+  background: #eaf8e5;
+  color: #1f6a24;
 }
 
 .offer-highlight--fipe {
@@ -1952,10 +1952,10 @@ h2 {
 .vehicle-repasse-notice {
   width: 100%;
   min-height: 34px;
-  border: 1px solid #78bf6b;
+  border: 1px solid #fdba74;
   border-radius: 7px;
-  background: #e9f8e5;
-  color: #1c5e18;
+  background: #ffedd5;
+  color: #9a3412;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1972,8 +1972,8 @@ h2 {
 
 .offer-repasse-notice:hover,
 .vehicle-repasse-notice:hover {
-  border-color: #4f9e45;
-  background: #dff3da;
+  border-color: #f97316;
+  background: #fed7aa;
 }
 
 .offer-repasse-notice svg,
@@ -4154,8 +4154,8 @@ h2 {
 }
 
 .vehicle-media-badge--repasse {
-  border-color: #f3b7b7;
-  background: #dc2626;
+  border-color: #ea580c;
+  background: #f97316;
   color: #ffffff;
 }
 
@@ -4172,9 +4172,9 @@ h2 {
 }
 
 .vehicle-media-badge--baixa-km {
-  border-color: #f4dc7d;
-  background: #facc15;
-  color: #3f2d00;
+  border-color: #27834d;
+  background: #2f9d5d;
+  color: #ffffff;
 }
 
 .vehicle-media-badge--fipe {
@@ -4769,9 +4769,9 @@ h2 {
 }
 
 .vehicle-extra-badges .vehicle-extra-badge--repasse {
-  border-color: #9bd38f;
-  background: #effbea;
-  color: #22651e;
+  border-color: #fdba74;
+  background: #ffedd5;
+  color: #9a3412;
 }
 
 .vehicle-extra-badges .vehicle-extra-badge--garantia {
@@ -4787,9 +4787,9 @@ h2 {
 }
 
 .vehicle-extra-badges .vehicle-extra-badge--baixa-km {
-  border-color: #f4dc7d;
-  background: #fff8d8;
-  color: #7a5700;
+  border-color: #86c979;
+  background: #eaf8e5;
+  color: #1f6a24;
 }
 
 .vehicle-extra-badges .vehicle-extra-badge--fipe {
@@ -7318,6 +7318,25 @@ h2 {
   max-width: 100%;
   margin: 0;
   padding: 10px 10px 48px;
+}
+
+.catalog-page-intro {
+  margin: 4px 0 18px;
+  padding: 0 2px;
+}
+
+.catalog-page-intro h1 {
+  margin: 8px 0 4px;
+  color: var(--blue-dark);
+  font-size: 30px;
+  line-height: 1.12;
+}
+
+.catalog-page-intro > p:last-child {
+  margin: 0;
+  color: #526991;
+  font-size: 14px;
+  line-height: 1.45;
 }
 
 .catalog-full-toolbar {

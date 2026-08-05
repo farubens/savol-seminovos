@@ -262,11 +262,20 @@ function seededShuffle<T>(items: T[], seed: number): T[] {
   return shuffled;
 }
 
-export function VehicleCatalog() {
+type VehicleCatalogProps = {
+  mode?: "all" | "repasse";
+  basePath?: string;
+};
+
+export function VehicleCatalog({ mode = "all", basePath = "/veiculos" }: VehicleCatalogProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const searchKey = searchParams.toString();
-  const { vehicles, loading } = useHomeSessionData();
+  const { vehicles: sourceVehicles, loading } = useHomeSessionData();
+  const vehicles = useMemo(
+    () => (mode === "repasse" ? sourceVehicles.filter((vehicle) => vehicle.repasse) : sourceVehicles),
+    [mode, sourceVehicles]
+  );
   const lastSearchKeyRef = useRef(searchKey);
 
   const [isHydrated, setIsHydrated] = useState(false);
@@ -701,7 +710,7 @@ export function VehicleCatalog() {
     });
 
     setIsCatalogRefreshing(true);
-    router.push(`/veiculos${queryString ? `?${queryString}` : ""}`);
+    router.push(`${basePath}${queryString ? `?${queryString}` : ""}`);
   };
 
   const applyFilters = () => {
@@ -740,7 +749,7 @@ export function VehicleCatalog() {
     setSort(DEFAULT_SORT);
 
     setIsCatalogRefreshing(true);
-    router.push("/veiculos");
+    router.push(basePath);
   };
 
   const labelMaps = useMemo(() => {
@@ -878,7 +887,7 @@ export function VehicleCatalog() {
   if (!isHydrated) {
     return (
       <section className="catalog-shell catalog-shell--full">
-        <p className="catalog-breadcrumb">Home &gt; Veículos</p>
+        <p className="catalog-breadcrumb">Home &gt; {mode === "repasse" ? "Venda para Lojistas" : "Veículos"}</p>
       </section>
     );
   }
@@ -886,6 +895,14 @@ export function VehicleCatalog() {
   return (
     <>
       <section className="catalog-shell catalog-shell--full">
+        {mode === "repasse" ? (
+          <header className="catalog-page-intro">
+            <p className="catalog-breadcrumb">Home &gt; Venda para Lojistas</p>
+            <h1>Venda para Lojistas</h1>
+            <p>Veículos em condição de repasse disponíveis exclusivamente para lojistas.</p>
+          </header>
+        ) : null}
+
         <div className="catalog-full-toolbar">
           <div className="catalog-toolbar-left">
             <button type="button" className="catalog-toggle-filters-btn" onClick={handleFilterButtonClick}>
@@ -1325,8 +1342,8 @@ export function VehicleCatalog() {
 
             {!isResultsLoading && !resultVehicles.length && (
               <article className="catalog-empty-state">
-                <h3>Nenhum veículo encontrado</h3>
-                <p>Ajuste os filtros para ampliar sua busca.</p>
+                <h3>{mode === "repasse" ? "Nenhum veículo de repasse encontrado" : "Nenhum veículo encontrado"}</h3>
+                <p>{mode === "repasse" ? "No momento, não há veículos de repasse com os filtros selecionados." : "Ajuste os filtros para ampliar sua busca."}</p>
               </article>
             )}
 
@@ -1367,7 +1384,7 @@ export function VehicleCatalog() {
         </div>
       </section>
 
-      <SellYourCarCta />
+      {mode === "all" ? <SellYourCarCta /> : null}
     </>
   );
 }

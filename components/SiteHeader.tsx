@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation";
 import { Facebook, Heart, Instagram, Menu, Search, ShieldCheck, X } from "lucide-react";
 
 type HeaderProps = {
-  active?: "home" | "veiculos" | "lojas" | "venda" | "atacado" | "institucional" | "contato" | "conta";
+  active?: "home" | "veiculos" | "lojas" | "venda" | "atacado" | "lojistas" | "institucional" | "contato" | "conta";
   showEnvNote?: boolean;
 };
 
@@ -65,8 +65,8 @@ export function SiteHeader({ active = "home", showEnvNote = false }: HeaderProps
             <Link className={active === "venda" ? "active" : ""} href="/venda-seu-carro">
               Venda seu carro
             </Link>
-            <Link className={active === "atacado" ? "active" : ""} href="/venda-por-atacado">
-              Venda por atacado
+            <Link className={active === "lojistas" || active === "atacado" ? "active" : ""} href="/venda-para-lojistas">
+              Venda para Lojistas
             </Link>
 
             <Link className={active === "institucional" ? "active" : ""} href="/institucional">
