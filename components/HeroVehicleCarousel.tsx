@@ -8,6 +8,14 @@ import { useHomeSessionData } from "@/components/HomeSessionDataProvider";
 
 const AUTOPLAY_DELAY_MS = 5500;
 
+function isRepasseVehicle(vehicle: { repasse: boolean; qualityTag: string; secondaryHighlights: string[] }): boolean {
+  const repasseValue = String(vehicle.repasse).trim().toLowerCase();
+  if (repasseValue === "true" || repasseValue === "1") return true;
+
+  const highlights = [vehicle.qualityTag, ...vehicle.secondaryHighlights].join(" ").toLowerCase();
+  return highlights.includes("repasse");
+}
+
 function getVehicleUrl(url: string, slug: string): string {
   if (url.startsWith("/")) return url;
   return `/veiculos/${slug}`;
@@ -21,7 +29,7 @@ export function HeroVehicleCarousel() {
   const featuredVehicles = useMemo(
     () =>
       vehicles
-        .filter((vehicle) => !vehicle.repasse && !vehicle.preparing && vehicle.photoCount > 1 && vehicle.image && vehicle.price)
+        .filter((vehicle) => !isRepasseVehicle(vehicle) && !vehicle.preparing && vehicle.photoCount > 1 && vehicle.image && vehicle.price)
         .slice(0, 5),
     [vehicles]
   );
