@@ -2,12 +2,23 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { BadgeCheck, CheckCircle2, ChevronLeft, ChevronRight, Gauge, ShieldCheck, Sparkles, UserRound, WalletCards } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useHomeSessionData } from "@/components/HomeSessionDataProvider";
 import type { ApiVehicle } from "@/types/home";
 
 const AUTOPLAY_DELAY_MS = 5500;
+const FALLBACK_HIGHLIGHT = "Oportunidade";
+const PREPARATION_IMAGE_TOKENS = ["/images/em-preparacao", "/images/fallback-atualizado"];
+const HIGHLIGHT_PRIORITY: Record<string, number> = {
+  garantia: 80,
+  "unico dono": 70,
+  "baixa km": 60,
+  "abaixo fipe": 50,
+  impecavel: 40,
+  completo: 30,
+  oportunidade: 0
+};
 
 function isRepasseVehicle(vehicle: { repasse: boolean; qualityTag: string; secondaryHighlights: string[] }): boolean {
   const repasseValue = String(vehicle.repasse).trim().toLowerCase();
@@ -17,9 +28,72 @@ function isRepasseVehicle(vehicle: { repasse: boolean; qualityTag: string; secon
   return highlights.includes("repasse");
 }
 
+function isNegotiatingVehicle(vehicle: ApiVehicle): boolean {
+  const negotiatingValue = String(vehicle.negotiating).trim().toLowerCase();
+  if (negotiatingValue === "true" || negotiatingValue === "1") return true;
+
+  const highlights = normalizeHighlight([vehicle.qualityTag, ...vehicle.secondaryHighlights].join(" "));
+  return highlights.includes("negociacao") || highlights.includes("em negociacao");
+}
+
 function getVehicleUrl(url: string, slug: string): string {
   if (url.startsWith("/")) return url;
   return `/veiculos/${slug}`;
+}
+
+function normalizeHighlight(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+}
+
+function getHighlightPriority(value: string): number {
+  const normalized = normalizeHighlight(value);
+  const priorityEntry = Object.entries(HIGHLIGHT_PRIORITY).find(([key]) => normalized.includes(key));
+  return priorityEntry?.[1] ?? 10;
+}
+
+function getVehicleHighlight(vehicle: ApiVehicle): string {
+  const highlights = [vehicle.qualityTag, ...vehicle.secondaryHighlights]
+    .map((highlight) => highlight.trim())
+    .filter((highlight) => {
+      const normalized = normalizeHighlight(highlight);
+      const isBelowFipe = normalized.includes("abaixo") && normalized.includes("fipe");
+      return Boolean(normalized) && !normalized.includes("seminovo") && !normalized.includes("repasse") && !isBelowFipe;
+    })
+    .sort((left, right) => getHighlightPriority(right) - getHighlightPriority(left));
+
+  return highlights[0] || FALLBACK_HIGHLIGHT;
+}
+
+function getHighlightTone(value: string): "garantia" | "unico-dono" | "baixa-km" | "fipe" | "impecavel" | "completo" | "default" {
+  const normalized = normalizeHighlight(value);
+  if (normalized.includes("garantia")) return "garantia";
+  if (normalized.includes("unico dono")) return "unico-dono";
+  if (normalized.includes("baixa km")) return "baixa-km";
+  if (normalized.includes("abaixo") && normalized.includes("fipe")) return "fipe";
+  if (normalized.includes("impecavel")) return "impecavel";
+  if (normalized.includes("completo")) return "completo";
+  return "default";
+}
+
+function getHighlightIcon(value: string) {
+  const tone = getHighlightTone(value);
+  if (tone === "garantia") return ShieldCheck;
+  if (tone === "unico-dono") return UserRound;
+  if (tone === "baixa-km") return Gauge;
+  if (tone === "fipe") return WalletCards;
+  if (tone === "impecavel") return Sparkles;
+  if (tone === "completo") return CheckCircle2;
+  return BadgeCheck;
+}
+
+function hasMultipleRealPhotos(vehicle: ApiVehicle): boolean {
+  const image = vehicle.image.toLowerCase();
+  const isPreparationImage = PREPARATION_IMAGE_TOKENS.some((token) => image.includes(token));
+  return !vehicle.preparing && !isPreparationImage && Number(vehicle.photoCount) >= 2;
 }
 
 function shuffleVehicles(vehicles: ApiVehicle[]): ApiVehicle[] {
@@ -50,7 +124,12 @@ export function HeroVehicleCarousel() {
   const featuredVehicles = useMemo(
     () => {
       const eligibleVehicles = vehicles.filter(
-        (vehicle) => !isRepasseVehicle(vehicle) && !vehicle.preparing && vehicle.photoCount > 1 && vehicle.image && vehicle.price
+        (vehicle) =>
+          !isRepasseVehicle(vehicle) &&
+          !isNegotiatingVehicle(vehicle) &&
+          hasMultipleRealPhotos(vehicle) &&
+          vehicle.image &&
+          vehicle.price
       );
       return shuffleVehicles(eligibleVehicles).slice(0, 5);
     },
@@ -135,10 +214,15 @@ export function HeroVehicleCarousel() {
           const offset = getCircularOffset(index, activeIndex, featuredVehicles.length);
           const position = offset === 0 ? "active" : offset === -1 ? "prev" : offset === 1 ? "next" : offset < 0 ? "far-prev" : "far-next";
           const vehicleUrl = getVehicleUrl(vehicle.url, vehicle.slug);
+          const highlight = getVehicleHighlight(vehicle);
+          const highlightTone = getHighlightTone(highlight);
+          const HighlightIcon = getHighlightIcon(highlight);
 
           return (
             <article className={`hero-vehicle-card hero-vehicle-card--${position}`} key={vehicle.id} aria-hidden={offset !== 0}>
-              <span className="hero-vehicle-card-label">{offset === 0 ? "Destaque" : "Seminovo"}</span>
+              <span className={`hero-vehicle-card-label hero-vehicle-card-label--${highlightTone}`}>
+                <HighlightIcon size={12} /> {highlight}
+              </span>
               <div className="hero-vehicle-card-media">
                 <Image
                   src={vehicle.image}

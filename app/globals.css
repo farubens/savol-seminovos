@@ -928,6 +928,7 @@ h1 span {
   justify-self: center;
   margin-inline: -6%;
   outline: none;
+  transform: translateX(54px);
 }
 
 .hero-vehicle-stage {
@@ -994,16 +995,67 @@ h1 span {
   top: 12px;
   left: 12px;
   z-index: 2;
+  max-width: calc(100% - 24px);
   min-height: 24px;
   border-radius: 6px;
   background: var(--blue);
   color: #ffffff;
   display: inline-flex;
   align-items: center;
+  gap: 5px;
   padding: 0 9px;
   font-size: 10px;
   font-weight: 800;
   text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hero-vehicle-card-label svg {
+  flex: 0 0 auto;
+}
+
+.hero-vehicle-card-label--garantia {
+  border: 1px solid #b9e0c6;
+  background: #edf8f0;
+  color: #1f7a45;
+}
+
+.hero-vehicle-card-label--unico-dono {
+  border: 1px solid #bfd5ff;
+  background: #eef5ff;
+  color: #174ea6;
+}
+
+.hero-vehicle-card-label--baixa-km {
+  border: 1px solid #86c979;
+  background: #eaf8e5;
+  color: #1f6a24;
+}
+
+.hero-vehicle-card-label--fipe {
+  border: 1px solid #f2cb92;
+  background: #fff3df;
+  color: #a85b00;
+}
+
+.hero-vehicle-card-label--impecavel {
+  border: 1px solid #b7e4f3;
+  background: #ecfbff;
+  color: #0e7490;
+}
+
+.hero-vehicle-card-label--completo {
+  border: 1px solid #1f2937;
+  background: #111827;
+  color: #ffffff;
+}
+
+.hero-vehicle-card-label--default {
+  border: 1px solid #d9e4f8;
+  background: #f5f9ff;
+  color: #274a85;
 }
 
 .hero-vehicle-card-media {
@@ -11728,6 +11780,7 @@ button.stores-filter-input svg {
 @media (max-width: 1200px) and (min-width: 1081px) {
   .hero-vehicle-carousel {
     width: min(650px, 110%);
+    transform: translateX(34px);
   }
 
   .hero-vehicle-card--prev {
@@ -11743,6 +11796,7 @@ button.stores-filter-input svg {
   .hero-vehicle-carousel {
     width: min(760px, 100%);
     margin: 24px auto 0;
+    transform: none;
   }
 
   .hero-vehicle-stage {
