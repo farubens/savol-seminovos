@@ -10,6 +10,7 @@ import {
 import { CategoryFinder } from "@/components/CategoryFinder";
 import { HomeBenefits } from "@/components/HomeBenefits";
 import { HomeSessionDataProvider } from "@/components/HomeSessionDataProvider";
+import { HeroVehicleCarousel } from "@/components/HeroVehicleCarousel";
 import { SavolMegaFooter } from "@/components/SavolMegaFooter";
 import { SellYourCarCta } from "@/components/SellYourCarCta";
 import { StoresCarousel } from "@/components/StoresCarousel";
@@ -23,48 +24,36 @@ export default function Home() {
     <main>
       <SiteHeader active="home" showEnvNote />
 
-
-      <section className="hero">
-        <div className="container hero-grid">
-          <div className="hero-copy">
-            <img src="/images/medalha-60-anos.webp" alt="Grupo SAVOL 60 anos" className="hero-badge-medal" />
-            <h1>
-              Encontre o <br /><span>seminovo ideal</span>
-              <br />
-              para você.
-            </h1>
-            <p>
-              Centenas de veículos de qualidade com a confiança e a estrutura do
-              <br />
-              Grupo SAVOL.
-            </p>
-            <div className="actions">
-              <Link href="/veiculos" className="btn hero-btn hero-btn-primary">
-                Ver veículos
-              </Link>
-              <Link href="/lojas" className="btn btn-outline hero-btn hero-btn-secondary">
-                Nossas lojas
-              </Link>
-            </div>
-          </div>
-          <div className="hero-image-wrap floating">
-            <Image
-              src="/images/carro-banner-home.png"
-              alt="Carro destaque"
-              width={963}
-              height={520}
-              quality={100}
-              sizes="(min-width: 1200px) 1060px, (min-width: 768px) 84vw, 96vw"
-              className="hero-image"
-              priority
-            />
-          </div>
-        </div>
-      </section>
-
-      <HomeBenefits />
-
       <HomeSessionDataProvider vehiclesPerPage={200}>
+        <section className="hero">
+          <div className="container hero-grid">
+            <div className="hero-copy">
+              <img src="/images/medalha-60-anos.webp" alt="Grupo SAVOL 60 anos" className="hero-badge-medal" />
+              <h1>
+                Encontre o <br /><span>seminovo ideal</span>
+                <br />
+                para você.
+              </h1>
+              <p>
+                Centenas de veículos de qualidade com a confiança e a estrutura do
+                <br />
+                Grupo SAVOL.
+              </p>
+              <div className="actions">
+                <Link href="/veiculos" className="btn hero-btn hero-btn-primary">
+                  Ver veículos
+                </Link>
+                <Link href="/lojas" className="btn btn-outline hero-btn hero-btn-secondary">
+                  Nossas lojas
+                </Link>
+              </div>
+            </div>
+            <HeroVehicleCarousel />
+          </div>
+        </section>
+
+        <HomeBenefits />
+
         <CategoryFinder />
 
         <section className="container section-head">

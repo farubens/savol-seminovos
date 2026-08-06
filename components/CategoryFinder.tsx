@@ -38,7 +38,7 @@ type SelectOption = {
 const tabs: Array<{ key: TabKey; label: string }> = [
   { key: "marca", label: "Marca" },
   { key: "categoria", label: "Categoria" },
-  { key: "eletricos", label: "Elétricos" },
+  { key: "eletricos", label: "Elétricos e híbridos" },
   { key: "descrever", label: "Pesquisar veículo" }
 ];
 
@@ -130,14 +130,14 @@ function parseLoosePrice(value: string): number | null {
 }
 
 const bg = {
-  hatch: "/images/categories/hatch-novo.jpg",
-  suv: "/images/categories/suv-novo.jpg",
+  hatch: "/images/categories/hatch-2026.jpg",
+  suv: "/images/categories/suv-2026.jpg",
   picape: "/images/categories/picape.png",
-  sedan: "/images/categories/sedan-novo.jpg",
+  sedan: "/images/categories/sedan-2026.jpeg",
   esportivo: "/images/categories/eletricos-novo.jpg",
   luxo: "/images/categories/eletricos-novo.jpg",
-  utilitarios: "/images/categories/utilitarios.png",
-  todos: "/images/categories/todos-novo.jpg"
+  utilitarios: "/images/categories/utilitarios-2026.jpg",
+  todos: "/images/categories/todos-2026.jpg"
 };
 
 const iconMap = {
@@ -158,7 +158,7 @@ const cardsByTab: Record<Exclude<TabKey, "descrever" | "marca">, CategoryCardIte
     { id: "suv-c", title: "SUV", amount: "312 veículos", bgImage: bg.suv, icon: "suv", href: "/veiculos?bodies=suv" },
     { id: "pickup-c", title: "Pickup", amount: "164 veículos", bgImage: bg.picape, icon: "picape", href: "/veiculos?bodies=pickup" },
     { id: "util-c", title: "Utilitários", amount: "52 veículos", bgImage: bg.utilitarios, icon: "utilitarios", href: "/veiculos?bodies=van" },
-    { id: "ele-c", title: "Elétricos", amount: "48 veículos", bgImage: bg.esportivo, icon: "eletrico", href: "/veiculos?energy=eletrico" }
+    { id: "ele-c", title: "Elétricos e híbridos", amount: "48 veículos", bgImage: bg.esportivo, icon: "eletrico", href: "/veiculos?energy=eletrico" }
   ],
   eletricos: [
     { id: "hev-e", title: "Híbridos", amount: "81 veículos", bgImage: bg.suv, icon: "eletrico", href: "/veiculos?q=hibrido" },

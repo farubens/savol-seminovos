@@ -57,6 +57,16 @@ function parseTransmissionParam(value: string | null): string[] {
   return Array.from(new Set(parseListParam(value).map(getTransmissionFilterSlug).filter(Boolean)));
 }
 
+function getFuelFilterSlug(value: string): string {
+  const normalized = normalize(value);
+  if (normalized.includes("eletric") || normalized.includes("hibrid")) return "eletricos-e-hibridos";
+  return toSlug(value);
+}
+
+function parseFuelParam(value: string | null): string[] {
+  return Array.from(new Set(parseListParam(value).map(getFuelFilterSlug).filter(Boolean)));
+}
+
 function parseListParam(value: string | null): string[] {
   if (!value) return [];
   return value
@@ -316,7 +326,7 @@ export function VehicleCatalog({ mode = "all", basePath = "/veiculos" }: Vehicle
   const urlCategories = useMemo(() => parseListParam(categoriesParam), [categoriesParam]);
   const urlTransmissions = useMemo(() => parseTransmissionParam(transmissionsParam), [transmissionsParam]);
   const urlColors = useMemo(() => parseListParam(colorsParam), [colorsParam]);
-  const urlFuels = useMemo(() => parseListParam(fuelsParam), [fuelsParam]);
+  const urlFuels = useMemo(() => parseFuelParam(fuelsParam), [fuelsParam]);
   const urlBodies = useMemo(() => parseListParam(bodiesParam), [bodiesParam]);
   const urlEnergy = energyParam === "eletrico" || energyParam === "hibrido" ? energyParam : "";
 
@@ -457,7 +467,13 @@ export function VehicleCatalog({ mode = "all", basePath = "/veiculos" }: Vehicle
 
   const transmissions = DEFAULT_TRANSMISSION_OPTIONS;
   const colors = useMemo(() => buildOptionEntries(vehicles.map((vehicle) => vehicle.color)), [vehicles]);
-  const fuels = useMemo(() => buildOptionEntries(vehicles.map((vehicle) => vehicle.fuel)), [vehicles]);
+  const fuels = useMemo(
+    () =>
+      buildOptionEntries(
+        vehicles.map((vehicle) => (isElectrifiedVehicle(vehicle) ? "Elétricos e híbridos" : vehicle.fuel))
+      ),
+    [vehicles]
+  );
 
   const bodies = useMemo(() => {
     const map = new Map<string, string>();
@@ -508,7 +524,7 @@ export function VehicleCatalog({ mode = "all", basePath = "/veiculos" }: Vehicle
       }
     }
 
-    if (electrifiedCount > 0) options.push({ kind: "energy", slug: "eletrico", label: "Elétricos", count: electrifiedCount });
+    if (electrifiedCount > 0) options.push({ kind: "energy", slug: "eletrico", label: "Elétricos e híbridos", count: electrifiedCount });
 
     return options;
   }, [vehicles]);
@@ -561,12 +577,12 @@ export function VehicleCatalog({ mode = "all", basePath = "/veiculos" }: Vehicle
       const vehicleModel = toSlug(vehicle.model);
       const vehicleTransmission = getTransmissionFilterSlug(vehicle.transmission);
       const vehicleColor = toSlug(vehicle.color);
-      const vehicleFuel = toSlug(vehicle.fuel);
       const body = getClassifiedBodyInfo(vehicle);
       const category = getClassifiedCategoryInfo(body);
       const isElectrified = isElectrifiedVehicle(vehicle);
       const isElectric = isElectricVehicle(vehicle);
       const isHybrid = isHybridVehicle(vehicle);
+      const vehicleFuel = isElectrified ? "eletricos-e-hibridos" : getFuelFilterSlug(vehicle.fuel);
 
       if (selectedStores.length > 0 && !selectedStores.includes(vehicleStore)) return false;
       if (selectedBrands.length > 0 && !selectedBrands.includes(vehicleBrand)) return false;
@@ -826,7 +842,7 @@ export function VehicleCatalog({ mode = "all", basePath = "/veiculos" }: Vehicle
       ? [
           {
             key: `energy-${selectedEnergy}`,
-            label: selectedEnergy === "eletrico" ? "Elétricos" : "Híbridos",
+            label: selectedEnergy === "eletrico" ? "Elétricos e híbridos" : "Híbridos",
             remove: () => setSelectedEnergy("")
           }
         ]
