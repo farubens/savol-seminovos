@@ -470,7 +470,7 @@ export function VehicleCatalog({ mode = "all", basePath = "/veiculos" }: Vehicle
   const fuels = useMemo(
     () =>
       buildOptionEntries(
-        vehicles.map((vehicle) => (isElectrifiedVehicle(vehicle) ? "Elétricos e híbridos" : vehicle.fuel))
+        vehicles.map((vehicle) => (isElectrifiedVehicle(vehicle) ? "ELÉTRICOS E HÍBRIDOS" : vehicle.fuel))
       ),
     [vehicles]
   );
@@ -524,7 +524,7 @@ export function VehicleCatalog({ mode = "all", basePath = "/veiculos" }: Vehicle
       }
     }
 
-    if (electrifiedCount > 0) options.push({ kind: "energy", slug: "eletrico", label: "Elétricos e híbridos", count: electrifiedCount });
+    if (electrifiedCount > 0) options.push({ kind: "energy", slug: "eletrico", label: "ELÉTRICOS E HÍBRIDOS", count: electrifiedCount });
 
     return options;
   }, [vehicles]);
@@ -842,7 +842,7 @@ export function VehicleCatalog({ mode = "all", basePath = "/veiculos" }: Vehicle
       ? [
           {
             key: `energy-${selectedEnergy}`,
-            label: selectedEnergy === "eletrico" ? "Elétricos e híbridos" : "Híbridos",
+            label: selectedEnergy === "eletrico" ? "ELÉTRICOS E HÍBRIDOS" : "HÍBRIDOS",
             remove: () => setSelectedEnergy("")
           }
         ]

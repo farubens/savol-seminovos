@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useHomeSessionData } from "@/components/HomeSessionDataProvider";
+import type { ApiVehicle } from "@/types/home";
 
 const AUTOPLAY_DELAY_MS = 5500;
 
@@ -21,16 +22,38 @@ function getVehicleUrl(url: string, slug: string): string {
   return `/veiculos/${slug}`;
 }
 
+function shuffleVehicles(vehicles: ApiVehicle[]): ApiVehicle[] {
+  const shuffled = [...vehicles];
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const randomIndex = Math.floor(Math.random() * (index + 1));
+    [shuffled[index], shuffled[randomIndex]] = [shuffled[randomIndex], shuffled[index]];
+  }
+  return shuffled;
+}
+
+function getCircularOffset(index: number, activeIndex: number, length: number): number {
+  let offset = index - activeIndex;
+  const halfway = Math.floor(length / 2);
+
+  if (offset > halfway) offset -= length;
+  if (offset < -halfway) offset += length;
+
+  return offset;
+}
+
 export function HeroVehicleCarousel() {
   const { vehicles, loading } = useHomeSessionData();
   const [activeIndex, setActiveIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  const [motionDirection, setMotionDirection] = useState<"next" | "prev">("next");
 
   const featuredVehicles = useMemo(
-    () =>
-      vehicles
-        .filter((vehicle) => !isRepasseVehicle(vehicle) && !vehicle.preparing && vehicle.photoCount > 1 && vehicle.image && vehicle.price)
-        .slice(0, 5),
+    () => {
+      const eligibleVehicles = vehicles.filter(
+        (vehicle) => !isRepasseVehicle(vehicle) && !vehicle.preparing && vehicle.photoCount > 1 && vehicle.image && vehicle.price
+      );
+      return shuffleVehicles(eligibleVehicles).slice(0, 5);
+    },
     [vehicles]
   );
 
@@ -42,6 +65,7 @@ export function HeroVehicleCarousel() {
   useEffect(() => {
     if (isPaused || featuredVehicles.length <= 1) return;
     const intervalId = window.setInterval(() => {
+      setMotionDirection("next");
       setActiveIndex((current) => (current + 1) % featuredVehicles.length);
     }, AUTOPLAY_DELAY_MS);
 
@@ -50,12 +74,22 @@ export function HeroVehicleCarousel() {
 
   const goToPrevious = () => {
     if (!featuredVehicles.length) return;
+    setMotionDirection("prev");
     setActiveIndex((current) => (current - 1 + featuredVehicles.length) % featuredVehicles.length);
   };
 
   const goToNext = () => {
     if (!featuredVehicles.length) return;
+    setMotionDirection("next");
     setActiveIndex((current) => (current + 1) % featuredVehicles.length);
+  };
+
+  const goToIndex = (index: number) => {
+    if (index === activeIndex || !featuredVehicles.length) return;
+    const forwardDistance = (index - activeIndex + featuredVehicles.length) % featuredVehicles.length;
+    const backwardDistance = (activeIndex - index + featuredVehicles.length) % featuredVehicles.length;
+    setMotionDirection(forwardDistance <= backwardDistance ? "next" : "prev");
+    setActiveIndex(index);
   };
 
   if (loading) {
@@ -79,15 +113,9 @@ export function HeroVehicleCarousel() {
     );
   }
 
-  const visibleOffsets = featuredVehicles.length === 1 ? [0] : [-1, 0, 1];
-  const visibleCards = visibleOffsets.map((offset) => {
-    const index = (activeIndex + offset + featuredVehicles.length) % featuredVehicles.length;
-    return { vehicle: featuredVehicles[index], offset };
-  });
-
   return (
     <div
-      className="hero-vehicle-carousel"
+      className={`hero-vehicle-carousel hero-vehicle-carousel--moving-${motionDirection}`}
       aria-roledescription="carrossel"
       aria-label="Veículos em destaque"
       tabIndex={0}
@@ -103,12 +131,13 @@ export function HeroVehicleCarousel() {
       }}
     >
       <div className="hero-vehicle-stage">
-        {visibleCards.map(({ vehicle, offset }) => {
-          const position = offset === 0 ? "active" : offset < 0 ? "prev" : "next";
+        {featuredVehicles.map((vehicle, index) => {
+          const offset = getCircularOffset(index, activeIndex, featuredVehicles.length);
+          const position = offset === 0 ? "active" : offset === -1 ? "prev" : offset === 1 ? "next" : offset < 0 ? "far-prev" : "far-next";
           const vehicleUrl = getVehicleUrl(vehicle.url, vehicle.slug);
 
           return (
-            <article className={`hero-vehicle-card hero-vehicle-card--${position}`} key={`${vehicle.id}-${position}`} aria-hidden={offset !== 0}>
+            <article className={`hero-vehicle-card hero-vehicle-card--${position}`} key={vehicle.id} aria-hidden={offset !== 0}>
               <span className="hero-vehicle-card-label">{offset === 0 ? "Destaque" : "Seminovo"}</span>
               <div className="hero-vehicle-card-media">
                 <Image
@@ -151,7 +180,7 @@ export function HeroVehicleCarousel() {
               type="button"
               key={vehicle.id}
               className={index === activeIndex ? "is-active" : ""}
-              onClick={() => setActiveIndex(index)}
+              onClick={() => goToIndex(index)}
               aria-label={`Mostrar ${vehicle.brand} ${vehicle.model}`}
               aria-current={index === activeIndex ? "true" : undefined}
             />
