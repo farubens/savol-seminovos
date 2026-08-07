@@ -7747,6 +7747,56 @@ h2 {
   padding: 12px;
 }
 
+@media (min-width: 1081px) {
+  .catalog-sidebar--full {
+    position: sticky;
+    top: 100px;
+    align-self: start;
+  }
+
+  .catalog-filter-card--full {
+    max-height: calc(100vh - 112px);
+    max-height: calc(100dvh - 112px);
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+    scrollbar-color: #9eb0ce #edf2fa;
+    scrollbar-width: thin;
+  }
+
+  .catalog-filter-card--full::-webkit-scrollbar {
+    width: 7px;
+  }
+
+  .catalog-filter-card--full::-webkit-scrollbar-track {
+    background: #edf2fa;
+  }
+
+  .catalog-filter-card--full::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: #9eb0ce;
+  }
+
+  .catalog-filter-card--full .catalog-filter-head {
+    position: sticky;
+    top: -12px;
+    z-index: 3;
+    margin-top: -12px;
+    padding: 12px 0 10px;
+    border-bottom: 1px solid #e2e9f8;
+    background: #ffffff;
+  }
+
+  .catalog-filter-card--full .catalog-apply-btn {
+    position: sticky;
+    bottom: -12px;
+    z-index: 3;
+    margin-top: 4px;
+    box-shadow: 0 -10px 18px rgba(255, 255, 255, 0.94);
+  }
+}
+
 .catalog-filter-block {
   border-top: 1px solid #e2e9f8;
   padding-top: 10px;
