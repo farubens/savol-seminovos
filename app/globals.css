@@ -928,7 +928,8 @@ h1 span {
   justify-self: center;
   margin-inline: -6%;
   outline: none;
-  transform: translateX(54px);
+  transform: translateX(18px) scale(0.9);
+  transform-origin: center;
 }
 
 .hero-vehicle-stage {
@@ -9972,6 +9973,25 @@ button.stores-filter-input svg {
 
 .site-nav {
   display: flex;
+  gap: 18px;
+}
+
+@media (max-width: 1280px) and (min-width: 1081px) {
+  .header .site-logo {
+    width: 180px;
+  }
+
+  .site-nav {
+    gap: 10px;
+  }
+
+  .site-nav > a {
+    font-size: 12px;
+  }
+
+  .site-nav .btn.btn-sm {
+    padding-inline: 12px;
+  }
 }
 
 @media (max-width: 1080px) {
@@ -10080,6 +10100,14 @@ button.stores-filter-input svg {
 
   .site-nav.is-open > a:nth-child(8) {
     transition-delay: 0.24s;
+  }
+
+  .site-nav.is-open > a:nth-child(9) {
+    transition-delay: 0.27s;
+  }
+
+  .site-nav.is-open > a:nth-child(10) {
+    transition-delay: 0.3s;
   }
 
   .site-nav > a::after {
@@ -11780,7 +11808,7 @@ button.stores-filter-input svg {
 @media (max-width: 1200px) and (min-width: 1081px) {
   .hero-vehicle-carousel {
     width: min(650px, 110%);
-    transform: translateX(34px);
+    transform: translateX(6px) scale(0.9);
   }
 
   .hero-vehicle-card--prev {

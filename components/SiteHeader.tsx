@@ -65,7 +65,10 @@ export function SiteHeader({ active = "home", showEnvNote = false }: HeaderProps
             <Link className={active === "venda" ? "active" : ""} href="/venda-seu-carro">
               Venda seu carro
             </Link>
-            <Link className={active === "lojistas" || active === "atacado" ? "active" : ""} href="/venda-para-lojistas">
+            <Link className={active === "atacado" ? "active" : ""} href="/venda-por-atacado">
+              Venda por atacado
+            </Link>
+            <Link className={active === "lojistas" ? "active" : ""} href="/venda-para-lojistas">
               Venda para Lojistas
             </Link>
 
