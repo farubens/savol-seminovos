@@ -71,6 +71,7 @@ const brandLogoMap: Record<string, string> = {
   jeep: "/images/brands/jeep.svg",
   mitsubishi: "/images/brands/mitsubishi.svg",
   "mitsubishi-motors": "/images/brands/mitsubishi.svg",
+  mini: "/images/brands/mini.svg",
   nissan: "/images/brands/nissan.svg",
   renault: "/images/brands/renault.svg"
 };
