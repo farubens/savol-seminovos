@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { FinanceFollowUpModal } from "@/components/FinanceFollowUpModal";
@@ -17,6 +18,7 @@ import { hasVisibleVwfsSurface, watchVwfsSimulatorClose } from "@/utils/vwfsModa
 import { createBancoVolksLeadPayload } from "@/utils/vwfsLeadPayload";
 import {
   BadgeCheck,
+  ArrowLeft,
   CalendarDays,
   CheckCircle2,
   ChevronLeft,
@@ -40,6 +42,7 @@ import {
 import { type SavedVehicle, useSavolAccount } from "@/components/SavolAccountProvider";
 import { RepasseNoticeModal } from "@/components/RepasseNoticeModal";
 import type { ApiVehicle } from "@/types/home";
+import { getVehicleNavigationOrigin, queueVehicleScrollRestoration } from "@/lib/vehicleNavigation";
 
 type Props = {
   slug: string;
@@ -377,6 +380,7 @@ function toSavedVehicle(vehicle: ApiVehicle): SavedVehicle {
 }
 
 export function VehicleDetailsPageClient({ slug }: Props) {
+  const router = useRouter();
   const { isFavorite, registerVisit, toggleFavorite } = useSavolAccount();
   const [vehicle, setVehicle] = useState<ApiVehicle | null>(null);
   const [storeItem, setStoreItem] = useState<StoreItem | null>(null);
@@ -1020,6 +1024,22 @@ export function VehicleDetailsPageClient({ slug }: Props) {
     }
   };
 
+  const handleBackToResults = () => {
+    const origin = getVehicleNavigationOrigin();
+    if (!origin) {
+      router.push("/veiculos");
+      return;
+    }
+
+    queueVehicleScrollRestoration(origin);
+    if (window.history.length > 1) {
+      router.back();
+      return;
+    }
+
+    router.replace(origin.sourceUrl, { scroll: false });
+  };
+
   if (loadingVehicle) {
     return (
       <section className="container vehicle-details vehicle-details--loading">
@@ -1042,6 +1062,11 @@ export function VehicleDetailsPageClient({ slug }: Props) {
 
   return (
     <section className="container vehicle-details">
+      <button type="button" className="vehicle-back-button" onClick={handleBackToResults}>
+        <ArrowLeft size={18} aria-hidden="true" />
+        Voltar
+      </button>
+
       <nav className="vehicle-breadcrumb" aria-label="Breadcrumb">
         <Link href="/">Home</Link>
         <span>/</span>

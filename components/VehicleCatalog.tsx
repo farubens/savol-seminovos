@@ -7,6 +7,7 @@ import type { ApiVehicle } from "@/types/home";
 import { useHomeSessionData } from "@/components/HomeSessionDataProvider";
 import { SellYourCarCta } from "@/components/SellYourCarCta";
 import { VehicleOfferCard } from "@/components/VehicleOfferCard";
+import { clearPendingVehicleScrollRestoration, getPendingVehicleScrollRestoration } from "@/lib/vehicleNavigation";
 import { getBodyInfo as getClassifiedBodyInfo, getCategoryInfo as getClassifiedCategoryInfo, isElectrifiedVehicle, isElectricVehicle, isHybridVehicle } from "@/lib/vehicleClassification";
 import { parseCurrencyToInteger } from "@/utils/pricing";
 
@@ -698,6 +699,20 @@ export function VehicleCatalog({ mode = "all", basePath = "/veiculos" }: Vehicle
 
     return () => window.clearTimeout(timeoutId);
   }, [isCatalogRefreshing, loading, resultVehicles.length]);
+
+  useEffect(() => {
+    if (!isHydrated || isResultsLoading) return;
+
+    const restoration = getPendingVehicleScrollRestoration();
+    if (!restoration) return;
+
+    const timeoutId = window.setTimeout(() => {
+      window.scrollTo({ left: restoration.scrollX, top: restoration.scrollY, behavior: "auto" });
+      clearPendingVehicleScrollRestoration();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [isHydrated, isResultsLoading, resultVehicles.length]);
 
   const pushQuery = (nextSort = sort) => {
     const priceRange = normalizeOptionalRange(priceMin, priceMax, priceSliderMinBound, priceSliderMaxBound);

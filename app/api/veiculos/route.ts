@@ -549,6 +549,18 @@ function formatKm(content: string, metaKm: string): string {
   return `${new Intl.NumberFormat("pt-BR").format(Number(rawDigits))} km`;
 }
 
+function parseFormattedKm(value: string): number | null {
+  const digits = value.replace(/[^\d]/g, "");
+  if (!digits) return null;
+  const parsed = Number(digits);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function isLowMileageHighlight(value: string): boolean {
+  const normalized = normalizeForMatch(value);
+  return normalized.includes("baixa km") || normalized.includes("baixa quilometragem");
+}
+
 function toCurrencyValue(raw: string): string {
   const numeric = parseCurrencyToInteger(raw);
   if (!numeric || numeric <= 0) return "";
@@ -694,6 +706,12 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
   const transmission = compactTransmissionLabel(extractTransmission(version, content, metaCambio));
   const fuel = compactFuelLabel(extractFuel(version, content, metaFuel));
   const km = formatKm(content, metaKm);
+  const kmValue = parseFormattedKm(km);
+  const suppressLowMileageHighlight = kmValue !== null && kmValue > 100000;
+  const visiblePrimaryHighlight = suppressLowMileageHighlight && isLowMileageHighlight(primaryHighlight) ? "" : primaryHighlight;
+  const visibleSecondaryHighlights = suppressLowMileageHighlight
+    ? secondaryHighlights.filter((highlight) => !isLowMileageHighlight(highlight))
+    : secondaryHighlights;
 
   return {
     id: vehicle.id,
@@ -712,8 +730,8 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
     storeId,
     oldPrice: repasse ? "" : priceData.oldPrice,
     price: priceData.price,
-    qualityTag: repasse ? "" : primaryHighlight,
-    secondaryHighlights: repasse ? [] : secondaryHighlights,
+    qualityTag: repasse ? "" : visiblePrimaryHighlight,
+    secondaryHighlights: repasse ? [] : visibleSecondaryHighlights,
     brand: brand || "Marca não informada",
     model: model || "Modelo não informado",
     version: version || "Versão não informada",

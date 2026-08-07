@@ -1600,7 +1600,7 @@ h2 {
 }
 
 .category-card-visual:hover .category-bg {
-  transform: scale(1.08);
+  transform: scale(1.03);
 }
 
 .category-bg,
@@ -1612,13 +1612,13 @@ h2 {
 .category-bg {
   background-position: center;
   background-size: cover;
-  filter: brightness(0.82) saturate(0.96) contrast(1.02);
-  transform: scale(1.04);
+  filter: none;
+  transform: scale(1);
   transition: transform 0.32s ease;
 }
 
 .category-overlay {
-  background: linear-gradient(180deg, rgba(4, 13, 37, 0.02) 0%, rgba(3, 12, 34, 0.2) 48%, rgba(3, 13, 38, 0.58) 100%);
+  background: linear-gradient(180deg, transparent 0%, transparent 68%, rgba(3, 13, 38, 0.12) 80%, rgba(3, 13, 38, 0.42) 100%);
 }
 
 .category-meta {
@@ -1655,6 +1655,7 @@ h2 {
   letter-spacing: 0;
   text-transform: none;
   color: #ffffff;
+  text-shadow: 0 1px 5px rgba(2, 10, 30, 0.72);
   max-width: 100%;
   overflow-wrap: normal;
   word-break: keep-all;
@@ -1666,6 +1667,7 @@ h2 {
   font-size: 13px;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.86);
+  text-shadow: 0 1px 4px rgba(2, 10, 30, 0.72);
   line-height: 1.2;
 }
 
@@ -1684,11 +1686,11 @@ h2 {
 }
 
 .category-card-visual--cta .category-bg {
-  filter: brightness(0.76) saturate(0.92);
+  filter: none;
 }
 
 .category-card-visual--cta .category-overlay {
-  background: linear-gradient(180deg, rgba(8, 25, 66, 0.08) 0%, rgba(3, 14, 42, 0.56) 100%);
+  background: linear-gradient(180deg, transparent 0%, transparent 68%, rgba(3, 13, 38, 0.14) 80%, rgba(3, 13, 38, 0.46) 100%);
 }
 
 .category-card-visual--cta .category-meta-icon {
@@ -4395,6 +4397,35 @@ h2 {
 .vehicle-details {
   padding: 20px 0 56px;
   overflow-x: clip;
+}
+
+.vehicle-back-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 38px;
+  margin: 0 0 12px;
+  padding: 7px 12px;
+  border: 1px solid #c8d7f4;
+  border-radius: 6px;
+  background: #fff;
+  color: #082d75;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+
+.vehicle-back-button:hover {
+  border-color: #082d75;
+  background: #f4f7fd;
+}
+
+.vehicle-back-button:focus-visible {
+  outline: 3px solid rgba(0, 70, 173, 0.22);
+  outline-offset: 2px;
 }
 
 .vehicle-breadcrumb {

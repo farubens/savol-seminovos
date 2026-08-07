@@ -3582,7 +3582,7 @@ JS;
                 'des_veiculo' => (string) ($apolo_reconciliation['apolo']['des_veiculo'] ?? ''),
             ],
             'autosync' => [
-                'highlight_rule_version' => '2026-07-repasse-notice-stock-days-v1',
+                'highlight_rule_version' => '2026-08-low-mileage-100k-cap-v2',
                 'id' => (string) ($vehicle['id'] ?? ''),
                 'brandName' => (string) ($vehicle['brandName'] ?? ''),
                 'modelName' => (string) ($vehicle['modelName'] ?? ''),
@@ -3868,7 +3868,7 @@ JS;
         $manufacturing_year = is_numeric($vehicle['manufacturingYear'] ?? null) ? (int) $vehicle['manufacturingYear'] : 0;
         $current_year = (int) gmdate('Y');
 
-        if ($km <= 0 || $manufacturing_year < 1980 || $manufacturing_year > $current_year) {
+        if ($km <= 0 || $km > 100000 || $manufacturing_year < 1980 || $manufacturing_year > $current_year) {
             return false;
         }
 

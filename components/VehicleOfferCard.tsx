@@ -33,6 +33,7 @@ import { type SavedVehicle, useSavolAccount } from "@/components/SavolAccountPro
 import { logLeadmobResponse, logLeadPayload } from "@/lib/leadDebug";
 import { getLeadTrackingPayload } from "@/lib/leadTracking";
 import { resolveSavolTechnicalStoreIdFromParts } from "@/lib/savolStores";
+import { rememberVehicleNavigation } from "@/lib/vehicleNavigation";
 import { buildOldPriceLabelFromOfficialPrice, parseCurrencyToInteger } from "@/utils/pricing";
 import { watchVwfsSimulatorClose } from "@/utils/vwfsModalWatcher";
 import { createBancoVolksLeadPayload } from "@/utils/vwfsLeadPayload";
@@ -943,6 +944,7 @@ export function VehicleOfferCard({
       window.open(resolvedDetailUrl, "_blank", "noopener,noreferrer");
       return;
     }
+    rememberVehicleNavigation(resolvedDetailUrl);
     router.push(resolvedDetailUrl);
   };
 
@@ -1087,7 +1089,7 @@ export function VehicleOfferCard({
                   Saiba mais
                 </a>
               ) : (
-                <Link className="offer-secondary" href={resolvedDetailUrl}>
+                <Link className="offer-secondary" href={resolvedDetailUrl} onClick={() => rememberVehicleNavigation(resolvedDetailUrl)}>
                   Saiba mais
                 </Link>
               )}
