@@ -341,8 +341,13 @@ function parseGalleryUrls(rawValue: string): string[] {
   if (!rawValue) return [];
 
   const isLikelyImageUrl = (value: string) => {
-    if (!(value.startsWith("http://") || value.startsWith("https://"))) return false;
-    return /(\.jpg|\.jpeg|\.png|\.webp|\.gif|\.avif)(\?.*)?$/i.test(value);
+    try {
+      const parsed = new URL(value);
+      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false;
+      return parsed.hostname.endsWith("storage.googleapis.com") || /(\.jpg|\.jpeg|\.png|\.webp|\.gif|\.avif)$/i.test(parsed.pathname);
+    } catch {
+      return false;
+    }
   };
 
   const urls = rawValue
@@ -662,7 +667,8 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
   const metaCategory = getMetaField(vehicle, "categoria");
   const metaBody = getMetaField(vehicle, "carroceria") || getMetaField(vehicle, "savol_vsc_vehicle_body_type");
   const metaCondition = getMetaField(vehicle, "condicao");
-  const metaGalleryUrls = getMetaField(vehicle, "autosync_photo_urls");
+  const metaAutosyncFeaturedUrl = getMetaField(vehicle, "autosync_foto_destaque_url");
+  const metaGalleryUrls = getMetaField(vehicle, "autosync_galeria_urls") || getMetaField(vehicle, "autosync_photo_urls");
   const metaGalleryIds = getMetaField(vehicle, "galeria_fotos");
   const metaPhotoCount = getMetaField(vehicle, "quantidade_fotos");
   const metaMolicar = getMetaField(vehicle, "molicar");
@@ -679,15 +685,18 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
   const priceData = extractPriceData(content, metaPrice);
 
   const embeddedImage = getEmbeddedImage(vehicle);
-  const image = encodeURI(embeddedImage ?? FALLBACK_IMAGE);
   const galleryFromMeta = parseGalleryUrls(metaGalleryUrls);
-  const gallery = Array.from(new Set([image, ...galleryFromMeta].filter(Boolean)));
+  const autosyncFeaturedImage = parseGalleryUrls(metaAutosyncFeaturedUrl)[0] ?? galleryFromMeta[0] ?? null;
+  const image = autosyncFeaturedImage ?? (embeddedImage ? encodeURI(embeddedImage) : FALLBACK_IMAGE);
+  const gallery = Array.from(
+    new Set([autosyncFeaturedImage ?? "", ...galleryFromMeta, embeddedImage ? encodeURI(embeddedImage) : ""].filter(Boolean))
+  );
   const galleryIds = parseGalleryIds(metaGalleryIds);
   const mediaIds = Array.from(
     new Set([Number(vehicle.featured_media ?? 0), ...galleryIds].filter((value) => value > 0))
   );
   const realPhotoUrls = Array.from(
-    new Set([embeddedImage ?? "", ...galleryFromMeta].filter(hasRealVehicleImageUrl))
+    new Set([autosyncFeaturedImage ?? "", ...galleryFromMeta, embeddedImage ?? ""].filter(hasRealVehicleImageUrl))
   );
   const storedPhotoCount = Number.parseInt(metaPhotoCount, 10);
   const photoCount = Math.max(

@@ -412,6 +412,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
   const [isRepasseModalOpen, setIsRepasseModalOpen] = useState(false);
 
   const thumbsRef = useRef<HTMLDivElement | null>(null);
+  const failedImageUrlsRef = useRef(new Set<string>());
   const vwfsCloseWatcherRef = useRef<(() => void) | null>(null);
   const financeFollowUpOpenedRef = useRef(false);
   const vwfsLoadFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -424,6 +425,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
 
     setLoadingVehicle(true);
     setVehicle(null);
+    failedImageUrlsRef.current.clear();
 
     fetch(`/api/veiculos?slug=${encodeURIComponent(slug)}`, { signal: controller.signal })
       .then((response) => (response.ok ? response.json() : null))
@@ -670,6 +672,17 @@ export function VehicleDetailsPageClient({ slug }: Props) {
         : [],
     [vehicle]
   );
+  const handleActiveImageError = () => {
+    failedImageUrlsRef.current.add(activeImage);
+    const nextIndex = galleryItems.findIndex((item) => !failedImageUrlsRef.current.has(item));
+    if (nextIndex >= 0) {
+      setSelectedIndex(nextIndex);
+      return;
+    }
+
+    setGallery([FALLBACK_IMAGE]);
+    setSelectedIndex(0);
+  };
   const aboutSpecItems = useMemo(
     () =>
       vehicle && plateEndingDigit
@@ -1117,7 +1130,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
                   }}
                   aria-label={isPreparationFallback ? "Imagem do veículo" : "Abrir imagem em tela cheia"}
                 >
-                  <Image src={activeImage} alt={vehicle.name} width={1280} height={860} />
+                  <Image src={activeImage} alt={vehicle.name} width={1280} height={860} onError={handleActiveImageError} />
                 </button>
               </motion.div>
             </AnimatePresence>
@@ -1486,7 +1499,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
                 <ChevronLeft size={24} />
               </button>
               <div className="vehicle-lightbox-media">
-                <Image src={activeImage} alt={vehicle.name} width={1440} height={920} />
+                <Image src={activeImage} alt={vehicle.name} width={1440} height={920} onError={handleActiveImageError} />
               </div>
               <button type="button" className="vehicle-lightbox-nav vehicle-lightbox-nav--right" onClick={goToNextImage} aria-label="Próxima foto">
                 <ChevronRight size={24} />

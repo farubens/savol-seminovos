@@ -113,8 +113,13 @@ function parseGalleryUrls(rawValue: string): string[] {
   if (!rawValue) return [];
 
   const isLikelyImageUrl = (value: string) => {
-    if (!(value.startsWith("http://") || value.startsWith("https://"))) return false;
-    return /(\.jpg|\.jpeg|\.png|\.webp|\.gif|\.avif)(\?.*)?$/i.test(value);
+    try {
+      const parsed = new URL(value);
+      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false;
+      return parsed.hostname.endsWith("storage.googleapis.com") || /(\.jpg|\.jpeg|\.png|\.webp|\.gif|\.avif)$/i.test(parsed.pathname);
+    } catch {
+      return false;
+    }
   };
 
   return Array.from(
@@ -194,9 +199,18 @@ async function resolveGalleryByVehicleId(id: number): Promise<string[]> {
   }
 
   const orderedMediaUrls = mediaIds.map((mediaId) => imageById.get(mediaId) ?? "").filter(Boolean).map((value) => encodeURI(value));
-  const fromAutosyncUrls = parseGalleryUrls(getMetaField(vehicle, "autosync_photo_urls"));
-  const trustedPool = orderedMediaUrls.length > 1 ? orderedMediaUrls : [...orderedMediaUrls, ...fromAutosyncUrls];
-  const merged = Array.from(new Set([featuredImage ? encodeURI(featuredImage) : "", ...trustedPool].filter(Boolean)));
+  const fromAutosyncUrls = parseGalleryUrls(
+    getMetaField(vehicle, "autosync_galeria_urls") || getMetaField(vehicle, "autosync_photo_urls")
+  );
+  const autosyncFeaturedImage = parseGalleryUrls(getMetaField(vehicle, "autosync_foto_destaque_url"))[0] ?? fromAutosyncUrls[0] ?? "";
+  const merged = Array.from(
+    new Set([
+      autosyncFeaturedImage,
+      ...fromAutosyncUrls,
+      featuredImage ? encodeURI(featuredImage) : "",
+      ...orderedMediaUrls
+    ].filter(Boolean))
+  );
   return merged;
 }
 

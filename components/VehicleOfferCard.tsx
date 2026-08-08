@@ -391,6 +391,11 @@ export function VehicleOfferCard({
   const { hasVisited, isFavorite, toggleFavorite } = useSavolAccount();
   const financeId = useId();
   const safeImage = !image || isPreparationImage(image) ? FALLBACK_IMAGE : image;
+  const localImageFallback = useMemo(
+    () => gallery.find((item) => !item.includes("storage.googleapis.com") && !isPreparationImage(item)) ?? FALLBACK_IMAGE,
+    [gallery]
+  );
+  const [displayImage, setDisplayImage] = useState(safeImage);
   const isPreparationFallback = isPreparationImage(safeImage);
   const calculationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const galleryLoadingGuardRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -498,6 +503,10 @@ export function VehicleOfferCard({
   useEffect(() => {
     setEntryInput(formatEntryInput(minEntryValue));
   }, [minEntryValue]);
+
+  useEffect(() => {
+    setDisplayImage(safeImage);
+  }, [safeImage]);
 
   useEffect(() => {
     return () => {
@@ -999,7 +1008,13 @@ export function VehicleOfferCard({
               <Heart size={18} fill={isSavedAsFavorite ? "currentColor" : "none"} />
             </button>
           </div>
-          <Image src={safeImage} alt={name} width={630} height={360} />
+          <Image
+            src={displayImage}
+            alt={name}
+            width={630}
+            height={360}
+            onError={() => setDisplayImage((current) => current === localImageFallback ? FALLBACK_IMAGE : localImageFallback)}
+          />
             {(armored || negotiating) ? (
               <div className="offer-status-badges">
                 {armored ? (

@@ -96,6 +96,29 @@ function hasMultipleRealPhotos(vehicle: ApiVehicle): boolean {
   return !vehicle.preparing && !isPreparationImage && Number(vehicle.photoCount) >= 2;
 }
 
+function HeroVehicleImage({ vehicle, priority }: { vehicle: ApiVehicle; priority: boolean }) {
+  const localFallback = useMemo(
+    () => vehicle.gallery.find((item) => !item.includes("storage.googleapis.com") && !PREPARATION_IMAGE_TOKENS.some((token) => item.includes(token))) ?? "/images/fallback-atualizado.webp",
+    [vehicle.gallery]
+  );
+  const [src, setSrc] = useState(vehicle.image);
+
+  useEffect(() => {
+    setSrc(vehicle.image);
+  }, [vehicle.image]);
+
+  return (
+    <Image
+      src={src}
+      alt={vehicle.name}
+      fill
+      sizes="(min-width: 1081px) 280px, (min-width: 761px) 320px, 86vw"
+      priority={priority}
+      onError={() => setSrc((current) => current === localFallback ? "/images/fallback-atualizado.webp" : localFallback)}
+    />
+  );
+}
+
 function shuffleVehicles(vehicles: ApiVehicle[]): ApiVehicle[] {
   const shuffled = [...vehicles];
   for (let index = shuffled.length - 1; index > 0; index -= 1) {
@@ -224,13 +247,7 @@ export function HeroVehicleCarousel() {
                 <HighlightIcon size={12} /> {highlight}
               </span>
               <div className="hero-vehicle-card-media">
-                <Image
-                  src={vehicle.image}
-                  alt={vehicle.name}
-                  fill
-                  sizes="(min-width: 1081px) 280px, (min-width: 761px) 320px, 86vw"
-                  priority={offset === 0}
-                />
+                <HeroVehicleImage vehicle={vehicle} priority={offset === 0} />
               </div>
               <div className="hero-vehicle-card-content">
                 <p className="hero-vehicle-card-brand">{vehicle.brand}</p>

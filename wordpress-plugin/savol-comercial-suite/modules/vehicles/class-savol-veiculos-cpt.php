@@ -240,6 +240,8 @@ final class Savol_Veiculos_CPT {
             'qtd_donos' => ['label' => 'Qtd. de donos', 'type' => 'number'],
             'identificador_externo' => ['label' => 'Identificador externo', 'type' => 'text'],
             'galeria_fotos' => ['label' => 'Galeria de fotos', 'type' => 'gallery'],
+            'autosync_foto_destaque_url' => ['label' => 'Foto de destaque AutoSync', 'type' => 'text'],
+            'autosync_galeria_urls' => ['label' => 'Galeria AutoSync (URLs)', 'type' => 'textarea'],
             'quantidade_fotos' => ['label' => 'Quantidade de fotos', 'type' => 'number'],
             'ipva_pago' => ['label' => 'IPVA pago', 'type' => 'boolean'],
             'licenciado' => ['label' => 'Licenciado', 'type' => 'boolean'],
@@ -521,6 +523,9 @@ final class Savol_Veiculos_CPT {
                     if ($field['type'] === 'gallery') {
                         return sanitize_text_field((string) $value);
                     }
+                    if ($field['type'] === 'textarea') {
+                        return sanitize_textarea_field((string) $value);
+                    }
                     return sanitize_text_field((string) $value);
                 },
             ]);
@@ -593,6 +598,8 @@ final class Savol_Veiculos_CPT {
                     }
                 }
                 echo '</div>';
+            } elseif ($field['type'] === 'textarea') {
+                echo '<textarea id="' . esc_attr($key) . '" name="' . esc_attr($key) . '" rows="5">' . esc_textarea((string) $value) . '</textarea>';
             } else {
                 $input_type = $field['type'] === 'number' ? 'number' : 'text';
                 $step = $field['type'] === 'number' ? ' step="any"' : '';
@@ -848,6 +855,10 @@ final class Savol_Veiculos_CPT {
             if ($field['type'] === 'gallery') {
                 $pieces = array_filter(array_map('absint', explode(',', (string) $raw)));
                 update_post_meta($post_id, $key, implode(',', $pieces));
+                continue;
+            }
+            if ($field['type'] === 'textarea') {
+                update_post_meta($post_id, $key, sanitize_textarea_field((string) $raw));
                 continue;
             }
 
@@ -3538,11 +3549,22 @@ JS;
     private static function extract_vehicle_photo_urls(array $vehicle): array {
         $photo_urls = [];
         if (isset($vehicle['VehiclePhotos']) && is_array($vehicle['VehiclePhotos'])) {
-            foreach ($vehicle['VehiclePhotos'] as $photo) {
+            $photos = [];
+            foreach ($vehicle['VehiclePhotos'] as $index => $photo) {
                 if (is_array($photo) && !empty($photo['link'])) {
-                    $photo_urls[] = esc_url_raw((string) $photo['link']);
+                    $photos[] = [
+                        'index' => (int) $index,
+                        'order' => isset($photo['order']) && is_numeric($photo['order']) ? (int) $photo['order'] : PHP_INT_MAX,
+                        'url' => esc_url_raw((string) $photo['link']),
+                    ];
                 }
             }
+
+            usort($photos, static function (array $left, array $right): int {
+                $order_comparison = $left['order'] <=> $right['order'];
+                return $order_comparison !== 0 ? $order_comparison : ($left['index'] <=> $right['index']);
+            });
+            $photo_urls = array_column($photos, 'url');
         }
 
         return array_values(array_unique(array_filter($photo_urls)));
@@ -3550,6 +3572,7 @@ JS;
 
     private static function build_vehicle_sync_signature(array $vehicle, array $apolo_reconciliation, array $photo_urls, string $official_unit_name, string $title): string {
         $payload = [
+            'photo_source_rule_version' => '2026-08-direct-autosync-v1',
             'title' => $title,
             'status' => (string) ($apolo_reconciliation['status'] ?? ''),
             'reason' => (string) ($apolo_reconciliation['reason'] ?? ''),
@@ -3808,6 +3831,8 @@ JS;
         $photo_urls_text = implode("\n", $photo_urls);
         $previous_photo_urls_text = (string) get_post_meta($post_id, 'autosync_photo_urls', true);
         update_post_meta($post_id, 'autosync_photo_urls', $photo_urls_text);
+        update_post_meta($post_id, 'autosync_foto_destaque_url', (string) ($photo_urls[0] ?? ''));
+        update_post_meta($post_id, 'autosync_galeria_urls', $photo_urls_text);
         update_post_meta($post_id, 'quantidade_fotos', count($photo_urls));
         if ($photo_urls_text !== '' && $photo_urls_text !== $previous_photo_urls_text) {
             self::import_vehicle_photos_to_gallery($post_id, $vehicle);
