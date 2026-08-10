@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getDisplayVehicleImageUrls } from "@/lib/vehicleImages";
 
 const DEFAULT_WP_BASE_URL =
   process.env.NODE_ENV === "production" ? "https://palevioletred-lark-270684.hostingersite.com" : "http://localhost/savol-seminovos-local";
@@ -211,7 +212,7 @@ async function resolveGalleryByVehicleId(id: number): Promise<string[]> {
       ...orderedMediaUrls
     ].filter(Boolean))
   );
-  return merged;
+  return getDisplayVehicleImageUrls(merged);
 }
 
 export async function GET(_request: NextRequest, context: { params: Promise<{ id: string }> }) {

@@ -13,6 +13,7 @@ import { getLeadTrackingPayload } from "@/lib/leadTracking";
 import { resolveLeadmobCompanyId } from "@/lib/leadmobRules";
 import { resolveSavolTechnicalStoreIdFromParts } from "@/lib/savolStores";
 import { resolveSavolWhatsAppPhoneFromParts } from "@/lib/savolWhatsApp";
+import { isPreparationVehicleImageUrl, VEHICLE_FALLBACK_IMAGE } from "@/lib/vehicleImages";
 import { parseCurrencyToInteger } from "@/utils/pricing";
 import { hasVisibleVwfsSurface, watchVwfsSimulatorClose } from "@/utils/vwfsModalWatcher";
 import { createBancoVolksLeadPayload } from "@/utils/vwfsLeadPayload";
@@ -92,8 +93,7 @@ type LeadForm = {
 
 type DetailsTab = "sobre" | "opcionais" | "ficha" | "financiamento" | "loja";
 
-const FALLBACK_IMAGE = "/images/fallback-atualizado.webp";
-const PREPARATION_IMAGE_TOKENS = ["/images/em-preparacao", "/images/fallback-atualizado"];
+const FALLBACK_IMAGE = VEHICLE_FALLBACK_IMAGE;
 const VWFS_DEFAULT_SCRIPT = "https://seller.vwfsbrasil.com.br/partners/simulator.js";
 const VWFS_DEFAULT_CLIENT_KEY = "A7a4bq5l8zEVvP0wNR9wvkMmxrYWJZ6d1OjXDnBy";
 const VWFS_DEFAULT_CLIENT_TOKEN = "73697e9cda39da51b4fe07dfd94d5389a630670759a3dced21444ad8bfb25fab";
@@ -337,8 +337,7 @@ function isConcreteVehicleSpecValue(value?: string | null): value is string {
 }
 
 function isPreparationImage(src: string): boolean {
-  const normalizedSrc = src.toLowerCase();
-  return PREPARATION_IMAGE_TOKENS.some((token) => normalizedSrc.includes(token));
+  return isPreparationVehicleImageUrl(src);
 }
 
 function isAbortError(error: unknown): boolean {

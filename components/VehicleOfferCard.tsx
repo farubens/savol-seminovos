@@ -33,6 +33,7 @@ import { type SavedVehicle, useSavolAccount } from "@/components/SavolAccountPro
 import { logLeadmobResponse, logLeadPayload } from "@/lib/leadDebug";
 import { getLeadTrackingPayload } from "@/lib/leadTracking";
 import { resolveSavolTechnicalStoreIdFromParts } from "@/lib/savolStores";
+import { isPreparationVehicleImageUrl, VEHICLE_FALLBACK_IMAGE } from "@/lib/vehicleImages";
 import { rememberVehicleNavigation } from "@/lib/vehicleNavigation";
 import { buildOldPriceLabelFromOfficialPrice, parseCurrencyToInteger } from "@/utils/pricing";
 import { watchVwfsSimulatorClose } from "@/utils/vwfsModalWatcher";
@@ -309,16 +310,14 @@ function canUseVwfsOnCurrentHost(): boolean {
 
 const galleryCacheByVehicle = new Map<number, string[]>();
 const galleryInFlightByVehicle = new Map<number, Promise<string[]>>();
-const FALLBACK_IMAGE = "/images/fallback-atualizado.webp";
-const PREPARATION_IMAGE_TOKENS = ["/images/em-preparacao", "/images/fallback-atualizado"];
+const FALLBACK_IMAGE = VEHICLE_FALLBACK_IMAGE;
 const VWFS_DEFAULT_SCRIPT = "https://seller.vwfsbrasil.com.br/partners/simulator.js";
 const VWFS_DEFAULT_CLIENT_KEY = "A7a4bq5l8zEVvP0wNR9wvkMmxrYWJZ6d1OjXDnBy";
 const VWFS_DEFAULT_CLIENT_TOKEN = "73697e9cda39da51b4fe07dfd94d5389a630670759a3dced21444ad8bfb25fab";
 const VWFS_DEFAULT_STORE_ID = 123454;
 
 function isPreparationImage(src: string): boolean {
-  const normalizedSrc = src.toLowerCase();
-  return PREPARATION_IMAGE_TOKENS.some((token) => normalizedSrc.includes(token));
+  return isPreparationVehicleImageUrl(src);
 }
 
 async function loadVehicleGallery(vehicleId: number): Promise<string[]> {

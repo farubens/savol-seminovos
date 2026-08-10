@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveSavolTechnicalStoreIdFromParts } from "@/lib/savolStores";
+import {
+  getDisplayVehicleImageUrls,
+  getRealVehicleImageUrls,
+  isPreparationVehicleImageUrl,
+  VEHICLE_FALLBACK_IMAGE
+} from "@/lib/vehicleImages";
 import { buildOldPriceLabelFromOfficialPrice, formatCurrencyBRL, parseCurrencyToInteger } from "@/utils/pricing";
 
 const DEFAULT_WP_BASE_URL =
@@ -9,7 +15,6 @@ const VEICULO_ENDPOINT = `${WP_BASE_URL}/wp-json/wp/v2/veiculo`;
 const DEFAULT_PER_PAGE = 12;
 const MAX_PER_PAGE = 200;
 const WP_PAGE_SIZE = 100;
-const FALLBACK_IMAGE = "/images/em-preparacao.jpg";
 const MISSING_SPEC_LABEL = "N/A";
 const API_CACHE_TTL_MS = 2 * 60 * 1000;
 const WP_DEFAULT_USER = "fa.rubens@gmail.com";
@@ -141,12 +146,7 @@ function toVisibleSpecLabel(value: string): string {
 }
 
 function hasRealVehicleImageUrl(value: string): boolean {
-  const normalized = value.toLowerCase();
-  return (
-    Boolean(normalized) &&
-    !normalized.includes("/images/em-preparacao") &&
-    !normalized.includes("/images/fallback-atualizado")
-  );
+  return Boolean(value) && !isPreparationVehicleImageUrl(value);
 }
 
 function getVehicleListingGroup(vehicle: ApiVehicle): number {
@@ -687,23 +687,25 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
   const embeddedImage = getEmbeddedImage(vehicle);
   const galleryFromMeta = parseGalleryUrls(metaGalleryUrls);
   const autosyncFeaturedImage = parseGalleryUrls(metaAutosyncFeaturedUrl)[0] ?? galleryFromMeta[0] ?? null;
-  const image = autosyncFeaturedImage ?? (embeddedImage ? encodeURI(embeddedImage) : FALLBACK_IMAGE);
-  const gallery = Array.from(
+  const rawGallery = Array.from(
     new Set([autosyncFeaturedImage ?? "", ...galleryFromMeta, embeddedImage ? encodeURI(embeddedImage) : ""].filter(Boolean))
   );
+  const gallery = getDisplayVehicleImageUrls(rawGallery);
+  const image = gallery[0] ?? VEHICLE_FALLBACK_IMAGE;
   const galleryIds = parseGalleryIds(metaGalleryIds);
   const mediaIds = Array.from(
     new Set([Number(vehicle.featured_media ?? 0), ...galleryIds].filter((value) => value > 0))
   );
-  const realPhotoUrls = Array.from(
-    new Set([autosyncFeaturedImage ?? "", ...galleryFromMeta, embeddedImage ?? ""].filter(hasRealVehicleImageUrl))
-  );
+  const realPhotoUrls = getRealVehicleImageUrls(rawGallery).filter(hasRealVehicleImageUrl);
+  const hasPreparationPhoto = rawGallery.some(isPreparationVehicleImageUrl);
   const storedPhotoCount = Number.parseInt(metaPhotoCount, 10);
-  const photoCount = Math.max(
-    Number.isFinite(storedPhotoCount) ? storedPhotoCount : 0,
-    mediaIds.length,
-    realPhotoUrls.length
-  );
+  const photoCount = hasPreparationPhoto
+    ? realPhotoUrls.length
+    : Math.max(
+        Number.isFinite(storedPhotoCount) ? storedPhotoCount : 0,
+        mediaIds.length,
+        realPhotoUrls.length
+      );
   const repasse =
     parseBooleanMeta(metaRepasse) ||
     normalizeForMatch(metaApoloProposalSeller) === "repasse";
@@ -730,7 +732,7 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
     name: buildName(sanitizedTitle, brand, model, visibleModelYear),
     subtitle: buildSubtitle(version, model, excerpt),
     image,
-    gallery: gallery.length ? gallery : [FALLBACK_IMAGE],
+    gallery,
     year: visibleYear,
     transmission: toVisibleSpecLabel(transmission),
     fuel: toVisibleSpecLabel(fuel),

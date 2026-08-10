@@ -5,11 +5,11 @@ import Link from "next/link";
 import { BadgeCheck, CheckCircle2, ChevronLeft, ChevronRight, Gauge, ShieldCheck, Sparkles, UserRound, WalletCards } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useHomeSessionData } from "@/components/HomeSessionDataProvider";
+import { isPreparationVehicleImageUrl, VEHICLE_FALLBACK_IMAGE } from "@/lib/vehicleImages";
 import type { ApiVehicle } from "@/types/home";
 
 const AUTOPLAY_DELAY_MS = 5500;
 const FALLBACK_HIGHLIGHT = "Oportunidade";
-const PREPARATION_IMAGE_TOKENS = ["/images/em-preparacao", "/images/fallback-atualizado"];
 const HIGHLIGHT_PRIORITY: Record<string, number> = {
   garantia: 80,
   "unico dono": 70,
@@ -91,14 +91,12 @@ function getHighlightIcon(value: string) {
 }
 
 function hasMultipleRealPhotos(vehicle: ApiVehicle): boolean {
-  const image = vehicle.image.toLowerCase();
-  const isPreparationImage = PREPARATION_IMAGE_TOKENS.some((token) => image.includes(token));
-  return !vehicle.preparing && !isPreparationImage && Number(vehicle.photoCount) >= 2;
+  return !vehicle.preparing && !isPreparationVehicleImageUrl(vehicle.image) && Number(vehicle.photoCount) >= 2;
 }
 
 function HeroVehicleImage({ vehicle, priority }: { vehicle: ApiVehicle; priority: boolean }) {
   const localFallback = useMemo(
-    () => vehicle.gallery.find((item) => !item.includes("storage.googleapis.com") && !PREPARATION_IMAGE_TOKENS.some((token) => item.includes(token))) ?? "/images/fallback-atualizado.webp",
+    () => vehicle.gallery.find((item) => !item.includes("storage.googleapis.com") && !isPreparationVehicleImageUrl(item)) ?? VEHICLE_FALLBACK_IMAGE,
     [vehicle.gallery]
   );
   const [src, setSrc] = useState(vehicle.image);
@@ -114,7 +112,7 @@ function HeroVehicleImage({ vehicle, priority }: { vehicle: ApiVehicle; priority
       fill
       sizes="(min-width: 1081px) 280px, (min-width: 761px) 320px, 86vw"
       priority={priority}
-      onError={() => setSrc((current) => current === localFallback ? "/images/fallback-atualizado.webp" : localFallback)}
+      onError={() => setSrc((current) => current === localFallback ? VEHICLE_FALLBACK_IMAGE : localFallback)}
     />
   );
 }
