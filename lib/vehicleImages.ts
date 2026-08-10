@@ -24,7 +24,8 @@ export function isPreparationVehicleImageUrl(value: string): boolean {
     normalized.includes("imagesfallbackatualizado") ||
     normalized.includes("empreparacao") ||
     normalized.includes("empreparao") ||
-    normalized.includes("preparacaocopia")
+    normalized.includes("preparacao") ||
+    normalized.includes("prepacacao")
   );
 }
 
