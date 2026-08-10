@@ -30,7 +30,20 @@ export function isPreparationVehicleImageUrl(value: string): boolean {
 }
 
 export function getRealVehicleImageUrls(values: string[]): string[] {
-  return Array.from(new Set(values.filter(Boolean))).filter((value) => !isPreparationVehicleImageUrl(value));
+  const seen = new Set<string>();
+  const images: string[] = [];
+
+  for (const value of values.filter(Boolean)) {
+    if (isPreparationVehicleImageUrl(value)) continue;
+
+    const identity = value.toLowerCase().match(/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}/)?.[0] ?? value;
+    if (seen.has(identity)) continue;
+
+    seen.add(identity);
+    images.push(value);
+  }
+
+  return images;
 }
 
 export function getDisplayVehicleImageUrls(values: string[]): string[] {
