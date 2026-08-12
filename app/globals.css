@@ -1116,6 +1116,10 @@ h1 span {
   color: #b2bbca;
 }
 
+.hero-vehicle-stock-code {
+  margin-top: 3px;
+}
+
 .hero-vehicle-card-price {
   margin: 13px 0 12px;
   color: var(--blue-dark);
@@ -2098,6 +2102,22 @@ h2 {
   color: var(--gray-mid);
   font-size: 12px;
   line-height: 1.45;
+}
+
+.vehicle-stock-code {
+  display: block;
+  width: fit-content;
+  margin-top: 2px;
+  color: #7a8291;
+  font-size: 9px;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+
+.vehicle-stock-code--single {
+  margin-top: 4px;
+  font-size: 10px;
 }
 
 .offer-status-badges,

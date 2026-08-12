@@ -6,6 +6,7 @@ import { BadgeCheck, CheckCircle2, ChevronLeft, ChevronRight, Gauge, ShieldCheck
 import { useEffect, useMemo, useState } from "react";
 import { useHomeSessionData } from "@/components/HomeSessionDataProvider";
 import { isPreparationVehicleImageUrl, VEHICLE_FALLBACK_IMAGE } from "@/lib/vehicleImages";
+import { formatVehicleStockCode } from "@/lib/vehicleStock";
 import type { ApiVehicle } from "@/types/home";
 
 const AUTOPLAY_DELAY_MS = 5500;
@@ -251,6 +252,7 @@ export function HeroVehicleCarousel() {
                 <p className="hero-vehicle-card-brand">{vehicle.brand}</p>
                 <h2>{vehicle.model || vehicle.name}</h2>
                 <p className="hero-vehicle-card-specs">{vehicle.year} <span aria-hidden="true">|</span> {vehicle.km}</p>
+                <span className="vehicle-stock-code hero-vehicle-stock-code">{formatVehicleStockCode(vehicle.stockDays)}</span>
                 <p className="hero-vehicle-card-price">{vehicle.price}</p>
                 <Link href={vehicleUrl} className="hero-vehicle-card-action" tabIndex={offset === 0 ? 0 : -1}>
                   Ver oferta

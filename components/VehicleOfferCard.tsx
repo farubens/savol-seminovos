@@ -35,6 +35,7 @@ import { getLeadTrackingPayload } from "@/lib/leadTracking";
 import { resolveSavolTechnicalStoreIdFromParts } from "@/lib/savolStores";
 import { isPreparationVehicleImageUrl, VEHICLE_FALLBACK_IMAGE } from "@/lib/vehicleImages";
 import { rememberVehicleNavigation } from "@/lib/vehicleNavigation";
+import { formatVehicleStockCode } from "@/lib/vehicleStock";
 import { buildOldPriceLabelFromOfficialPrice, parseCurrencyToInteger } from "@/utils/pricing";
 import { watchVwfsSimulatorClose } from "@/utils/vwfsModalWatcher";
 import { createBancoVolksLeadPayload } from "@/utils/vwfsLeadPayload";
@@ -64,6 +65,7 @@ type Props = {
   armored?: boolean;
   negotiating?: boolean;
   repasse?: boolean;
+  stockDays?: number;
   showFinanceButton?: boolean;
 };
 
@@ -376,6 +378,7 @@ export function VehicleOfferCard({
   armored = false,
   negotiating = false,
   repasse = false,
+  stockDays = 0,
   showFinanceButton = true
 }: Props) {
   type ProposalFormState = {
@@ -390,6 +393,7 @@ export function VehicleOfferCard({
   const { hasVisited, isFavorite, toggleFavorite } = useSavolAccount();
   const financeId = useId();
   const safeImage = !image || isPreparationImage(image) ? FALLBACK_IMAGE : image;
+  const stockCode = formatVehicleStockCode(stockDays);
   const localImageFallback = useMemo(
     () => gallery.find((item) => !item.includes("storage.googleapis.com") && !isPreparationImage(item)) ?? FALLBACK_IMAGE,
     [gallery]
@@ -940,9 +944,10 @@ export function VehicleOfferCard({
       plate,
       armored,
       negotiating,
-      repasse
+      repasse,
+      stockDays
     }),
-    [armored, fuel, gallery, km, molicar, name, negotiating, oldPrice, plate, price, qualityTag, repasse, resolvedDetailUrl, safeImage, secondaryHighlights, store, subtitle, transmission, vehicleId, year]
+    [armored, fuel, gallery, km, molicar, name, negotiating, oldPrice, plate, price, qualityTag, repasse, resolvedDetailUrl, safeImage, secondaryHighlights, stockDays, store, subtitle, transmission, vehicleId, year]
   );
   const isSavedAsFavorite = isFavorite(vehicleId);
   const wasVisited = hasVisited(vehicleId);
@@ -1034,6 +1039,7 @@ export function VehicleOfferCard({
           <div className="offer-body">
             <h3>{name}</h3>
             <p className="offer-subtitle">{subtitle}</p>
+            {stockCode ? <span className="vehicle-stock-code">{stockCode}</span> : null}
 
             <div className="offer-specs">
               {specItems.map(({ key, icon: SpecIcon, label }) => (

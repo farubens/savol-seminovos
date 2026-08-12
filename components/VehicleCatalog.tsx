@@ -137,7 +137,9 @@ function formatKmValue(value: number): string {
 }
 
 function getVehicleListingGroup(vehicle: ApiVehicle): number {
-  if (vehicle.preparing) return 2;
+  if (vehicle.photoCount <= 0) return 4;
+  if (vehicle.photoCount === 1) return 3;
+  if (vehicle.photoCount === 2) return 2;
   if (vehicle.negotiating) return 1;
   return 0;
 }
@@ -1407,6 +1409,7 @@ export function VehicleCatalog({ mode = "all", basePath = "/veiculos" }: Vehicle
                     armored={vehicle.armored}
                     negotiating={vehicle.negotiating}
                     repasse={vehicle.repasse}
+                    stockDays={vehicle.stockDays}
                   />
                 ))}
               </div>

@@ -3135,6 +3135,10 @@ JS;
     }
 
     private static function extract_apolo_stock_days(array $row): int {
+        if (array_key_exists('dias_estoque', $row) && is_numeric($row['dias_estoque'])) {
+            return max(0, (int) $row['dias_estoque']);
+        }
+
         $aliases = [
             'dias estoque',
             'dias de estoque',

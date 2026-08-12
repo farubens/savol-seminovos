@@ -14,6 +14,7 @@ import { resolveLeadmobCompanyId } from "@/lib/leadmobRules";
 import { resolveSavolTechnicalStoreIdFromParts } from "@/lib/savolStores";
 import { resolveSavolWhatsAppPhoneFromParts } from "@/lib/savolWhatsApp";
 import { isPreparationVehicleImageUrl, VEHICLE_FALLBACK_IMAGE } from "@/lib/vehicleImages";
+import { formatVehicleStockCode } from "@/lib/vehicleStock";
 import { parseCurrencyToInteger } from "@/utils/pricing";
 import { hasVisibleVwfsSurface, watchVwfsSimulatorClose } from "@/utils/vwfsModalWatcher";
 import { createBancoVolksLeadPayload } from "@/utils/vwfsLeadPayload";
@@ -374,7 +375,8 @@ function toSavedVehicle(vehicle: ApiVehicle): SavedVehicle {
     plate: vehicle.plate,
     armored: vehicle.armored,
     negotiating: vehicle.negotiating,
-    repasse: vehicle.repasse
+    repasse: vehicle.repasse,
+    stockDays: vehicle.stockDays
   };
 }
 
@@ -616,6 +618,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
   const storeAddress = storeItem?.address || (!isUnknownValue(vehicle?.city ?? "") ? `${vehicle?.city} - ${vehicle?.uf}` : "Endereço sob consulta");
   const storePhone = storeItem?.phone || resolveFallbackStorePhone(vehicle);
   const plateEndingDigit = getPlateEndingDigit(vehicle?.plate);
+  const stockCode = formatVehicleStockCode(vehicle?.stockDays);
   const leadVehicleContext = useMemo(
     () => ({
       id: vehicle?.id,
@@ -1193,6 +1196,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
               </button>
             ) : null}
             <p className="vehicle-info-subtitle">{vehicle.subtitle}</p>
+            {stockCode ? <span className="vehicle-stock-code vehicle-stock-code--single">{stockCode}</span> : null}
             <p className="vehicle-year-badge">Ano/Modelo {vehicle.year}</p>
 
             {!vehicle.repasse && vehicle.oldPrice ? <p className="vehicle-old-price">{vehicle.oldPrice}</p> : null}
@@ -1473,6 +1477,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
                   armored={item.armored}
                   negotiating={item.negotiating}
                   repasse={item.repasse}
+                  stockDays={item.stockDays}
                   showFinanceButton={false}
                 />
               ))}
