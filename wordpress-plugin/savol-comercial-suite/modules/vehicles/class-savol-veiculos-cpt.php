@@ -3168,7 +3168,8 @@ JS;
 
     private static function extract_apolo_proposal_days(array $row): ?int {
         if (array_key_exists('dias_proposta', $row) && is_numeric($row['dias_proposta'])) {
-            return max(0, (int) $row['dias_proposta']);
+            $days = (int) $row['dias_proposta'];
+            return $days > 0 ? $days : null;
         }
 
         $aliases = [
@@ -3184,7 +3185,8 @@ JS;
                 continue;
             }
 
-            return max(0, (int) $value);
+            $days = (int) $value;
+            return $days > 0 ? $days : null;
         }
 
         return null;
@@ -3607,6 +3609,7 @@ JS;
     private static function build_vehicle_sync_signature(array $vehicle, array $apolo_reconciliation, array $photo_urls, string $official_unit_name, string $title): string {
         $payload = [
             'photo_source_rule_version' => '2026-08-direct-autosync-v1',
+            'proposal_days_rule_version' => '2026-08-positive-only-v1',
             'title' => $title,
             'status' => (string) ($apolo_reconciliation['status'] ?? ''),
             'reason' => (string) ($apolo_reconciliation['reason'] ?? ''),
@@ -3636,9 +3639,7 @@ JS;
                 'vendedor_proposta' => (string) ($apolo_reconciliation['apolo']['vendedor_proposta'] ?? ''),
                 'repasse' => !empty($apolo_reconciliation['apolo']['repasse']),
                 'dias_estoque' => max(0, (int) ($apolo_reconciliation['apolo']['dias_estoque'] ?? 0)),
-                'dias_proposta' => is_numeric($apolo_reconciliation['apolo']['dias_proposta'] ?? null)
-                    ? max(0, (int) $apolo_reconciliation['apolo']['dias_proposta'])
-                    : null,
+                'dias_proposta' => self::extract_apolo_proposal_days($apolo_reconciliation['apolo'] ?? []),
                 'des_veiculo' => (string) ($apolo_reconciliation['apolo']['des_veiculo'] ?? ''),
             ],
             'autosync' => [
@@ -3818,9 +3819,9 @@ JS;
         update_post_meta($post_id, 'apolo_proposta', (string) ($apolo_reconciliation['apolo']['proposta'] ?? ''));
         update_post_meta($post_id, 'apolo_vendedor_proposta', (string) ($apolo_reconciliation['apolo']['vendedor_proposta'] ?? ''));
         update_post_meta($post_id, 'apolo_dias_estoque', max(0, (int) ($apolo_reconciliation['apolo']['dias_estoque'] ?? 0)));
-        $apolo_proposal_days = $apolo_reconciliation['apolo']['dias_proposta'] ?? null;
-        if (is_numeric($apolo_proposal_days)) {
-            update_post_meta($post_id, 'apolo_dias_proposta', max(0, (int) $apolo_proposal_days));
+        $apolo_proposal_days = self::extract_apolo_proposal_days($apolo_reconciliation['apolo'] ?? []);
+        if ($apolo_proposal_days !== null) {
+            update_post_meta($post_id, 'apolo_dias_proposta', $apolo_proposal_days);
         } else {
             delete_post_meta($post_id, 'apolo_dias_proposta');
         }
@@ -3850,8 +3851,8 @@ JS;
         update_post_meta($post_id, 'negociacao', !empty($apolo_reconciliation['apolo']['negociacao']) ? 1 : 0);
         update_post_meta($post_id, 'repasse', !empty($apolo_reconciliation['apolo']['repasse']) ? 1 : 0);
         update_post_meta($post_id, 'dias_estoque', max(0, (int) ($apolo_reconciliation['apolo']['dias_estoque'] ?? 0)));
-        if (is_numeric($apolo_proposal_days)) {
-            update_post_meta($post_id, 'dias_proposta', max(0, (int) $apolo_proposal_days));
+        if ($apolo_proposal_days !== null) {
+            update_post_meta($post_id, 'dias_proposta', $apolo_proposal_days);
         } else {
             delete_post_meta($post_id, 'dias_proposta');
         }

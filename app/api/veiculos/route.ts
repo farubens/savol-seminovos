@@ -718,8 +718,8 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
   const parsedStockDays = Number.parseInt(metaStockDays, 10);
   const stockDays = Number.isFinite(parsedStockDays) ? Math.max(0, parsedStockDays) : 0;
   const parsedProposalDays = Number.parseInt(metaProposalDays, 10);
-  const proposalDays = metaProposalDays.trim() !== "" && Number.isFinite(parsedProposalDays)
-    ? Math.max(0, parsedProposalDays)
+  const proposalDays = metaProposalDays.trim() !== "" && Number.isFinite(parsedProposalDays) && parsedProposalDays > 0
+    ? parsedProposalDays
     : null;
   const year = extractYear(title, content, metaAno, metaAnoModelo);
   const visibleYear = toVisibleSpecLabel(year);
