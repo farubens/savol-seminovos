@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useHomeSessionData } from "@/components/HomeSessionDataProvider";
 import { VehicleOfferCard } from "@/components/VehicleOfferCard";
 import { getBodyInfo, isElectrifiedVehicle } from "@/lib/vehicleClassification";
+import { getBrandLogo } from "@/lib/brandLogos";
 import { parseCurrencyToInteger } from "@/utils/pricing";
 import type { ApiVehicle } from "@/types/home";
 
@@ -48,33 +49,6 @@ const aiExamples = [
   "Picape 4x4 diesel para trabalho e uso urbano",
   "Carro para família com porta-malas grande e segurança"
 ];
-
-const brandLogoMap: Record<string, string> = {
-  byd: "/images/brands/byd.svg",
-  chery: "/images/brands/chery.svg",
-  toyota: "/images/brands/toyota.png",
-  fiat: "/images/brands/fiat.svg",
-  volkswagen: "/images/brands/volkswagen.png",
-  peugeot: "/images/brands/peugeot.svg",
-  kia: "/images/brands/kia.svg",
-  mg: "/images/brands/mg.png",
-  abarth: "/images/brands/abarth.webp",
-  jetour: "/images/brands/jetour.webp",
-  citroen: "/images/brands/citroen.png",
-  chevrolet: "/images/brands/chevrolet.svg",
-  ford: "/images/brands/ford.svg",
-  gwm: "/images/brands/gwm.svg",
-  "great-wall": "/images/brands/gwm.svg",
-  "great-wall-motors": "/images/brands/gwm.svg",
-  honda: "/images/brands/honda.svg",
-  hyundai: "/images/brands/hyundai.svg",
-  jeep: "/images/brands/jeep.svg",
-  mitsubishi: "/images/brands/mitsubishi.svg",
-  "mitsubishi-motors": "/images/brands/mitsubishi.svg",
-  mini: "/images/brands/mini.svg",
-  nissan: "/images/brands/nissan.svg",
-  renault: "/images/brands/renault.svg"
-};
 
 function toSlug(value: string): string {
   return value
@@ -307,7 +281,7 @@ export function CategoryFinder() {
         return {
           id: `brand-${slug}`,
           name: term.name.toUpperCase(),
-          logo: brandLogoMap[slug]
+          logo: getBrandLogo(term.name) ?? getBrandLogo(slug)
         };
       })
       .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
