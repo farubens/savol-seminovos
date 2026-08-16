@@ -252,7 +252,7 @@ export function HeroVehicleCarousel() {
                 <p className="hero-vehicle-card-brand">{vehicle.brand}</p>
                 <h2>{vehicle.model || vehicle.name}</h2>
                 <p className="hero-vehicle-card-specs">{vehicle.year} <span aria-hidden="true">|</span> {vehicle.km}</p>
-                <span className="vehicle-stock-code hero-vehicle-stock-code">{formatVehicleStockCode(vehicle.stockDays)}</span>
+                <span className="vehicle-stock-code hero-vehicle-stock-code">{formatVehicleStockCode(vehicle.stockDays, vehicle.proposalDays)}</span>
                 <p className="hero-vehicle-card-price">{vehicle.price}</p>
                 <Link href={vehicleUrl} className="hero-vehicle-card-action" tabIndex={offset === 0 ? 0 : -1}>
                   Ver oferta

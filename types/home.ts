@@ -33,6 +33,7 @@ export type ApiVehicle = {
   preparing: boolean;
   photoCount: number;
   stockDays: number;
+  proposalDays: number | null;
 };
 
 export type ApiStore = {

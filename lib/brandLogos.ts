@@ -30,7 +30,7 @@ const BRAND_LOGOS: Record<string, string> = {
   maserati: "/images/brands/maserati.png",
   mclaren: "/images/brands/mclaren.png",
   "mercedes-amg": "/images/brands/mercedes-amg.svg",
-  "mercedes-benz": "/images/brands/mercedes-benz.svg",
+  "mercedes-benz": "/images/brands/mercedes-benz.webp",
   mg: "/images/brands/mg.png",
   mini: "/images/brands/mini.svg",
   mitsubishi: "/images/brands/mitsubishi.svg",

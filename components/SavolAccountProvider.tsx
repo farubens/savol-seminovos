@@ -41,7 +41,7 @@ export type SavedVehicle = Pick<
   | "qualityTag"
   | "secondaryHighlights"
 > &
-  Partial<Pick<ApiVehicle, "brand" | "model" | "version" | "color" | "city" | "uf" | "molicar" | "plate" | "armored" | "negotiating" | "repasse" | "stockDays">>;
+  Partial<Pick<ApiVehicle, "brand" | "model" | "version" | "color" | "city" | "uf" | "molicar" | "plate" | "armored" | "negotiating" | "repasse" | "stockDays" | "proposalDays">>;
 
 type SavolAccountContextValue = {
   user: SavolAccountUser | null;

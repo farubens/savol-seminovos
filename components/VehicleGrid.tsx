@@ -102,6 +102,7 @@ export function VehicleGrid() {
               negotiating={vehicle.negotiating}
               repasse={vehicle.repasse}
               stockDays={vehicle.stockDays}
+              proposalDays={vehicle.proposalDays}
             />
           ))}
         </div>

@@ -376,7 +376,8 @@ function toSavedVehicle(vehicle: ApiVehicle): SavedVehicle {
     armored: vehicle.armored,
     negotiating: vehicle.negotiating,
     repasse: vehicle.repasse,
-    stockDays: vehicle.stockDays
+    stockDays: vehicle.stockDays,
+    proposalDays: vehicle.proposalDays
   };
 }
 
@@ -618,7 +619,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
   const storeAddress = storeItem?.address || (!isUnknownValue(vehicle?.city ?? "") ? `${vehicle?.city} - ${vehicle?.uf}` : "Endereço sob consulta");
   const storePhone = storeItem?.phone || resolveFallbackStorePhone(vehicle);
   const plateEndingDigit = getPlateEndingDigit(vehicle?.plate);
-  const stockCode = formatVehicleStockCode(vehicle?.stockDays);
+  const stockCode = formatVehicleStockCode(vehicle?.stockDays, vehicle?.proposalDays);
   const leadVehicleContext = useMemo(
     () => ({
       id: vehicle?.id,
@@ -1478,6 +1479,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
                   negotiating={item.negotiating}
                   repasse={item.repasse}
                   stockDays={item.stockDays}
+                  proposalDays={item.proposalDays}
                   showFinanceButton={false}
                 />
               ))}

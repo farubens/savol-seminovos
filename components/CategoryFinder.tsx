@@ -106,13 +106,13 @@ function parseLoosePrice(value: string): number | null {
 
 const bg = {
   hatch: "/images/categories/hatch-2026.jpg",
-  suv: "/images/categories/suv-2026.jpg",
-  picape: "/images/categories/picape.png",
+  suv: "/images/categories/suv-ultimo.jpeg",
+  picape: "/images/categories/picape-ultimo.jpg",
   sedan: "/images/categories/sedan-2026.jpeg",
   esportivo: "/images/categories/eletricos-novo.jpg",
   luxo: "/images/categories/eletricos-novo.jpg",
-  utilitarios: "/images/categories/utilitarios-2026.jpg",
-  todos: "/images/categories/todos-2026.jpg"
+  utilitarios: "/images/categories/utilitario-ultimo.jpg",
+  todos: "/images/categories/todos-ultimo.jpg"
 };
 
 const iconMap = {
@@ -662,6 +662,7 @@ export function CategoryFinder() {
                 negotiating={vehicle.negotiating}
                 repasse={vehicle.repasse}
                 stockDays={vehicle.stockDays}
+                proposalDays={vehicle.proposalDays}
               />
             ))
           )}

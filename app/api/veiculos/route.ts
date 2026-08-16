@@ -86,6 +86,7 @@ type ApiVehicle = {
   preparing: boolean;
   photoCount: number;
   stockDays: number;
+  proposalDays: number | null;
 };
 
 type CachedVehicles = {
@@ -684,6 +685,9 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
     getMetaField(vehicle, "apolo_dias_estoque") ||
     getMetaField(vehicle, "dias_de_estoque") ||
     getMetaField(vehicle, "dias_no_estoque");
+  const metaProposalDays =
+    getMetaField(vehicle, "dias_proposta") ||
+    getMetaField(vehicle, "apolo_dias_proposta");
   const priceData = extractPriceData(content, metaPrice);
 
   const embeddedImage = getEmbeddedImage(vehicle);
@@ -713,6 +717,10 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
     normalizeForMatch(metaApoloProposalSeller) === "repasse";
   const parsedStockDays = Number.parseInt(metaStockDays, 10);
   const stockDays = Number.isFinite(parsedStockDays) ? Math.max(0, parsedStockDays) : 0;
+  const parsedProposalDays = Number.parseInt(metaProposalDays, 10);
+  const proposalDays = metaProposalDays.trim() !== "" && Number.isFinite(parsedProposalDays)
+    ? Math.max(0, parsedProposalDays)
+    : null;
   const year = extractYear(title, content, metaAno, metaAnoModelo);
   const visibleYear = toVisibleSpecLabel(year);
   const visibleModelYear = toVisibleSpecLabel(metaAnoModelo || year.split("/").at(-1) || year);
@@ -760,7 +768,8 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
     repasse,
     preparing: photoCount <= 1,
     photoCount,
-    stockDays
+    stockDays,
+    proposalDays
   };
 }
 

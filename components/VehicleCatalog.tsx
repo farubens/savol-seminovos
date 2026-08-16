@@ -1410,6 +1410,7 @@ export function VehicleCatalog({ mode = "all", basePath = "/veiculos" }: Vehicle
                     negotiating={vehicle.negotiating}
                     repasse={vehicle.repasse}
                     stockDays={vehicle.stockDays}
+                    proposalDays={vehicle.proposalDays}
                   />
                 ))}
               </div>

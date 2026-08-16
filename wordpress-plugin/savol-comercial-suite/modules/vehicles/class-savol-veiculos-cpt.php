@@ -249,6 +249,7 @@ final class Savol_Veiculos_CPT {
             'negociacao' => ['label' => 'Em negociacao', 'type' => 'boolean'],
             'repasse' => ['label' => 'Repasse', 'type' => 'boolean'],
             'dias_estoque' => ['label' => 'Dias de estoque', 'type' => 'number'],
+            'dias_proposta' => ['label' => 'Dias de proposta', 'type' => 'number'],
         ];
     }
 
@@ -848,6 +849,10 @@ final class Savol_Veiculos_CPT {
             $raw = wp_unslash($_POST[$key]);
 
             if ($field['type'] === 'number') {
+                if ($key === 'dias_proposta' && trim((string) $raw) === '') {
+                    delete_post_meta($post_id, $key);
+                    continue;
+                }
                 $sanitized = is_numeric($raw) ? (float) $raw : 0;
                 update_post_meta($post_id, $key, $sanitized);
                 continue;
@@ -3114,6 +3119,7 @@ JS;
                     ? self::to_boolean_flag($row['repasse'])
                     : self::canonicalize_text((string) ($row['vendedor_proposta'] ?? '')) === 'repasse',
                 'dias_estoque' => self::extract_apolo_stock_days($row),
+                'dias_proposta' => self::extract_apolo_proposal_days($row),
                 'des_veiculo' => $description,
                 'raw' => $row,
             ];
@@ -3158,6 +3164,30 @@ JS;
         }
 
         return 0;
+    }
+
+    private static function extract_apolo_proposal_days(array $row): ?int {
+        if (array_key_exists('dias_proposta', $row) && is_numeric($row['dias_proposta'])) {
+            return max(0, (int) $row['dias_proposta']);
+        }
+
+        $aliases = [
+            'dias proposta',
+            'dias de proposta',
+            'dias em proposta',
+            'tempo proposta',
+        ];
+
+        foreach ($row as $key => $value) {
+            $normalized_key = self::canonicalize_text((string) $key);
+            if (!in_array($normalized_key, $aliases, true) || !is_numeric($value)) {
+                continue;
+            }
+
+            return max(0, (int) $value);
+        }
+
+        return null;
     }
 
     private static function build_autosync_stock_index(array $rows): array {
@@ -3606,6 +3636,9 @@ JS;
                 'vendedor_proposta' => (string) ($apolo_reconciliation['apolo']['vendedor_proposta'] ?? ''),
                 'repasse' => !empty($apolo_reconciliation['apolo']['repasse']),
                 'dias_estoque' => max(0, (int) ($apolo_reconciliation['apolo']['dias_estoque'] ?? 0)),
+                'dias_proposta' => is_numeric($apolo_reconciliation['apolo']['dias_proposta'] ?? null)
+                    ? max(0, (int) $apolo_reconciliation['apolo']['dias_proposta'])
+                    : null,
                 'des_veiculo' => (string) ($apolo_reconciliation['apolo']['des_veiculo'] ?? ''),
             ],
             'autosync' => [
@@ -3785,6 +3818,12 @@ JS;
         update_post_meta($post_id, 'apolo_proposta', (string) ($apolo_reconciliation['apolo']['proposta'] ?? ''));
         update_post_meta($post_id, 'apolo_vendedor_proposta', (string) ($apolo_reconciliation['apolo']['vendedor_proposta'] ?? ''));
         update_post_meta($post_id, 'apolo_dias_estoque', max(0, (int) ($apolo_reconciliation['apolo']['dias_estoque'] ?? 0)));
+        $apolo_proposal_days = $apolo_reconciliation['apolo']['dias_proposta'] ?? null;
+        if (is_numeric($apolo_proposal_days)) {
+            update_post_meta($post_id, 'apolo_dias_proposta', max(0, (int) $apolo_proposal_days));
+        } else {
+            delete_post_meta($post_id, 'apolo_dias_proposta');
+        }
         update_post_meta(
             $post_id,
             'apolo_blindado',
@@ -3811,6 +3850,11 @@ JS;
         update_post_meta($post_id, 'negociacao', !empty($apolo_reconciliation['apolo']['negociacao']) ? 1 : 0);
         update_post_meta($post_id, 'repasse', !empty($apolo_reconciliation['apolo']['repasse']) ? 1 : 0);
         update_post_meta($post_id, 'dias_estoque', max(0, (int) ($apolo_reconciliation['apolo']['dias_estoque'] ?? 0)));
+        if (is_numeric($apolo_proposal_days)) {
+            update_post_meta($post_id, 'dias_proposta', max(0, (int) $apolo_proposal_days));
+        } else {
+            delete_post_meta($post_id, 'dias_proposta');
+        }
 
         self::set_term_if_value($post_id, 'veiculo_marca', (string) ($vehicle['brandName'] ?? ''));
         self::set_term_if_value($post_id, 'veiculo_modelo', (string) ($vehicle['modelName'] ?? ''));
