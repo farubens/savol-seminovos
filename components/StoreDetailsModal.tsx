@@ -37,7 +37,7 @@ function getFacadeImage(store: ApiStore): string {
   }
 
   if ((brand === "mg" || brand === "mg-motor") && locationSource.includes("analia-franco")) {
-    return "/images/stores/falback-lojas.png";
+    return "/images/stores/MG-ANALIA-FRANCO.jpg";
   }
 
   const photoMap: Record<string, string> = {
