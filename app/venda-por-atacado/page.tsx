@@ -26,8 +26,15 @@ export default function VendaPorAtacadoPage() {
             </div>
           </div>
 
-          <div className="wholesale-hero-v2-media" aria-hidden="true">
-            <Image src="/images/CELTA.webp" alt="Estoque atacado SAVOL" width={880} height={520} className="wholesale-hero-v2-image" priority />
+          <div className="wholesale-hero-v2-media">
+            <Image
+              src="/images/venda-por-atacado-banner.jpg"
+              alt="Veículos disponíveis para venda por atacado SAVOL"
+              fill
+              sizes="(max-width: 760px) 100vw, 70vw"
+              className="wholesale-hero-v2-image"
+              priority
+            />
           </div>
         </article>
 
