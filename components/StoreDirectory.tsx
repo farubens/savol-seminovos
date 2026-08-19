@@ -1158,10 +1158,7 @@ export function StoreDirectory() {
                     }}
                     className={`stores-directory-card ${isActive ? "is-active" : ""}`}
                     onMouseEnter={() => setSelectedStoreId(store.id)}
-                    onClick={() => {
-                      setSelectedStoreId(store.id);
-                      setMapFocusStoreId(store.id);
-                    }}
+                    onClick={() => handleStorePinSelect(store.id)}
                   >
                     <div className="stores-card-top">
                       <span className="stores-card-brand">{store.brand}</span>
