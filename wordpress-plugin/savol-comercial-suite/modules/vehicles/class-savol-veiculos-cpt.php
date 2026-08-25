@@ -3103,6 +3103,9 @@ JS;
                 'ano_fabricacao' => is_numeric($row['ano_fabricacao'] ?? null) ? (string) (int) $row['ano_fabricacao'] : '',
                 'ano_modelo' => is_numeric($row['ano_modelo'] ?? null) ? (string) (int) $row['ano_modelo'] : '',
                 'km_atual' => is_numeric($row['km_atual'] ?? null) ? (string) (float) $row['km_atual'] : '',
+                'cambio' => trim((string) ($row['cambio'] ?? '')),
+                'tipo' => trim((string) ($row['tipo'] ?? '')),
+                'photo_urls' => self::extract_apolo_photo_urls($row),
                 'blindado_informado' => array_key_exists('blindado', $row)
                     && $row['blindado'] !== null
                     && (!is_string($row['blindado']) || trim($row['blindado']) !== ''),
@@ -3138,6 +3141,23 @@ JS;
         }
 
         return $index;
+    }
+
+    private static function extract_apolo_photo_urls(array $row): array {
+        $urls = [];
+        foreach (['foto_frente', 'foto_traseira', 'foto_lateral', 'foto_interna', 'foto_extra_1', 'foto_extra_2'] as $key) {
+            $value = $row[$key] ?? '';
+            if (is_array($value)) {
+                $value = $value['url'] ?? ($value['link'] ?? '');
+            }
+
+            $url = esc_url_raw(trim((string) $value));
+            if ($url !== '') {
+                $urls[] = $url;
+            }
+        }
+
+        return array_values(array_unique($urls));
     }
 
     private static function extract_apolo_stock_days(array $row): int {
@@ -3435,12 +3455,14 @@ JS;
 
         $field_map = [
             'brandName' => (string) ($parsed['brandName'] ?? ''),
-            'modelName' => (string) ($parsed['modelName'] ?? ($apolo_item['veiculo'] ?? '')),
+            'modelName' => (string) ($apolo_item['des_modelo'] ?? ($parsed['modelName'] ?? ($apolo_item['veiculo'] ?? ''))),
             'manufacturingYear' => (string) ($apolo_item['ano_fabricacao'] ?? ($parsed['manufacturingYear'] ?? '')),
             'modelYear' => (string) ($apolo_item['ano_modelo'] ?? ($parsed['modelYear'] ?? '')),
             'kilometers' => (string) ($apolo_item['km_atual'] ?? ''),
             'colorName' => (string) ($apolo_item['des_cor'] ?? ($parsed['colorName'] ?? '')),
             'fuelName' => (string) ($apolo_item['des_combustivel'] ?? ($parsed['fuelName'] ?? '')),
+            'transmissionName' => (string) ($apolo_item['cambio'] ?? ''),
+            'section' => (string) ($apolo_item['tipo'] ?? ''),
             'plate' => (string) ($apolo_item['placa'] ?? ''),
             'vin' => (string) ($apolo_item['chassi'] ?? ''),
             'renavam' => (string) ($parsed['renavam'] ?? ''),
@@ -3459,6 +3481,20 @@ JS;
         if (!empty($apolo_item['blindado_informado'])) {
             $vehicle['blindado'] = !empty($apolo_item['blindado']);
             $vehicle['_apolo_blindado_informado'] = true;
+        }
+
+        $apolo_photo_urls = isset($apolo_item['photo_urls']) && is_array($apolo_item['photo_urls'])
+            ? array_values(array_filter($apolo_item['photo_urls']))
+            : [];
+        if (!empty($apolo_photo_urls)) {
+            $vehicle['VehiclePhotos'] = array_map(
+                static fn(string $url, int $index): array => [
+                    'link' => $url,
+                    'order' => $index,
+                ],
+                $apolo_photo_urls,
+                array_keys($apolo_photo_urls)
+            );
         }
 
         return $vehicle;
@@ -3610,6 +3646,7 @@ JS;
         $payload = [
             'photo_source_rule_version' => '2026-08-direct-autosync-v1',
             'proposal_days_rule_version' => '2026-08-positive-only-v1',
+            'apolo_priority_rule_version' => '2026-08-apolo-first-v1',
             'title' => $title,
             'status' => (string) ($apolo_reconciliation['status'] ?? ''),
             'reason' => (string) ($apolo_reconciliation['reason'] ?? ''),
@@ -3627,6 +3664,11 @@ JS;
                 'ano_fabricacao' => (string) ($apolo_reconciliation['apolo']['ano_fabricacao'] ?? ''),
                 'ano_modelo' => (string) ($apolo_reconciliation['apolo']['ano_modelo'] ?? ''),
                 'km_atual' => (string) ($apolo_reconciliation['apolo']['km_atual'] ?? ''),
+                'cambio' => (string) ($apolo_reconciliation['apolo']['cambio'] ?? ''),
+                'tipo' => (string) ($apolo_reconciliation['apolo']['tipo'] ?? ''),
+                'photo_urls' => isset($apolo_reconciliation['apolo']['photo_urls']) && is_array($apolo_reconciliation['apolo']['photo_urls'])
+                    ? $apolo_reconciliation['apolo']['photo_urls']
+                    : [],
                 'nome_fantasia' => (string) ($apolo_reconciliation['apolo']['nome_fantasia'] ?? ''),
                 'cnpj' => (string) ($apolo_reconciliation['apolo']['cnpj'] ?? ''),
                 'placa' => (string) ($apolo_reconciliation['apolo']['placa'] ?? ''),
@@ -3813,6 +3855,15 @@ JS;
         update_post_meta($post_id, 'apolo_ano_fabricacao', (string) ($apolo_reconciliation['apolo']['ano_fabricacao'] ?? ''));
         update_post_meta($post_id, 'apolo_ano_modelo', (string) ($apolo_reconciliation['apolo']['ano_modelo'] ?? ''));
         update_post_meta($post_id, 'apolo_km_atual', (string) ($apolo_reconciliation['apolo']['km_atual'] ?? ''));
+        update_post_meta($post_id, 'apolo_cambio', (string) ($apolo_reconciliation['apolo']['cambio'] ?? ''));
+        update_post_meta($post_id, 'apolo_tipo', (string) ($apolo_reconciliation['apolo']['tipo'] ?? ''));
+        update_post_meta(
+            $post_id,
+            'apolo_fotos_urls',
+            implode("\n", isset($apolo_reconciliation['apolo']['photo_urls']) && is_array($apolo_reconciliation['apolo']['photo_urls'])
+                ? $apolo_reconciliation['apolo']['photo_urls']
+                : [])
+        );
         update_post_meta($post_id, 'apolo_nome_fantasia', (string) ($apolo_reconciliation['apolo']['nome_fantasia'] ?? ''));
         update_post_meta($post_id, 'apolo_cnpj', (string) ($apolo_reconciliation['apolo']['cnpj'] ?? ''));
         update_post_meta($post_id, 'apolo_negociacao', !empty($apolo_reconciliation['apolo']['negociacao']) ? 1 : 0);

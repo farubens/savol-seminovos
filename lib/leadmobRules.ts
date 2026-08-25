@@ -1,6 +1,6 @@
 ﻿export const LEADMOB_DEFAULT_EMPRESA = "10104";
-export const LEADMOB_DEFAULT_ORIGEM = "1";
-export const LEADMOB_DEFAULT_ORIGEM_LABEL = "SITE SEMINOVOS";
+export const LEADMOB_DEFAULT_ORIGEM = "0487";
+export const LEADMOB_DEFAULT_ORIGEM_LABEL = "Site - Seminovos";
 
 const DEPARTAMENTO_SEMINOVOS = "2";
 

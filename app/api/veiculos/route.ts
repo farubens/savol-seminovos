@@ -6,7 +6,7 @@ import {
   isPreparationVehicleImageUrl,
   VEHICLE_FALLBACK_IMAGE
 } from "@/lib/vehicleImages";
-import { buildOldPriceLabelFromOfficialPrice, formatCurrencyBRL, parseCurrencyToInteger } from "@/utils/pricing";
+import { buildOldPriceLabelFromOfficialPrice, formatCurrencyBRL, parseCurrencyToInteger, shouldShowAgedStockPrice } from "@/utils/pricing";
 
 const DEFAULT_WP_BASE_URL =
   process.env.NODE_ENV === "production" ? "https://palevioletred-lark-270684.hostingersite.com" : "http://localhost/savol-seminovos-local";
@@ -62,6 +62,7 @@ type ApiVehicle = {
   gallery: string[];
   year: string;
   transmission: string;
+  transmissionFull: string;
   fuel: string;
   km: string;
   store: string;
@@ -724,7 +725,8 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
   const year = extractYear(title, content, metaAno, metaAnoModelo);
   const visibleYear = toVisibleSpecLabel(year);
   const visibleModelYear = toVisibleSpecLabel(metaAnoModelo || year.split("/").at(-1) || year);
-  const transmission = compactTransmissionLabel(extractTransmission(version, content, metaCambio));
+  const transmissionFull = extractTransmission(version, content, metaCambio);
+  const transmission = compactTransmissionLabel(transmissionFull);
   const fuel = compactFuelLabel(extractFuel(version, content, metaFuel));
   const km = formatKm(content, metaKm);
   const kmValue = parseFormattedKm(km);
@@ -745,11 +747,12 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
     gallery,
     year: visibleYear,
     transmission: toVisibleSpecLabel(transmission),
+    transmissionFull: toVisibleSpecLabel(transmissionFull),
     fuel: toVisibleSpecLabel(fuel),
     km: toVisibleSpecLabel(km),
     store: storeLabel,
     storeId,
-    oldPrice: repasse ? "" : priceData.oldPrice,
+    oldPrice: shouldShowAgedStockPrice(stockDays, repasse) ? priceData.oldPrice : "",
     price: priceData.price,
     qualityTag: repasse ? "" : visiblePrimaryHighlight,
     secondaryHighlights: repasse ? [] : visibleSecondaryHighlights,

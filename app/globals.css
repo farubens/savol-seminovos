@@ -2353,6 +2353,12 @@ h2 {
   line-height: 1.15;
 }
 
+.offer-price.offer-price--aged strong,
+.offer-card .offer-mobile-price.offer-mobile-price--aged strong,
+.vehicle-price-line.vehicle-price-line--aged strong {
+  color: #c5162e;
+}
+
 .offer-store {
   margin: 0;
   font-size: 11px;

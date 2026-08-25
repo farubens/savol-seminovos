@@ -9,6 +9,7 @@ export type ApiVehicle = {
   gallery: string[];
   year: string;
   transmission: string;
+  transmissionFull?: string;
   fuel: string;
   km: string;
   store: string;

@@ -52,3 +52,7 @@ export function buildOldPriceLabelFromOfficialPrice(officialPriceLabel: string):
   const referenceValue = buildReferencePriceValue(officialValue);
   return `De ${formatCurrencyBRL(referenceValue)}`;
 }
+
+export function shouldShowAgedStockPrice(stockDays: number, repasse = false): boolean {
+  return !repasse && Number.isFinite(stockDays) && stockDays > 45;
+}

@@ -15,7 +15,7 @@ import { resolveSavolTechnicalStoreIdFromParts } from "@/lib/savolStores";
 import { resolveSavolWhatsAppPhoneFromParts } from "@/lib/savolWhatsApp";
 import { isPreparationVehicleImageUrl, VEHICLE_FALLBACK_IMAGE } from "@/lib/vehicleImages";
 import { formatVehicleStockCode } from "@/lib/vehicleStock";
-import { parseCurrencyToInteger } from "@/utils/pricing";
+import { parseCurrencyToInteger, shouldShowAgedStockPrice } from "@/utils/pricing";
 import { hasVisibleVwfsSurface, watchVwfsSimulatorClose } from "@/utils/vwfsModalWatcher";
 import { createBancoVolksLeadPayload } from "@/utils/vwfsLeadPayload";
 import {
@@ -124,6 +124,13 @@ function normalize(value: string): string {
     .trim();
 }
 
+function expandTransmissionLabel(value: string): string {
+  const normalized = normalize(value).replace(/\./g, "");
+  if (normalized === "aut" || normalized === "automatico") return "AUTOMÁTICO";
+  if (normalized === "man" || normalized === "manual") return "MANUAL";
+  return value;
+}
+
 function normalizeStoreMatchText(value: string): string {
   return normalize(value).replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
 }
@@ -163,13 +170,21 @@ function resolveHighlightPriority(value: string): number {
   return 10;
 }
 
-function resolveOrderedHighlights(qualityTag?: string, secondaryHighlights: string[] = [], repasse = false): string[] {
-  if (repasse) return [];
+function shouldUseVehicleHighlight(value: string): boolean {
+  const normalized = normalize(value);
+  if (!normalized) return false;
+  if (normalized.includes("seminovo")) return false;
+  if (normalized.includes("abaixo") && normalized.includes("fipe")) return false;
+  return true;
+}
+
+function resolveSingleHighlight(qualityTag?: string, secondaryHighlights: string[] = [], repasse = false): string {
+  if (repasse) return "";
 
   const seen = new Set<string>();
   const highlights = [qualityTag || "", ...secondaryHighlights]
     .map((highlight) => highlight.trim())
-    .filter(Boolean)
+    .filter(shouldUseVehicleHighlight)
     .filter((highlight) => {
       const key = normalize(highlight);
       if (seen.has(key)) return false;
@@ -178,7 +193,7 @@ function resolveOrderedHighlights(qualityTag?: string, secondaryHighlights: stri
     })
     .sort((left, right) => resolveHighlightPriority(right) - resolveHighlightPriority(left));
 
-  return highlights.length ? highlights : [FALLBACK_HIGHLIGHT];
+  return highlights[0] || FALLBACK_HIGHLIGHT;
 }
 
 function resolveHighlightIcon(value: string) {
@@ -660,20 +675,24 @@ export function VehicleDetailsPageClient({ slug }: Props) {
       })
     );
   }, [leadVehicleContext, storePhone, storeTitle, vehicle]);
-  const orderedHighlights = vehicle ? resolveOrderedHighlights(vehicle.qualityTag, vehicle.secondaryHighlights, vehicle.repasse) : [];
-  const displayQualityTag = orderedHighlights[0] || "";
-  const secondaryHighlights = orderedHighlights.slice(1);
+  const displayQualityTag = vehicle ? resolveSingleHighlight(vehicle.qualityTag, vehicle.secondaryHighlights, vehicle.repasse) : "";
+  const detailTransmission = vehicle
+    ? expandTransmissionLabel(vehicle.transmissionFull?.trim() || vehicle.transmission)
+    : "";
+  const hasAgedStockPrice = vehicle
+    ? shouldShowAgedStockPrice(vehicle.stockDays, vehicle.repasse) && Boolean(vehicle.oldPrice)
+    : false;
   const specItems = useMemo(
     () =>
       vehicle
         ? [
             { key: "year", icon: CalendarDays, label: vehicle.year },
-            { key: "transmission", icon: GitBranch, label: vehicle.transmission },
+            { key: "transmission", icon: GitBranch, label: detailTransmission },
             { key: "fuel", icon: Fuel, label: vehicle.fuel },
             { key: "km", icon: Gauge, label: vehicle.km }
           ].filter((item) => isVisibleVehicleSpecValue(item.label))
         : [],
-    [vehicle]
+    [detailTransmission, vehicle]
   );
   const handleActiveImageError = () => {
     failedImageUrlsRef.current.add(activeImage);
@@ -697,10 +716,10 @@ export function VehicleDetailsPageClient({ slug }: Props) {
     if (!vehicle) return "";
 
     const base = `${vehicle.name}${isVisibleVehicleSpecValue(vehicle.subtitle) ? ` ${vehicle.subtitle}` : ""}.`;
-    const usageSpecs = [vehicle.transmission, vehicle.fuel].filter(isConcreteVehicleSpecValue).map((item) => item.toLowerCase());
+    const usageSpecs = [detailTransmission, vehicle.fuel].filter(isConcreteVehicleSpecValue).map((item) => item.toLowerCase());
     if (!usageSpecs.length) return `${base} Veículo pronto para uso diário com conforto, segurança e tecnologia.`;
     return `${base} Veículo com ${usageSpecs.join(" e ")}, pronto para uso diário com conforto, segurança e tecnologia.`;
-  }, [vehicle]);
+  }, [detailTransmission, vehicle]);
   const vwfsClientKey = process.env.NEXT_PUBLIC_VWFS_CLIENT_KEY?.trim() || VWFS_DEFAULT_CLIENT_KEY;
   const vwfsClientToken = process.env.NEXT_PUBLIC_VWFS_CLIENT_TOKEN?.trim() || VWFS_DEFAULT_CLIENT_TOKEN;
   const vwfsScriptSrc = process.env.NEXT_PUBLIC_VWFS_SCRIPT_SRC?.trim() || VWFS_DEFAULT_SCRIPT;
@@ -730,13 +749,13 @@ export function VehicleDetailsPageClient({ slug }: Props) {
             ["Ano/Modelo", vehicle.year],
             ["Quilometragem", vehicle.km],
             ["Combustível", vehicle.fuel],
-            ["Câmbio", vehicle.transmission],
+            ["Câmbio", detailTransmission],
             ["Cor", vehicle.color],
             ["Cidade", `${vehicle.city} - ${vehicle.uf}`],
             ["Loja", storeTitle]
           ].filter(([, value]) => isVisibleVehicleSpecValue(value))
         : [],
-    [vehicle, storeTitle]
+    [detailTransmission, vehicle, storeTitle]
   );
 
   const openFinanceFollowUp = () => {
@@ -1200,8 +1219,8 @@ export function VehicleDetailsPageClient({ slug }: Props) {
             {stockCode ? <span className="vehicle-stock-code vehicle-stock-code--single">{stockCode}</span> : null}
             <p className="vehicle-year-badge">Ano/Modelo {vehicle.year}</p>
 
-            {!vehicle.repasse && vehicle.oldPrice ? <p className="vehicle-old-price">{vehicle.oldPrice}</p> : null}
-            <p className="vehicle-price-line">
+            {hasAgedStockPrice && vehicle.oldPrice ? <p className="vehicle-old-price">{vehicle.oldPrice}</p> : null}
+            <p className={`vehicle-price-line${hasAgedStockPrice ? " vehicle-price-line--aged" : ""}`}>
               {vehicle.repasse ? <strong>{vehicle.price}</strong> : <>Por <strong>{vehicle.price}</strong></>}
             </p>
 
@@ -1369,19 +1388,6 @@ export function VehicleDetailsPageClient({ slug }: Props) {
                 <p className="vehicle-location-text">
                   Unidade: {storeTitle}. {isUnknownValue(storeAddress) ? "Endereço sob consulta." : storeAddress}
                 </p>
-                {Boolean(secondaryHighlights.length) && (
-                  <div className="vehicle-extra-badges">
-                    {secondaryHighlights.map((highlight, index) => {
-                      const Icon = resolveHighlightIcon(highlight);
-                      const tone = resolveHighlightTone(highlight);
-                      return (
-                        <span key={`${highlight}-${index}`} className={`vehicle-extra-badge--${tone}`}>
-                          <Icon size={15} /> {highlight}
-                        </span>
-                      );
-                    })}
-                  </div>
-                )}
               </div>
             )}
 

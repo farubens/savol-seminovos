@@ -36,7 +36,7 @@ import { resolveSavolTechnicalStoreIdFromParts } from "@/lib/savolStores";
 import { isPreparationVehicleImageUrl, VEHICLE_FALLBACK_IMAGE } from "@/lib/vehicleImages";
 import { rememberVehicleNavigation } from "@/lib/vehicleNavigation";
 import { formatVehicleStockCode } from "@/lib/vehicleStock";
-import { buildOldPriceLabelFromOfficialPrice, parseCurrencyToInteger } from "@/utils/pricing";
+import { buildOldPriceLabelFromOfficialPrice, parseCurrencyToInteger, shouldShowAgedStockPrice } from "@/utils/pricing";
 import { watchVwfsSimulatorClose } from "@/utils/vwfsModalWatcher";
 import { createBancoVolksLeadPayload } from "@/utils/vwfsLeadPayload";
 
@@ -129,6 +129,25 @@ function resolveHighlightPriority(value: string): number {
 
 function sortHighlightsByPriority(highlights: string[]): string[] {
   return [...highlights].sort((left, right) => resolveHighlightPriority(right) - resolveHighlightPriority(left));
+}
+
+function resolveSingleHighlight(qualityTag?: string, secondaryHighlights: string[] = [], repasse = false): string {
+  if (repasse) return "";
+
+  const seen = new Set<string>();
+  const highlights = sortHighlightsByPriority(
+    [qualityTag || "", ...secondaryHighlights]
+      .map((highlight) => highlight.trim())
+      .filter(shouldShowCardHighlight)
+      .filter((highlight) => {
+        const key = normalizeTag(highlight);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+  );
+
+  return highlights[0] || FALLBACK_HIGHLIGHT;
 }
 
 function isVisibleSpecValue(value: string): boolean {
@@ -407,26 +426,12 @@ export function VehicleOfferCard({
   const vwfsCloseWatcherRef = useRef<(() => void) | null>(null);
   const financeFollowUpOpenedRef = useRef(false);
   const isMountedRef = useRef(true);
-  const resolvedSecondaryHighlights = useMemo(
-    () => {
-      if (repasse) return [];
-
-      const seen = new Set<string>();
-      const highlights = sortHighlightsByPriority([qualityTag, ...secondaryHighlights]
-        .map((highlight) => highlight.trim())
-        .filter(shouldShowCardHighlight)
-        .filter((highlight) => {
-          const key = normalizeTag(highlight);
-          if (seen.has(key)) return false;
-          seen.add(key);
-          return true;
-        }))
-        .slice(0, 4);
-      return highlights.length ? highlights : [FALLBACK_HIGHLIGHT];
-    },
+  const resolvedHighlight = useMemo(
+    () => resolveSingleHighlight(qualityTag, secondaryHighlights, repasse),
     [qualityTag, repasse, secondaryHighlights]
   );
-  const resolvedOldPrice = repasse ? "" : resolveOldPrice(oldPrice, price);
+  const resolvedOldPrice = shouldShowAgedStockPrice(stockDays, repasse) ? resolveOldPrice(oldPrice, price) : "";
+  const hasAgedStockPrice = Boolean(resolvedOldPrice);
   const displayStore = store.toLocaleUpperCase("pt-BR");
   const specItems = useMemo(
     () =>
@@ -1054,7 +1059,7 @@ export function VehicleOfferCard({
 
             <div className="offer-mobile-commerce">
               {Boolean(resolvedOldPrice) && <p className="offer-mobile-old-price">{resolvedOldPrice}</p>}
-              <p className="offer-mobile-price">
+              <p className={`offer-mobile-price${hasAgedStockPrice ? " offer-mobile-price--aged" : ""}`}>
                 {repasse ? <strong>{price}</strong> : <>Por <strong>{price}</strong></>}
               </p>
               <p className="offer-mobile-store">
@@ -1063,19 +1068,19 @@ export function VehicleOfferCard({
               </p>
             </div>
 
-            {Boolean(resolvedSecondaryHighlights.length) && (
+            {resolvedHighlight ? (
               <div className="offer-highlights">
-                {resolvedSecondaryHighlights.map((highlight, index) => {
-                  const tone = resolveHighlightTone(highlight);
-                  const HighlightIcon = resolveHighlightIcon(highlight);
+                {(() => {
+                  const tone = resolveHighlightTone(resolvedHighlight);
+                  const HighlightIcon = resolveHighlightIcon(resolvedHighlight);
                   return (
-                    <span key={`${highlight}-${index}`} className={`offer-highlight offer-highlight--${tone}`}>
-                      <HighlightIcon size={18} /> {highlight}
+                    <span className={`offer-highlight offer-highlight--${tone}`}>
+                      <HighlightIcon size={18} /> {resolvedHighlight}
                     </span>
                   );
-                })}
+                })()}
               </div>
-            )}
+            ) : null}
             {repasse ? (
               <button type="button" className="offer-repasse-notice" onClick={() => setIsRepasseModalOpen(true)}>
                 <span>Exclusivo para repasse</span>
@@ -1086,7 +1091,7 @@ export function VehicleOfferCard({
 
           <div className="offer-footer">
             {Boolean(resolvedOldPrice) && <p className="offer-old-price">{resolvedOldPrice}</p>}
-            <p className="offer-price">
+            <p className={`offer-price${hasAgedStockPrice ? " offer-price--aged" : ""}`}>
               {repasse ? <strong>{price}</strong> : <>Por <strong>{price}</strong></>}
             </p>
 

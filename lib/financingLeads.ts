@@ -5,7 +5,7 @@ import {
   type LeadmobLeadInput,
   validateLeadmobInput
 } from "@/lib/leadmob";
-import { resolveLeadmobCompanyId } from "@/lib/leadmobRules";
+import { LEADMOB_DEFAULT_ORIGEM_LABEL, resolveLeadmobCompanyId } from "@/lib/leadmobRules";
 
 const TRACKING_KEYS = ["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", "gclid", "fbclid", "msclkid"] as const;
 
@@ -156,7 +156,7 @@ function normalizeFinancingPayload(payload: FinancingLeadPayload, context: Finan
       form,
       subject,
       source_integration: context.sourceName || payload.meta?.source_integration,
-      origem_descricao: "SITE SEMINOVOS",
+      origem_descricao: LEADMOB_DEFAULT_ORIGEM_LABEL,
       suborigem_descricao: payload.meta?.suborigem_descricao || (context.sourceName === "banco-volks" ? "BANCO VOLKS" : "VER PARCELAS"),
       page_url: payload.meta?.page_url || vehicleUrl || fallbackTracking.meta?.page_url,
       user_agent: context.userAgent || payload.meta?.user_agent,
