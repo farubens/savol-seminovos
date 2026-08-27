@@ -150,10 +150,6 @@ function compareListingPriority(left: ApiVehicle, right: ApiVehicle): number {
   return right.stockDays - left.stockDays;
 }
 
-function compareListingGroup(left: ApiVehicle, right: ApiVehicle): number {
-  return getVehicleListingGroup(left) - getVehicleListingGroup(right);
-}
-
 function compareByPriceAsc(left: ApiVehicle, right: ApiVehicle): number {
   return (parsePriceValue(left.price) ?? Number.POSITIVE_INFINITY) - (parsePriceValue(right.price) ?? Number.POSITIVE_INFINITY);
 }
@@ -678,23 +674,42 @@ export function VehicleCatalog({ mode = "all", basePath = "/veiculos" }: Vehicle
     query
   ]);
 
+  const hasActiveUserFilter =
+    selectedStores.length > 0 ||
+    selectedBrands.length > 0 ||
+    selectedModels.length > 0 ||
+    selectedCategories.length > 0 ||
+    selectedTransmissions.length > 0 ||
+    selectedColors.length > 0 ||
+    selectedFuels.length > 0 ||
+    selectedBodies.length > 0 ||
+    Boolean(selectedEnergy) ||
+    yearMin != null ||
+    yearMax != null ||
+    normalizedPriceRange.min != null ||
+    normalizedPriceRange.max != null ||
+    normalizedKmRange.min != null ||
+    normalizedKmRange.max != null ||
+    Boolean(query.trim());
+
   const sortedVehicles = useMemo(() => {
     const base = [...filteredVehicles];
+    const compareFallback = hasActiveUserFilter ? () => 0 : compareListingPriority;
 
     if (sort === "price_asc") {
-      base.sort((a, b) => compareListingGroup(a, b) || compareByPriceAsc(a, b) || compareListingPriority(a, b));
+      base.sort((a, b) => compareByPriceAsc(a, b) || compareFallback(a, b));
     } else if (sort === "price_desc") {
-      base.sort((a, b) => compareListingGroup(a, b) || compareByPriceDesc(a, b) || compareListingPriority(a, b));
+      base.sort((a, b) => compareByPriceDesc(a, b) || compareFallback(a, b));
     } else if (sort === "km_asc") {
-      base.sort((a, b) => compareListingGroup(a, b) || compareByKmAsc(a, b) || compareListingPriority(a, b));
+      base.sort((a, b) => compareByKmAsc(a, b) || compareFallback(a, b));
     } else if (sort === "year_desc") {
-      base.sort((a, b) => compareListingGroup(a, b) || compareByYearDesc(a, b) || compareListingPriority(a, b));
-    } else {
+      base.sort((a, b) => compareByYearDesc(a, b) || compareFallback(a, b));
+    } else if (!hasActiveUserFilter) {
       base.sort(compareListingPriority);
     }
 
     return base;
-  }, [filteredVehicles, sort]);
+  }, [filteredVehicles, hasActiveUserFilter, sort]);
 
   const resultVehicles = useMemo(() => {
     if (!isAiMock) return sortedVehicles;
