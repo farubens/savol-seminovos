@@ -150,6 +150,26 @@ function compareListingPriority(left: ApiVehicle, right: ApiVehicle): number {
   return right.stockDays - left.stockDays;
 }
 
+function compareListingGroup(left: ApiVehicle, right: ApiVehicle): number {
+  return getVehicleListingGroup(left) - getVehicleListingGroup(right);
+}
+
+function compareByPriceAsc(left: ApiVehicle, right: ApiVehicle): number {
+  return (parsePriceValue(left.price) ?? Number.POSITIVE_INFINITY) - (parsePriceValue(right.price) ?? Number.POSITIVE_INFINITY);
+}
+
+function compareByPriceDesc(left: ApiVehicle, right: ApiVehicle): number {
+  return (parsePriceValue(right.price) ?? 0) - (parsePriceValue(left.price) ?? 0);
+}
+
+function compareByKmAsc(left: ApiVehicle, right: ApiVehicle): number {
+  return (parseKmValue(left.km) ?? Number.POSITIVE_INFINITY) - (parseKmValue(right.km) ?? Number.POSITIVE_INFINITY);
+}
+
+function compareByYearDesc(left: ApiVehicle, right: ApiVehicle): number {
+  return (parseYearValue(right.year) ?? 0) - (parseYearValue(left.year) ?? 0);
+}
+
 function buildOptionEntries(values: string[]): OptionEntry[] {
   const map = new Map<string, string>();
 
@@ -662,21 +682,13 @@ export function VehicleCatalog({ mode = "all", basePath = "/veiculos" }: Vehicle
     const base = [...filteredVehicles];
 
     if (sort === "price_asc") {
-      base.sort(
-        (a, b) =>
-          compareListingPriority(a, b) ||
-          (parsePriceValue(a.price) ?? Number.POSITIVE_INFINITY) - (parsePriceValue(b.price) ?? Number.POSITIVE_INFINITY)
-      );
+      base.sort((a, b) => compareListingGroup(a, b) || compareByPriceAsc(a, b) || compareListingPriority(a, b));
     } else if (sort === "price_desc") {
-      base.sort((a, b) => compareListingPriority(a, b) || (parsePriceValue(b.price) ?? 0) - (parsePriceValue(a.price) ?? 0));
+      base.sort((a, b) => compareListingGroup(a, b) || compareByPriceDesc(a, b) || compareListingPriority(a, b));
     } else if (sort === "km_asc") {
-      base.sort(
-        (a, b) =>
-          compareListingPriority(a, b) ||
-          (parseKmValue(a.km) ?? Number.POSITIVE_INFINITY) - (parseKmValue(b.km) ?? Number.POSITIVE_INFINITY)
-      );
+      base.sort((a, b) => compareListingGroup(a, b) || compareByKmAsc(a, b) || compareListingPriority(a, b));
     } else if (sort === "year_desc") {
-      base.sort((a, b) => compareListingPriority(a, b) || (parseYearValue(b.year) ?? 0) - (parseYearValue(a.year) ?? 0));
+      base.sort((a, b) => compareListingGroup(a, b) || compareByYearDesc(a, b) || compareListingPriority(a, b));
     } else {
       base.sort(compareListingPriority);
     }

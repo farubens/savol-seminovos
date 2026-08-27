@@ -17,6 +17,7 @@ const MAX_PER_PAGE = 200;
 const WP_PAGE_SIZE = 100;
 const MISSING_SPEC_LABEL = "N/A";
 const API_CACHE_TTL_MS = 2 * 60 * 1000;
+const WP_FETCH_TIMEOUT_MS = 12000;
 const WP_DEFAULT_USER = "fa.rubens@gmail.com";
 const WP_DEFAULT_APP_PASSWORD = "W9y4 bUld QOIG PV4u oIHo csrb";
 const SITE_BASE_URL = (process.env.NEXT_PUBLIC_SITE_URL?.trim() || "https://www.savolseminovos.com.br").replace(/\/+$/, "");
@@ -424,17 +425,25 @@ function getAuthHeaders(): HeadersInit {
 }
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<{ data: T | null; status: number }> {
-  const response = await fetch(url, {
-    ...init,
-    cache: "no-store",
-    headers: {
-      Accept: "application/json",
-      "User-Agent": "SavolNext/1.0",
-      ...(init?.headers ?? {})
-    }
-  });
-  if (!response.ok) return { data: null, status: response.status };
-  return { data: (await response.json()) as T, status: response.status };
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), WP_FETCH_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(url, {
+      ...init,
+      cache: "no-store",
+      signal: init?.signal ?? controller.signal,
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "SavolNext/1.0",
+        ...(init?.headers ?? {})
+      }
+    });
+    if (!response.ok) return { data: null, status: response.status };
+    return { data: (await response.json()) as T, status: response.status };
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 function buildVehicleUrl(perPage: number, options?: { context?: "edit"; embed?: boolean; page?: number }): string {
@@ -457,27 +466,43 @@ async function fetchVehiclePosts(perPage: number, authHeaders: HeadersInit): Pro
   const rows: WpVehicle[] = [];
   const pageSize = Math.min(WP_PAGE_SIZE, perPage);
   const maxPages = Math.ceil(perPage / pageSize);
+  type FetchStrategy = { context?: "edit"; embed?: boolean; useAuth?: boolean };
 
-  const fetchPage = async (page: number, options?: { context?: "edit"; embed?: boolean }) => {
-    const result = await fetchJson<WpVehicle[]>(buildVehicleUrl(pageSize, { ...options, page }), {
-      headers: authHeaders
-    });
-    return Array.isArray(result.data) ? result.data : [];
+  const fetchPage = async (page: number, options?: FetchStrategy): Promise<WpVehicle[] | null> => {
+    try {
+      const result = await fetchJson<WpVehicle[]>(buildVehicleUrl(pageSize, { ...options, page }), {
+        headers: options?.useAuth === false ? {} : authHeaders
+      });
+      return Array.isArray(result.data) ? result.data : [];
+    } catch {
+      return null;
+    }
   };
 
-  const strategies: Array<{ context?: "edit"; embed?: boolean }> = Object.keys(authHeaders).length
-    ? [{ context: "edit", embed: true }, { embed: true }, {}]
-    : [{ embed: true }, {}];
+  const strategies: FetchStrategy[] = Object.keys(authHeaders).length
+    ? [
+        { context: "edit", embed: true, useAuth: true },
+        { embed: true, useAuth: true },
+        { embed: true, useAuth: false },
+        { useAuth: false }
+      ]
+    : [{ embed: true, useAuth: false }, { useAuth: false }];
 
   for (const strategy of strategies) {
     rows.length = 0;
+    let strategyFailed = false;
     for (let page = 1; page <= maxPages; page += 1) {
       const pageRows = await fetchPage(page, strategy);
+      if (pageRows === null) {
+        strategyFailed = true;
+        break;
+      }
       if (!pageRows.length) break;
       rows.push(...pageRows);
       if (pageRows.length < pageSize || rows.length >= perPage) break;
     }
     if (rows.length) return rows.slice(0, perPage);
+    if (strategyFailed) continue;
   }
 
   return [];
@@ -487,10 +512,14 @@ async function fetchVehicleBySlug(slug: string, authHeaders: HeadersInit): Promi
   if (!slug) return null;
 
   if (Object.keys(authHeaders).length) {
-    const editResult = await fetchJson<WpVehicle[]>(buildVehicleBySlugUrl(slug, { context: "edit", embed: true }), {
-      headers: authHeaders
-    });
-    if (Array.isArray(editResult.data) && editResult.data.length) return editResult.data[0];
+    try {
+      const editResult = await fetchJson<WpVehicle[]>(buildVehicleBySlugUrl(slug, { context: "edit", embed: true }), {
+        headers: authHeaders
+      });
+      if (Array.isArray(editResult.data) && editResult.data.length) return editResult.data[0];
+    } catch {
+      // Fall back to public REST responses below.
+    }
   }
 
   const embeddedViewResult = await fetchJson<WpVehicle[]>(buildVehicleBySlugUrl(slug, { embed: true }));
