@@ -153,9 +153,9 @@ function hasRealVehicleImageUrl(value: string): boolean {
 }
 
 function getVehicleListingGroup(vehicle: ApiVehicle): number {
-  if (vehicle.photoCount <= 0) return 4;
-  if (vehicle.photoCount === 1) return 3;
-  if (vehicle.photoCount === 2) return 2;
+  if (vehicle.photoCount <= 0) return vehicle.negotiating ? 6 : 7;
+  if (vehicle.photoCount === 1) return vehicle.negotiating ? 4 : 5;
+  if (vehicle.photoCount === 2) return vehicle.negotiating ? 2 : 3;
   if (vehicle.negotiating) return 1;
   return 0;
 }
