@@ -266,7 +266,12 @@ function isMultibrandLabel(value: string): boolean {
 }
 
 function removeMultibrandLabel(value: string): string {
-  return cleanText(value.replace(/\bMULTI?MARCA\b/gi, " ").replace(/\bMULTMARCA\b/gi, " "));
+  return cleanText(
+    value
+      .replace(/\bMULTI?MARCA\b/gi, " ")
+      .replace(/\bMULTMARCA\b/gi, " ")
+      .replace(/\bVE[IÍ]CULO\s+NOVO\s*-\s*/gi, " ")
+  );
 }
 
 function inferVehicleBrandFromText(value: string): string {
