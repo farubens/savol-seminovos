@@ -54,6 +54,7 @@ type Props = {
   storeId?: number | null;
   oldPrice?: string;
   price: string;
+  officialPrice?: string;
   detailUrl?: string;
   adUrl?: string;
   qualityTag?: string;
@@ -387,6 +388,7 @@ export function VehicleOfferCard({
   storeId = null,
   oldPrice = "",
   price,
+  officialPrice,
   detailUrl = "#",
   adUrl = "",
   qualityTag = "",
@@ -430,7 +432,8 @@ export function VehicleOfferCard({
     () => resolveSingleHighlight(qualityTag, secondaryHighlights, repasse),
     [qualityTag, repasse, secondaryHighlights]
   );
-  const resolvedOldPrice = shouldShowAgedStockPrice(stockDays, repasse) ? resolveOldPrice(oldPrice, price) : "";
+  const officialPriceLabel = officialPrice || price;
+  const resolvedOldPrice = shouldShowAgedStockPrice(stockDays, repasse) ? resolveOldPrice(oldPrice, officialPriceLabel) : "";
   const hasAgedStockPrice = Boolean(resolvedOldPrice);
   const displayStore = store.toLocaleUpperCase("pt-BR");
   const specItems = useMemo(
@@ -443,7 +446,7 @@ export function VehicleOfferCard({
       ].filter((item) => isVisibleSpecValue(item.label)),
     [fuel, km, transmission, year]
   );
-  const priceValue = parseMoney(price) ?? 0;
+  const priceValue = parseMoney(officialPriceLabel) ?? 0;
   const minEntryValue = useMemo(() => Math.round(priceValue * 0.4), [priceValue]);
   const monthlyInterestRate = 0.0165;
   const vwfsClientKey = process.env.NEXT_PUBLIC_VWFS_CLIENT_KEY?.trim() || VWFS_DEFAULT_CLIENT_KEY;
@@ -610,7 +613,7 @@ export function VehicleOfferCard({
     const versionToken = subtitle || name.replace(`${brandToken} ${modelToken}`.trim(), "").trim();
     const normalizedMolicar = normalizeMolicar(molicar);
     const normalizedPlate = normalizePlateValue(plate);
-    const carValue = toVwfsMoney(price);
+    const carValue = toVwfsMoney(officialPriceLabel);
 
     if (!carValue) return null;
 
@@ -660,14 +663,14 @@ export function VehicleOfferCard({
       unitName: store,
       vehicleId,
       vehicle: name,
-      price
+      price: officialPriceLabel
     });
     const leadPayload = createBancoVolksLeadPayload(vwfsResult, {
       form: "banco-volks-card",
       subject: "Lead Banco Volks - Ver parcelas",
       unitName: store,
       vehicle: leadVehicleContext,
-      message: `Veículo: ${name}\nPreço: ${price}`,
+      message: `Veículo: ${name}\nPreço: ${officialPriceLabel}`,
       tracking,
       meta: {
         page_url: leadVehicleContext.url,
@@ -855,7 +858,8 @@ export function VehicleOfferCard({
         km,
         fuel,
         transmission,
-        price,
+        price: officialPriceLabel,
+        officialPrice: officialPriceLabel,
         oldPrice: resolvedOldPrice,
         store,
         storeId: resolvedVwfsStoreId,
@@ -865,7 +869,7 @@ export function VehicleOfferCard({
         molicar
       };
     },
-    [adUrl, detailUrl, fuel, gallery, km, molicar, name, plate, price, resolvedOldPrice, resolvedVwfsStoreId, safeImage, store, subtitle, transmission, vehicleId, year]
+    [adUrl, detailUrl, fuel, gallery, km, molicar, name, officialPriceLabel, plate, resolvedOldPrice, resolvedVwfsStoreId, safeImage, store, subtitle, transmission, vehicleId, year]
   );
 
   const handleProposalSubmit = async () => {
@@ -880,7 +884,7 @@ export function VehicleOfferCard({
         unitName: store,
         vehicleId,
         vehicle: name,
-        price
+        price: officialPriceLabel
       });
       const leadPayload = {
         form: "proposta-financiamento-card",
@@ -892,7 +896,7 @@ export function VehicleOfferCard({
         vehicle: leadVehicleContext,
         message: [
           `Veículo: ${name}`,
-          `Preço: ${price}`,
+          `Preço: ${officialPriceLabel}`,
           `Entrada: ${entryInput}`,
           `Parcelas: ${installments}x`,
           proposalForm.message
@@ -945,6 +949,7 @@ export function VehicleOfferCard({
       store,
       oldPrice,
       price,
+      officialPrice: officialPriceLabel,
       qualityTag,
       secondaryHighlights,
       molicar,
@@ -955,7 +960,7 @@ export function VehicleOfferCard({
       stockDays,
       proposalDays
     }),
-    [armored, fuel, gallery, km, molicar, name, negotiating, oldPrice, plate, price, proposalDays, qualityTag, repasse, resolvedDetailUrl, safeImage, secondaryHighlights, stockDays, store, subtitle, transmission, vehicleId, year]
+    [armored, fuel, gallery, km, molicar, name, negotiating, officialPriceLabel, oldPrice, plate, price, proposalDays, qualityTag, repasse, resolvedDetailUrl, safeImage, secondaryHighlights, stockDays, store, subtitle, transmission, vehicleId, year]
   );
   const isSavedAsFavorite = isFavorite(vehicleId);
   const wasVisited = hasVisited(vehicleId);
@@ -1368,7 +1373,7 @@ export function VehicleOfferCard({
             subject: "Financiamento",
             unitName: store,
             vehicle: leadVehicleContext,
-            message: `Veículo: ${name}\nPreço: ${price}`,
+            message: `Veículo: ${name}\nPreço: ${officialPriceLabel}`,
             meta: {
               page_url: leadVehicleContext.url,
               store_id: resolvedVwfsStoreId,

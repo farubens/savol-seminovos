@@ -716,7 +716,7 @@ export function SellYourCarWizard() {
                 </div>
 
                 <aside className="sell-security-card">
-                  <Image src="/images/fit.png" alt="Processo seguro SAVOL" width={777} height={474} className="sell-security-image" />
+                  <Image src="/images/savol-venda-seu-carro.jpg" alt="Processo seguro SAVOL" width={1180} height={760} className="sell-security-image" />
                   <h4>Processo seguro</h4>
                   <ul>
                     <li><CheckCircle2 size={16} /> Avaliação rápida e gratuita</li>

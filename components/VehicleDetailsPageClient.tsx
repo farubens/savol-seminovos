@@ -46,6 +46,8 @@ import { RepasseNoticeModal } from "@/components/RepasseNoticeModal";
 import type { ApiVehicle } from "@/types/home";
 import { getVehicleNavigationOrigin, queueVehicleScrollRestoration } from "@/lib/vehicleNavigation";
 
+const WHATSAPP_SEMINOVOS_ORIGIN_SUFFIX = "|486|0";
+
 type Props = {
   slug: string;
 };
@@ -378,6 +380,7 @@ function toSavedVehicle(vehicle: ApiVehicle): SavedVehicle {
     storeId: vehicle.storeId,
     oldPrice: vehicle.repasse ? "" : vehicle.oldPrice,
     price: vehicle.price,
+    officialPrice: vehicle.officialPrice,
     qualityTag: vehicle.qualityTag,
     secondaryHighlights: vehicle.secondaryHighlights,
     brand: vehicle.brand,
@@ -635,6 +638,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
   const storePhone = storeItem?.phone || resolveFallbackStorePhone(vehicle);
   const plateEndingDigit = getPlateEndingDigit(vehicle?.plate);
   const stockCode = formatVehicleStockCode(vehicle?.stockDays, vehicle?.proposalDays);
+  const officialVehiclePrice = vehicle?.officialPrice || vehicle?.price || "";
   const leadVehicleContext = useMemo(
     () => ({
       id: vehicle?.id,
@@ -648,7 +652,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
       color: vehicle?.color,
       fuel: vehicle?.fuel,
       transmission: vehicle?.transmission,
-      price: vehicle?.price,
+      price: officialVehiclePrice,
       oldPrice: vehicle?.repasse ? "" : vehicle?.oldPrice,
       store: storeTitle,
       storeId: resolvedStoreId,
@@ -659,7 +663,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
       url: vehicle?.absoluteUrl || (typeof window !== "undefined" ? window.location.href : vehicle?.url),
       molicar: vehicle?.molicar
     }),
-    [galleryItems, resolvedStoreId, storeTitle, vehicle]
+    [galleryItems, officialVehiclePrice, resolvedStoreId, storeTitle, vehicle]
   );
 
   useEffect(() => {
@@ -729,7 +733,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
 
     const normalizedMolicar = normalizeMolicar(vehicle.molicar ?? "");
     const normalizedPlate = normalizePlateValue(vehicle.plate ?? "");
-    const carValue = toVwfsMoney(vehicle.price);
+    const carValue = toVwfsMoney(officialVehiclePrice);
 
     if (!vwfsClientKey || !vwfsClientToken || resolvedStoreId <= 0 || (!normalizedMolicar && !normalizedPlate) || !carValue) return;
 
@@ -739,7 +743,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
     }, VWFS_PRELOAD_DELAY_MS);
 
     return () => window.clearTimeout(timeoutId);
-  }, [resolvedStoreId, vehicle, vwfsClientKey, vwfsClientToken, vwfsScriptSrc]);
+  }, [officialVehiclePrice, resolvedStoreId, vehicle, vwfsClientKey, vwfsClientToken, vwfsScriptSrc]);
 
   const technicalRows = useMemo(
     () =>
@@ -783,14 +787,14 @@ export function VehicleDetailsPageClient({ slug }: Props) {
       unitName: storeTitle,
       vehicleId: vehicle.id,
       vehicle: vehicle.name,
-      price: vehicle.price
+      price: officialVehiclePrice
     });
     const leadPayload = createBancoVolksLeadPayload(vwfsResult, {
       form: "banco-volks-single",
       subject: "Lead Banco Volks - Ver parcelas",
       unitName: storeTitle,
       vehicle: leadVehicleContext,
-      message: `Veículo: ${vehicle.name}\nPreço: ${vehicle.price}\nPágina: ${leadVehicleContext.url}`,
+      message: `Veículo: ${vehicle.name}\nPreço: ${officialVehiclePrice}\nPágina: ${leadVehicleContext.url}`,
       tracking,
       meta: {
         page_url: leadVehicleContext.url,
@@ -847,7 +851,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
 
     const normalizedMolicar = normalizeMolicar(vehicle.molicar ?? "");
     const normalizedPlate = normalizePlateValue(vehicle.plate ?? "");
-    const carValue = toVwfsMoney(vehicle.price);
+    const carValue = toVwfsMoney(officialVehiclePrice);
 
     if (!vwfsClientKey || !vwfsClientToken || resolvedStoreId <= 0 || (!normalizedMolicar && !normalizedPlate)) {
       window.alert("Simulador oficial indisponível para este veículo no momento.");
@@ -963,7 +967,9 @@ export function VehicleDetailsPageClient({ slug }: Props) {
         uf: vehicle.uf
       }
     });
-    const message = encodeURIComponent(`|${leadmobCompanyId}|2|carro_seminovo||Tenho interesse no veiculo ${vehicle.name}`);
+    const message = encodeURIComponent(
+      `|${leadmobCompanyId}|2|carro_seminovo||Tenho interesse no veiculo ${vehicle.name}${WHATSAPP_SEMINOVOS_ORIGIN_SUFFIX}`
+    );
     return `https://wa.me/${phone}?text=${message}`;
   }, [storePhone, storeTitle, vehicle]);
 
@@ -1018,7 +1024,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
         unitName: storeTitle,
         vehicleId: vehicle?.id,
         vehicle: vehicle?.name || "",
-        price: vehicle?.price || ""
+        price: officialVehiclePrice
       });
       const leadPayload = {
         form: "proposta-veiculo",
@@ -1030,7 +1036,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
         vehicle: leadVehicleContext,
         message: [
           `Interesse: ${leadForm.interest || vehicle?.name || ""}`,
-          `Preço: ${vehicle?.price || ""}`,
+          `Preço: ${officialVehiclePrice}`,
           `Página: ${typeof window !== "undefined" ? window.location.href : ""}`,
           leadForm.message
         ].filter(Boolean).join("\n"),
@@ -1477,6 +1483,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
                   storeId={item.storeId}
                   oldPrice={item.oldPrice}
                   price={item.price}
+                  officialPrice={item.officialPrice}
                   detailUrl={item.url}
                   adUrl={item.absoluteUrl}
                   qualityTag={item.qualityTag}
@@ -1541,7 +1548,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
           subject: "Financiamento",
           unitName: storeTitle,
           vehicle: leadVehicleContext,
-          message: vehicle ? `Veículo: ${vehicle.name}\nPreço: ${vehicle.price}\nPágina: ${leadVehicleContext.url}` : "",
+          message: vehicle ? `Veículo: ${vehicle.name}\nPreço: ${officialVehiclePrice}\nPágina: ${leadVehicleContext.url}` : "",
           meta: {
             page_url: leadVehicleContext.url,
             store_id: resolvedStoreId,

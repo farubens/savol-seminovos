@@ -60,6 +60,7 @@ function SavedVehicleCard({ vehicle, index }: { vehicle: SavedVehicle; index: nu
       storeId={vehicle.storeId}
       oldPrice={vehicle.oldPrice}
       price={vehicle.price}
+      officialPrice={vehicle.officialPrice}
       detailUrl={vehicle.url}
       adUrl={vehicle.absoluteUrl}
       qualityTag={vehicle.qualityTag}

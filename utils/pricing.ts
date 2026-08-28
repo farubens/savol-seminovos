@@ -53,6 +53,17 @@ export function buildOldPriceLabelFromOfficialPrice(officialPriceLabel: string):
   return `De ${formatCurrencyBRL(referenceValue)}`;
 }
 
+export function buildVisualPriceValue(officialPrice: number, repasse = false): number {
+  if (repasse || !Number.isFinite(officialPrice) || officialPrice <= 0) return officialPrice;
+  return officialPrice % 1000 === 0 ? officialPrice - 10 : officialPrice;
+}
+
+export function buildVisualPriceLabel(officialPriceLabel: string, repasse = false): string {
+  const officialValue = parseCurrencyToNumber(officialPriceLabel);
+  if (!officialValue) return officialPriceLabel;
+  return formatCurrencyBRL(buildVisualPriceValue(officialValue, repasse));
+}
+
 export function shouldShowAgedStockPrice(stockDays: number, repasse = false): boolean {
   return !repasse && Number.isFinite(stockDays) && stockDays > 45;
 }

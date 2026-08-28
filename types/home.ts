@@ -16,6 +16,7 @@ export type ApiVehicle = {
   storeId?: number | null;
   oldPrice: string;
   price: string;
+  officialPrice?: string;
   qualityTag: string;
   secondaryHighlights: string[];
   brand: string;

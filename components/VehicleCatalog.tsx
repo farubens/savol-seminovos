@@ -80,6 +80,10 @@ function parsePriceValue(value: string): number | null {
   return parseCurrencyToInteger(value);
 }
 
+function getVehicleOfficialPriceValue(vehicle: ApiVehicle): number | null {
+  return parsePriceValue(vehicle.officialPrice || vehicle.price);
+}
+
 function parseKmValue(value: string): number | null {
   const digits = value.replace(/[^\d]/g, "");
   if (!digits) return null;
@@ -151,11 +155,11 @@ function compareListingPriority(left: ApiVehicle, right: ApiVehicle): number {
 }
 
 function compareByPriceAsc(left: ApiVehicle, right: ApiVehicle): number {
-  return (parsePriceValue(left.price) ?? Number.POSITIVE_INFINITY) - (parsePriceValue(right.price) ?? Number.POSITIVE_INFINITY);
+  return (getVehicleOfficialPriceValue(left) ?? Number.POSITIVE_INFINITY) - (getVehicleOfficialPriceValue(right) ?? Number.POSITIVE_INFINITY);
 }
 
 function compareByPriceDesc(left: ApiVehicle, right: ApiVehicle): number {
-  return (parsePriceValue(right.price) ?? 0) - (parsePriceValue(left.price) ?? 0);
+  return (getVehicleOfficialPriceValue(right) ?? 0) - (getVehicleOfficialPriceValue(left) ?? 0);
 }
 
 function compareByKmAsc(left: ApiVehicle, right: ApiVehicle): number {
@@ -556,7 +560,7 @@ export function VehicleCatalog({ mode = "all", basePath = "/veiculos" }: Vehicle
   }, [vehicles]);
 
   const priceBounds = useMemo(() => {
-    const values = vehicles.map((vehicle) => parsePriceValue(vehicle.price)).filter((value): value is number => value != null);
+    const values = vehicles.map(getVehicleOfficialPriceValue).filter((value): value is number => value != null);
     if (!values.length) return { min: 0, max: 0 };
     return { min: Math.min(...values), max: Math.max(...values) };
   }, [vehicles]);
@@ -618,7 +622,7 @@ export function VehicleCatalog({ mode = "all", basePath = "/veiculos" }: Vehicle
       if (yearMin != null && (vehicleYear == null || vehicleYear < yearMin)) return false;
       if (yearMax != null && (vehicleYear == null || vehicleYear > yearMax)) return false;
 
-      const vehiclePrice = parsePriceValue(vehicle.price);
+      const vehiclePrice = getVehicleOfficialPriceValue(vehicle);
       if (normalizedPriceRange.min != null && (vehiclePrice == null || vehiclePrice < normalizedPriceRange.min)) return false;
       if (normalizedPriceRange.max != null && (vehiclePrice == null || vehiclePrice > normalizedPriceRange.max)) return false;
 
@@ -1425,6 +1429,7 @@ export function VehicleCatalog({ mode = "all", basePath = "/veiculos" }: Vehicle
                     storeId={vehicle.storeId}
                     oldPrice={vehicle.oldPrice}
                     price={vehicle.price}
+                    officialPrice={vehicle.officialPrice}
                     detailUrl={vehicle.url}
                     adUrl={vehicle.absoluteUrl}
                     qualityTag={vehicle.qualityTag}

@@ -6,7 +6,7 @@ import {
   isPreparationVehicleImageUrl,
   VEHICLE_FALLBACK_IMAGE
 } from "@/lib/vehicleImages";
-import { buildOldPriceLabelFromOfficialPrice, formatCurrencyBRL, parseCurrencyToInteger, shouldShowAgedStockPrice } from "@/utils/pricing";
+import { buildOldPriceLabelFromOfficialPrice, buildVisualPriceLabel, formatCurrencyBRL, parseCurrencyToInteger, shouldShowAgedStockPrice } from "@/utils/pricing";
 
 const DEFAULT_WP_BASE_URL =
   process.env.NODE_ENV === "production" ? "https://palevioletred-lark-270684.hostingersite.com" : "http://localhost/savol-seminovos-local";
@@ -70,6 +70,7 @@ type ApiVehicle = {
   storeId: number | null;
   oldPrice: string;
   price: string;
+  officialPrice?: string;
   qualityTag: string;
   secondaryHighlights: string[];
   brand: string;
@@ -723,8 +724,6 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
   const metaProposalDays =
     getMetaField(vehicle, "dias_proposta") ||
     getMetaField(vehicle, "apolo_dias_proposta");
-  const priceData = extractPriceData(content, metaPrice);
-
   const embeddedImage = getEmbeddedImage(vehicle);
   const galleryFromMeta = parseGalleryUrls(metaGalleryUrls);
   const autosyncFeaturedImage = parseGalleryUrls(metaAutosyncFeaturedUrl)[0] ?? galleryFromMeta[0] ?? null;
@@ -750,6 +749,8 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
   const repasse =
     parseBooleanMeta(metaRepasse) ||
     normalizeForMatch(metaApoloProposalSeller) === "repasse";
+  const priceData = extractPriceData(content, metaPrice);
+  const displayPrice = buildVisualPriceLabel(priceData.price, repasse);
   const parsedStockDays = Number.parseInt(metaStockDays, 10);
   const stockDays = Number.isFinite(parsedStockDays) ? Math.max(0, parsedStockDays) : 0;
   const parsedProposalDays = Number.parseInt(metaProposalDays, 10);
@@ -787,7 +788,8 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
     store: storeLabel,
     storeId,
     oldPrice: shouldShowAgedStockPrice(stockDays, repasse) ? priceData.oldPrice : "",
-    price: priceData.price,
+    price: displayPrice,
+    officialPrice: priceData.price,
     qualityTag: repasse ? "" : visiblePrimaryHighlight,
     secondaryHighlights: repasse ? [] : visibleSecondaryHighlights,
     brand: brand || "Marca não informada",

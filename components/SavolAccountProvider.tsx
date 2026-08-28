@@ -38,6 +38,7 @@ export type SavedVehicle = Pick<
   | "storeId"
   | "oldPrice"
   | "price"
+  | "officialPrice"
   | "qualityTag"
   | "secondaryHighlights"
 > &

@@ -289,7 +289,7 @@ export function CategoryFinder() {
 
   const priceOptions = useMemo<number[]>(() => {
     const parsedPrices = vehicles
-      .map((vehicle: ApiVehicle) => parsePriceValue(vehicle.price ?? ""))
+      .map((vehicle: ApiVehicle) => parsePriceValue(vehicle.officialPrice ?? vehicle.price ?? ""))
       .filter((value): value is number => typeof value === "number");
 
     return buildPriceOptions(parsedPrices);
@@ -652,6 +652,7 @@ export function CategoryFinder() {
                 storeId={vehicle.storeId}
                 oldPrice={vehicle.oldPrice}
                 price={vehicle.price}
+                officialPrice={vehicle.officialPrice}
                 detailUrl={vehicle.url}
                 adUrl={vehicle.absoluteUrl}
                 qualityTag={vehicle.qualityTag}

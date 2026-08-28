@@ -5657,7 +5657,7 @@ h2 {
   background:
     linear-gradient(96deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0.96) 35%, rgba(255, 255, 255, 0.74) 53%, rgba(255, 255, 255, 0.04) 72%),
     linear-gradient(180deg, rgba(255, 255, 255, 0) 70%, rgba(255, 255, 255, 0.72) 100%),
-    url("https://images.unsplash.com/photo-1493238792000-8113da705763?auto=format&fit=crop&w=1800&q=80");
+    url("/images/savol-cyberster.webp");
   background-size: cover;
   background-position: center;
 }
@@ -6575,9 +6575,11 @@ h2 {
 
 .sell-security-image {
   width: 100%;
+  aspect-ratio: 16 / 10;
   height: auto;
   border-radius: 12px;
   object-fit: cover;
+  object-position: center;
 }
 
 .sell-security-card h4 {
