@@ -253,6 +253,14 @@ final class Savol_Veiculos_CPT {
         ];
     }
 
+    private static function rest_fields(): array {
+        return self::fields() + [
+            'apolo_val_compra' => ['label' => 'Custo APOLO', 'type' => 'number'],
+            'apolo_valor_venda' => ['label' => 'Venda APOLO', 'type' => 'number'],
+            'fipe' => ['label' => 'FIPE', 'type' => 'number'],
+        ];
+    }
+
     /**
      * Taxonomias associadas ao veiculo.
      */
@@ -507,7 +515,7 @@ final class Savol_Veiculos_CPT {
     }
 
     public static function register_meta(): void {
-        foreach (self::fields() as $key => $field) {
+        foreach (self::rest_fields() as $key => $field) {
             register_post_meta(self::POST_TYPE, $key, [
                 'single' => true,
                 'show_in_rest' => true,
@@ -1041,6 +1049,32 @@ final class Savol_Veiculos_CPT {
             'callback' => [__CLASS__, 'handle_sell_your_car_request'],
             'permission_callback' => '__return_true',
         ]);
+
+        register_rest_route('savol/v1', '/dashboard/veiculos', [
+            'methods' => \WP_REST_Server::READABLE,
+            'callback' => [__CLASS__, 'handle_dashboard_vehicles_request'],
+            'permission_callback' => '__return_true',
+        ]);
+    }
+
+    public static function handle_dashboard_vehicles_request(\WP_REST_Request $request): \WP_REST_Response {
+        $posts = get_posts([
+            'post_type' => self::POST_TYPE,
+            'post_status' => ['publish', 'draft', 'pending', 'private', 'future'],
+            'posts_per_page' => -1,
+            'orderby' => 'date',
+            'order' => 'DESC',
+        ]);
+
+        $items = array_map([__CLASS__, 'dashboard_vehicle_payload'], $posts);
+
+        return new \WP_REST_Response([
+            'ok' => true,
+            'items' => $items,
+            'total' => count($items),
+            'source' => 'savol-comercial-suite',
+            'updatedAt' => current_time('mysql'),
+        ], 200);
     }
 
     public static function handle_sell_your_car_request(\WP_REST_Request $request): \WP_REST_Response {
@@ -3342,6 +3376,10 @@ JS;
             }
 
             update_post_meta($post_id, 'apolo_reconciliacao_motivo', 'Não cadastrado no APOLO');
+            update_post_meta($post_id, 'apolo_presente', 0);
+            if ((string) get_post_meta($post_id, 'apolo_removido_em', true) === '') {
+                update_post_meta($post_id, 'apolo_removido_em', current_time('mysql'));
+            }
             update_post_meta($post_id, 'savol_sync_signature', '');
             self::set_status_loja_term($post_id, 'Não cadastrado no APOLO');
             $post = get_post($post_id);
@@ -3469,6 +3507,9 @@ JS;
             'entityName' => (string) ($apolo_item['nome_fantasia'] ?? ''),
             'comments' => (string) ($apolo_item['des_veiculo'] ?? ''),
             'value' => self::parse_money_value($apolo_item['valor_venda'] ?? null) > 0 ? (string) self::parse_money_value($apolo_item['valor_venda'] ?? null) : '',
+            'fipeValue' => self::parse_money_value($apolo_item['fipeValue'] ?? ($apolo_item['fipe_value'] ?? ($apolo_item['valor_fipe'] ?? null))) > 0
+                ? (string) self::parse_money_value($apolo_item['fipeValue'] ?? ($apolo_item['fipe_value'] ?? ($apolo_item['valor_fipe'] ?? null)))
+                : '',
         ];
         $field_map = self::normalize_vehicle_identity($field_map, (string) ($apolo_item['des_veiculo'] ?? ''));
 
@@ -3658,6 +3699,7 @@ JS;
                 'situacao' => (string) ($apolo_reconciliation['apolo']['situacao'] ?? ''),
                 'val_compra' => self::parse_money_value($apolo_reconciliation['apolo']['val_compra'] ?? null),
                 'valor_venda' => self::parse_money_value($apolo_reconciliation['apolo']['valor_venda'] ?? null),
+                'fipeValue' => self::parse_money_value($apolo_reconciliation['apolo']['fipeValue'] ?? ($apolo_reconciliation['apolo']['fipe_value'] ?? ($apolo_reconciliation['apolo']['valor_fipe'] ?? null))),
                 'des_cor' => (string) ($apolo_reconciliation['apolo']['des_cor'] ?? ''),
                 'des_modelo' => (string) ($apolo_reconciliation['apolo']['des_modelo'] ?? ''),
                 'des_combustivel' => (string) ($apolo_reconciliation['apolo']['des_combustivel'] ?? ''),
@@ -3694,6 +3736,7 @@ JS;
                 'modelYear' => (string) ($vehicle['modelYear'] ?? ''),
                 'kilometers' => (string) ($vehicle['kilometers'] ?? ''),
                 'value' => self::parse_money_value($vehicle['value'] ?? null),
+                'fipeValue' => self::parse_money_value($vehicle['fipeValue'] ?? null),
                 'status' => (string) ($vehicle['status'] ?? ''),
                 'fuelName' => (string) ($vehicle['fuelName'] ?? ''),
                 'transmissionName' => (string) ($vehicle['transmissionName'] ?? ''),
@@ -3742,6 +3785,94 @@ JS;
         }
 
         return is_numeric($text) ? (float) $text : 0.0;
+    }
+
+    private static function dashboard_term_name(int $post_id, string $taxonomy): string {
+        $terms = get_the_terms($post_id, $taxonomy);
+        if (is_wp_error($terms) || empty($terms)) {
+            return '';
+        }
+
+        $term = reset($terms);
+        return $term instanceof \WP_Term ? html_entity_decode((string) $term->name, ENT_QUOTES, get_bloginfo('charset')) : '';
+    }
+
+    private static function dashboard_meta_number(int $post_id, string $key): float {
+        return self::parse_money_value(get_post_meta($post_id, $key, true));
+    }
+
+    private static function dashboard_photo_urls(int $post_id): array {
+        $urls = [];
+        $featured_id = get_post_thumbnail_id($post_id);
+        if ($featured_id) {
+            $featured_url = wp_get_attachment_image_url($featured_id, 'medium_large');
+            if ($featured_url) {
+                $urls[] = $featured_url;
+            }
+        }
+
+        $autosync_urls = (string) get_post_meta($post_id, 'autosync_photo_urls', true);
+        if ($autosync_urls !== '') {
+            $urls = array_merge($urls, preg_split('/[\r\n]+/', $autosync_urls) ?: []);
+        }
+
+        return array_values(array_unique(array_filter(array_map('esc_url_raw', $urls))));
+    }
+
+    private static function dashboard_vehicle_payload(\WP_Post $post): array {
+        $post_id = (int) $post->ID;
+        $post_status = (string) $post->post_status;
+        $reason = trim((string) get_post_meta($post_id, 'apolo_reconciliacao_motivo', true));
+        $plate = (string) get_post_meta($post_id, 'placa', true);
+        $year = (string) get_post_meta($post_id, 'ano', true);
+        $model_year = (string) get_post_meta($post_id, 'ano_modelo', true);
+        $photos = self::dashboard_photo_urls($post_id);
+        $price = self::dashboard_meta_number($post_id, 'preco');
+        $cost = self::dashboard_meta_number($post_id, 'apolo_val_compra');
+        $sale_price = self::dashboard_meta_number($post_id, 'apolo_valor_venda');
+        $fipe = self::dashboard_meta_number($post_id, 'fipe');
+        if ($fipe <= 0) {
+            $fipe = self::dashboard_meta_number($post_id, 'apolo_fipe');
+        }
+        $status_label = $post_status === 'publish' ? 'Publicado no site' : ($reason !== '' ? $reason : 'Rascunho');
+        $slug = (string) $post->post_name;
+        $in_apolo = (string) get_post_meta($post_id, 'apolo_presente', true);
+        $in_apolo = $in_apolo === '' ? !str_contains(self::canonicalize_text($reason), 'nao cadastrado no apolo') : $in_apolo === '1';
+
+        return [
+            'id' => $post_id,
+            'slug' => $slug !== '' ? $slug : (string) $post_id,
+            'name' => self::strip_apolo_draft_reason_from_title(html_entity_decode(get_the_title($post_id), ENT_QUOTES, get_bloginfo('charset'))),
+            'brand' => self::dashboard_term_name($post_id, 'veiculo_marca'),
+            'model' => self::dashboard_term_name($post_id, 'veiculo_modelo'),
+            'store' => self::dashboard_term_name($post_id, 'veiculo_unidade'),
+            'plate' => $plate,
+            'year' => trim($year . ($model_year !== '' ? '/' . $model_year : ''), '/'),
+            'km' => self::dashboard_meta_number($post_id, 'km'),
+            'price' => $price > 0 ? $price : null,
+            'cost' => $cost > 0 ? $cost : null,
+            'salePrice' => $sale_price > 0 ? $sale_price : ($price > 0 ? $price : null),
+            'fipe' => $fipe > 0 ? $fipe : null,
+            'fipeValue' => $fipe > 0 ? $fipe : null,
+            'image' => $photos[0] ?? '',
+            'link' => get_edit_post_link($post_id, 'raw') ?: get_permalink($post_id),
+            'publicUrl' => self::PUBLIC_SITE_URL . '/veiculos/' . ($slug !== '' ? $slug : $post_id),
+            'photoCount' => count($photos),
+            'stockDays' => max(0, (int) get_post_meta($post_id, 'dias_estoque', true)),
+            'repasse' => (int) get_post_meta($post_id, 'repasse', true) === 1,
+            'negotiated' => (int) get_post_meta($post_id, 'negociacao', true) === 1,
+            'transit' => str_contains(self::canonicalize_text($reason . ' ' . self::dashboard_term_name($post_id, 'status-loja')), 'transito'),
+            'missingPhoto' => empty($photos),
+            'missingPrice' => $price <= 0,
+            'status' => $status_label,
+            'postStatus' => $post_status,
+            'draftReason' => $reason,
+            'visibleOnSite' => $post_status === 'publish',
+            'inApolo' => $in_apolo,
+            'apoloRemovedAt' => (string) get_post_meta($post_id, 'apolo_removido_em', true),
+            'apoloUpdatedAt' => (string) get_post_meta($post_id, 'apolo_atualizado_em', true),
+            'createdAt' => get_post_time('c', true, $post_id),
+        ];
     }
 
     private static function resolve_vehicle_sale_price(array $vehicle, array $apolo_item): float {
@@ -3843,6 +3974,9 @@ JS;
         update_post_meta($post_id, 'ano_modelo', is_numeric($vehicle['modelYear'] ?? null) ? (float) $vehicle['modelYear'] : 0);
         update_post_meta($post_id, 'km', is_numeric($vehicle['kilometers'] ?? null) ? (float) $vehicle['kilometers'] : 0);
         update_post_meta($post_id, 'preco', $published_price);
+        $fipe_value = self::parse_money_value($vehicle['fipeValue'] ?? ($apolo_reconciliation['apolo']['fipeValue'] ?? ($apolo_reconciliation['apolo']['fipe_value'] ?? ($apolo_reconciliation['apolo']['valor_fipe'] ?? null))));
+        update_post_meta($post_id, 'fipe', $fipe_value);
+        update_post_meta($post_id, 'apolo_fipe', $fipe_value);
         update_post_meta($post_id, 'status', isset($vehicle['status']) ? (string) $vehicle['status'] : '');
         update_post_meta($post_id, 'apolo_empresa', (string) ($apolo_reconciliation['apolo']['empresa'] ?? ''));
         update_post_meta($post_id, 'apolo_revenda_origem', (string) ($apolo_reconciliation['apolo']['revenda_origem'] ?? ''));
@@ -3884,6 +4018,9 @@ JS;
                 : ''
         );
         update_post_meta($post_id, 'apolo_reconciliacao_motivo', (string) $apolo_reconciliation['reason']);
+        update_post_meta($post_id, 'apolo_presente', 1);
+        update_post_meta($post_id, 'apolo_atualizado_em', current_time('mysql'));
+        delete_post_meta($post_id, 'apolo_removido_em');
         update_post_meta($post_id, 'combustivel', (string) ($vehicle['fuelName'] ?? ''));
         update_post_meta($post_id, 'cambio', (string) ($vehicle['transmissionName'] ?? ''));
         update_post_meta($post_id, 'categoria', (string) ($vehicle['section'] ?? ''));
@@ -3965,20 +4102,9 @@ JS;
         }
 
         $terms = [];
-        $km = is_numeric($vehicle['kilometers'] ?? null) ? (float) $vehicle['kilometers'] : 0;
-        $price = $published_price !== null ? $published_price : (is_numeric($vehicle['value'] ?? null) ? (float) $vehicle['value'] : 0);
-        $fipe = is_numeric($vehicle['fipeValue'] ?? null) ? (float) $vehicle['fipeValue'] : 0;
 
         if (self::has_low_annual_mileage($vehicle)) {
             $terms[] = 'Baixa km';
-        }
-
-        if ($price > 0 && $fipe > 0) {
-            if ($price < $fipe) {
-                $terms[] = 'Abaixo da fipe';
-            } elseif ($price > $fipe && !self::has_avaria_photo($vehicle)) {
-                $terms[] = 'Impecável';
-            }
         }
 
         if (self::has_complete_optionals($vehicle)) {
