@@ -248,6 +248,7 @@ final class Savol_Veiculos_CPT {
             'blindado' => ['label' => 'Blindado', 'type' => 'boolean'],
             'negociacao' => ['label' => 'Em negociacao', 'type' => 'boolean'],
             'repasse' => ['label' => 'Repasse', 'type' => 'boolean'],
+            'transito' => ['label' => 'Transito', 'type' => 'boolean'],
             'dias_estoque' => ['label' => 'Dias de estoque', 'type' => 'number'],
             'dias_proposta' => ['label' => 'Dias de proposta', 'type' => 'number'],
         ];
@@ -3716,8 +3717,9 @@ JS;
                 'placa' => (string) ($apolo_reconciliation['apolo']['placa'] ?? ''),
                 'chassi' => (string) ($apolo_reconciliation['apolo']['chassi'] ?? ''),
                 'veiculo' => (string) ($apolo_reconciliation['apolo']['veiculo'] ?? ''),
-                'negociacao' => !empty($apolo_reconciliation['apolo']['negociacao']),
-                'blindado_informado' => !empty($apolo_reconciliation['apolo']['blindado_informado']),
+            'negociacao' => !empty($apolo_reconciliation['apolo']['negociacao']),
+            'transito' => !empty($apolo_reconciliation['apolo']['transito']),
+            'blindado_informado' => !empty($apolo_reconciliation['apolo']['blindado_informado']),
                 'blindado' => !empty($apolo_reconciliation['apolo']['blindado']),
                 'proposta' => (string) ($apolo_reconciliation['apolo']['proposta'] ?? ''),
                 'vendedor_proposta' => (string) ($apolo_reconciliation['apolo']['vendedor_proposta'] ?? ''),
@@ -3861,7 +3863,8 @@ JS;
             'stockDays' => max(0, (int) get_post_meta($post_id, 'dias_estoque', true)),
             'repasse' => (int) get_post_meta($post_id, 'repasse', true) === 1,
             'negotiated' => (int) get_post_meta($post_id, 'negociacao', true) === 1,
-            'transit' => str_contains(self::canonicalize_text($reason . ' ' . self::dashboard_term_name($post_id, 'status-loja')), 'transito'),
+            'transit' => (int) get_post_meta($post_id, 'transito', true) === 1
+                || str_contains(self::canonicalize_text($reason . ' ' . self::dashboard_term_name($post_id, 'status-loja')), 'transito'),
             'missingPhoto' => empty($photos),
             'missingPrice' => $price <= 0,
             'status' => $status_label,
@@ -4038,6 +4041,7 @@ JS;
         update_post_meta($post_id, 'blindado', self::is_vehicle_armored($vehicle) ? 1 : 0);
         update_post_meta($post_id, 'negociacao', !empty($apolo_reconciliation['apolo']['negociacao']) ? 1 : 0);
         update_post_meta($post_id, 'repasse', !empty($apolo_reconciliation['apolo']['repasse']) ? 1 : 0);
+        update_post_meta($post_id, 'transito', !empty($apolo_reconciliation['apolo']['transito']) ? 1 : 0);
         update_post_meta($post_id, 'dias_estoque', max(0, (int) ($apolo_reconciliation['apolo']['dias_estoque'] ?? 0)));
         if ($apolo_proposal_days !== null) {
             update_post_meta($post_id, 'dias_proposta', $apolo_proposal_days);
