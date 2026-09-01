@@ -206,9 +206,9 @@ async function resolveGalleryByVehicleId(id: number): Promise<string[]> {
   const autosyncFeaturedImage = parseGalleryUrls(getMetaField(vehicle, "autosync_foto_destaque_url"))[0] ?? fromAutosyncUrls[0] ?? "";
   const merged = Array.from(
     new Set([
+      featuredImage ? encodeURI(featuredImage) : "",
       autosyncFeaturedImage,
       ...fromAutosyncUrls,
-      featuredImage ? encodeURI(featuredImage) : "",
       ...orderedMediaUrls
     ].filter(Boolean))
   );

@@ -728,7 +728,7 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
   const galleryFromMeta = parseGalleryUrls(metaGalleryUrls);
   const autosyncFeaturedImage = parseGalleryUrls(metaAutosyncFeaturedUrl)[0] ?? galleryFromMeta[0] ?? null;
   const rawGallery = Array.from(
-    new Set([autosyncFeaturedImage ?? "", ...galleryFromMeta, embeddedImage ? encodeURI(embeddedImage) : ""].filter(Boolean))
+    new Set([embeddedImage ? encodeURI(embeddedImage) : "", autosyncFeaturedImage ?? "", ...galleryFromMeta].filter(Boolean))
   );
   const gallery = getDisplayVehicleImageUrls(rawGallery);
   const image = gallery[0] ?? VEHICLE_FALLBACK_IMAGE;

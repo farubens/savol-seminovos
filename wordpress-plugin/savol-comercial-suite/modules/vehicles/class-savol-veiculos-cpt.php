@@ -3140,7 +3140,7 @@ JS;
                 'km_atual' => is_numeric($row['km_atual'] ?? null) ? (string) (float) $row['km_atual'] : '',
                 'cambio' => trim((string) ($row['cambio'] ?? '')),
                 'tipo' => trim((string) ($row['tipo'] ?? '')),
-                'photo_urls' => self::extract_apolo_photo_urls($row),
+                'photo_urls' => [],
                 'blindado_informado' => array_key_exists('blindado', $row)
                     && $row['blindado'] !== null
                     && (!is_string($row['blindado']) || trim($row['blindado']) !== ''),
@@ -3156,6 +3156,8 @@ JS;
                 'repasse' => array_key_exists('repasse', $row)
                     ? self::to_boolean_flag($row['repasse'])
                     : self::canonicalize_text((string) ($row['vendedor_proposta'] ?? '')) === 'repasse',
+                'transito' => self::to_boolean_flag($row['transito'] ?? false)
+                    || strtoupper(trim((string) ($row['situacao'] ?? ''))) === 'TM',
                 'dias_estoque' => self::extract_apolo_stock_days($row),
                 'dias_proposta' => self::extract_apolo_proposal_days($row),
                 'des_veiculo' => $description,
@@ -3224,7 +3226,7 @@ JS;
     private static function extract_apolo_proposal_days(array $row): ?int {
         if (array_key_exists('dias_proposta', $row) && is_numeric($row['dias_proposta'])) {
             $days = (int) $row['dias_proposta'];
-            return $days > 0 ? $days : null;
+            return max(0, $days);
         }
 
         $aliases = [
@@ -3241,7 +3243,7 @@ JS;
             }
 
             $days = (int) $value;
-            return $days > 0 ? $days : null;
+            return max(0, $days);
         }
 
         return null;
@@ -3525,20 +3527,6 @@ JS;
             $vehicle['_apolo_blindado_informado'] = true;
         }
 
-        $apolo_photo_urls = isset($apolo_item['photo_urls']) && is_array($apolo_item['photo_urls'])
-            ? array_values(array_filter($apolo_item['photo_urls']))
-            : [];
-        if (!empty($apolo_photo_urls)) {
-            $vehicle['VehiclePhotos'] = array_map(
-                static fn(string $url, int $index): array => [
-                    'link' => $url,
-                    'order' => $index,
-                ],
-                $apolo_photo_urls,
-                array_keys($apolo_photo_urls)
-            );
-        }
-
         return $vehicle;
     }
 
@@ -3684,9 +3672,43 @@ JS;
         return array_values(array_unique(array_filter($photo_urls)));
     }
 
+    private static function normalize_photo_reference(string $value): string {
+        $decoded = rawurldecode($value);
+        $normalized = strtolower(remove_accents($decoded));
+        return (string) preg_replace('/[^a-z0-9]+/', '', $normalized);
+    }
+
+    private static function is_preparation_photo_url(string $url): bool {
+        if ($url === '') {
+            return false;
+        }
+
+        $normalized = self::normalize_photo_reference($url);
+        foreach (['imagesempreparacao', 'imagesfallbackatualizado', 'empreparacao', 'empreparao', 'preparacao', 'prepacacao'] as $needle) {
+            if (str_contains($normalized, $needle)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static function extract_real_vehicle_photo_urls(array $photo_urls): array {
+        $real_photo_urls = [];
+        foreach ($photo_urls as $url) {
+            $url = esc_url_raw((string) $url);
+            if ($url === '' || self::is_preparation_photo_url($url)) {
+                continue;
+            }
+            $real_photo_urls[] = $url;
+        }
+
+        return array_values(array_unique($real_photo_urls));
+    }
+
     private static function build_vehicle_sync_signature(array $vehicle, array $apolo_reconciliation, array $photo_urls, string $official_unit_name, string $title): string {
         $payload = [
-            'photo_source_rule_version' => '2026-08-direct-autosync-v1',
+            'photo_source_rule_version' => '2026-09-autosync-links-featured-only-v1',
             'proposal_days_rule_version' => '2026-08-positive-only-v1',
             'apolo_priority_rule_version' => '2026-08-apolo-first-v1',
             'title' => $title,
@@ -3864,6 +3886,8 @@ JS;
             'repasse' => (int) get_post_meta($post_id, 'repasse', true) === 1,
             'negotiated' => (int) get_post_meta($post_id, 'negociacao', true) === 1,
             'transit' => (int) get_post_meta($post_id, 'transito', true) === 1
+                || (int) get_post_meta($post_id, 'apolo_transito', true) === 1
+                || strtoupper((string) get_post_meta($post_id, 'apolo_situacao', true)) === 'TM'
                 || str_contains(self::canonicalize_text($reason . ' ' . self::dashboard_term_name($post_id, 'status-loja')), 'transito'),
             'missingPhoto' => empty($photos),
             'missingPrice' => $price <= 0,
@@ -4004,6 +4028,7 @@ JS;
         update_post_meta($post_id, 'apolo_nome_fantasia', (string) ($apolo_reconciliation['apolo']['nome_fantasia'] ?? ''));
         update_post_meta($post_id, 'apolo_cnpj', (string) ($apolo_reconciliation['apolo']['cnpj'] ?? ''));
         update_post_meta($post_id, 'apolo_negociacao', !empty($apolo_reconciliation['apolo']['negociacao']) ? 1 : 0);
+        update_post_meta($post_id, 'apolo_transito', !empty($apolo_reconciliation['apolo']['transito']) ? 1 : 0);
         update_post_meta($post_id, 'apolo_proposta', (string) ($apolo_reconciliation['apolo']['proposta'] ?? ''));
         update_post_meta($post_id, 'apolo_vendedor_proposta', (string) ($apolo_reconciliation['apolo']['vendedor_proposta'] ?? ''));
         update_post_meta($post_id, 'apolo_dias_estoque', max(0, (int) ($apolo_reconciliation['apolo']['dias_estoque'] ?? 0)));
@@ -4069,15 +4094,14 @@ JS;
             !empty($apolo_reconciliation['apolo']['repasse'])
         );
 
+        $real_photo_urls = self::extract_real_vehicle_photo_urls($photo_urls);
+        $card_photo_url = (string) ($real_photo_urls[0] ?? '');
         $photo_urls_text = implode("\n", $photo_urls);
-        $previous_photo_urls_text = (string) get_post_meta($post_id, 'autosync_photo_urls', true);
         update_post_meta($post_id, 'autosync_photo_urls', $photo_urls_text);
-        update_post_meta($post_id, 'autosync_foto_destaque_url', (string) ($photo_urls[0] ?? ''));
+        update_post_meta($post_id, 'autosync_foto_destaque_url', $card_photo_url);
         update_post_meta($post_id, 'autosync_galeria_urls', $photo_urls_text);
-        update_post_meta($post_id, 'quantidade_fotos', count($photo_urls));
-        if ($photo_urls_text !== '' && $photo_urls_text !== $previous_photo_urls_text) {
-            self::import_vehicle_photos_to_gallery($post_id, $vehicle);
-        }
+        update_post_meta($post_id, 'quantidade_fotos', count($real_photo_urls));
+        self::sync_vehicle_featured_photo($post_id, $card_photo_url);
         update_post_meta($post_id, 'savol_sync_signature', $sync_signature);
         if ($plate !== '') {
             self::cleanup_duplicate_plate_posts($post_id, $plate);
@@ -4378,59 +4402,41 @@ JS;
         }
     }
 
-    private static function import_vehicle_photos_to_gallery(int $post_id, array $vehicle): void {
-        if (empty($vehicle['VehiclePhotos']) || !is_array($vehicle['VehiclePhotos'])) {
+    private static function sync_vehicle_featured_photo(int $post_id, string $url): void {
+        $url = esc_url_raw($url);
+        delete_post_meta($post_id, 'galeria_fotos');
+
+        if ($url === '') {
+            delete_post_thumbnail($post_id);
             return;
         }
-
-        usort($vehicle['VehiclePhotos'], static function ($a, $b) {
-            $orderA = isset($a['order']) ? (int) $a['order'] : 9999;
-            $orderB = isset($b['order']) ? (int) $b['order'] : 9999;
-            return $orderA <=> $orderB;
-        });
 
         require_once ABSPATH . 'wp-admin/includes/media.php';
         require_once ABSPATH . 'wp-admin/includes/file.php';
         require_once ABSPATH . 'wp-admin/includes/image.php';
 
-        $gallery_ids = [];
         add_filter('http_request_timeout', [__CLASS__, 'get_photo_import_timeout']);
         try {
-            foreach ($vehicle['VehiclePhotos'] as $photo) {
-                if (!is_array($photo) || empty($photo['link'])) {
-                    continue;
+            $attachment_id = self::find_attachment_by_source_url($url);
+            if ($attachment_id <= 0) {
+                $attachment_id = media_sideload_image($url, $post_id, null, 'id');
+                if (is_wp_error($attachment_id)) {
+                    delete_post_thumbnail($post_id);
+                    return;
                 }
-                $url = esc_url_raw((string) $photo['link']);
-                if ($url === '') {
-                    continue;
-                }
-
-                $attachment_id = self::find_attachment_by_source_url($url);
+                $attachment_id = (int) $attachment_id;
                 if ($attachment_id <= 0) {
-                    $attachment_id = media_sideload_image($url, $post_id, null, 'id');
-                    if (is_wp_error($attachment_id)) {
-                        continue;
-                    }
-                    $attachment_id = (int) $attachment_id;
-                    if ($attachment_id <= 0) {
-                        continue;
-                    }
-                    update_post_meta($attachment_id, '_savol_source_url', $url);
+                    delete_post_thumbnail($post_id);
+                    return;
                 }
-
-                wp_update_post(['ID' => $attachment_id, 'post_parent' => $post_id]);
-                $gallery_ids[] = $attachment_id;
+                update_post_meta($attachment_id, '_savol_source_url', $url);
             }
+
+            wp_update_post(['ID' => $attachment_id, 'post_parent' => $post_id]);
+            update_post_meta($post_id, 'galeria_fotos', (string) $attachment_id);
+            set_post_thumbnail($post_id, $attachment_id);
         } finally {
             remove_filter('http_request_timeout', [__CLASS__, 'get_photo_import_timeout']);
-        }
-
-        if (!empty($gallery_ids)) {
-            $gallery_ids = array_values(array_unique(array_map('absint', $gallery_ids)));
-            update_post_meta($post_id, 'galeria_fotos', implode(',', $gallery_ids));
-            if (isset($gallery_ids[0])) {
-                set_post_thumbnail($post_id, $gallery_ids[0]);
-            }
         }
     }
 
