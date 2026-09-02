@@ -62,6 +62,8 @@ final class Savol_Veiculos_CPT {
     private const AUTOSYNC_BATCH_OPTION = 'savol_veiculos_autosync_batch';
     private const AUTOSYNC_BATCH_SIZE = 10;
     private const AUTOSYNC_BATCH_TIME_LIMIT = 45;
+    private const DASHBOARD_OPERATIONS_OPTION = 'savol_dashboard_operations_log';
+    private const DASHBOARD_OPERATIONS_MAX_ITEMS = 5000;
     private const APOLO_STOCK_URL = 'https://drive.google.com/uc?export=download&id=1zyCN8JXUa5kUD-kjeIsO49y7J3wRmFd4';
     private const APOLO_ALLOWED_COMPANY_RESELLERS_DEFAULT = [
         '16:1',
@@ -1061,6 +1063,12 @@ final class Savol_Veiculos_CPT {
             'permission_callback' => '__return_true',
         ]);
 
+        register_rest_route('savol/v1', '/dashboard/operacoes', [
+            'methods' => \WP_REST_Server::READABLE,
+            'callback' => [__CLASS__, 'handle_dashboard_operations_request'],
+            'permission_callback' => '__return_true',
+        ]);
+
         register_rest_route('savol/v1', '/dashboard/login', [
             'methods' => \WP_REST_Server::CREATABLE,
             'callback' => [__CLASS__, 'handle_dashboard_login_request'],
@@ -1119,6 +1127,41 @@ final class Savol_Veiculos_CPT {
             array_map([__CLASS__, 'dashboard_vehicle_payload'], $posts),
             [__CLASS__, 'dashboard_vehicle_is_allowed_company_reseller']
         ));
+
+        return new \WP_REST_Response([
+            'ok' => true,
+            'items' => $items,
+            'total' => count($items),
+            'source' => 'savol-comercial-suite',
+            'updatedAt' => current_time('mysql'),
+        ], 200);
+    }
+
+    public static function handle_dashboard_operations_request(\WP_REST_Request $request): \WP_REST_Response {
+        $type = sanitize_key((string) $request->get_param('type'));
+        $date_start = sanitize_text_field((string) $request->get_param('dateStart'));
+        $date_end = sanitize_text_field((string) $request->get_param('dateEnd'));
+        $operations = self::get_dashboard_operations_log();
+
+        $items = array_values(array_filter($operations, static function ($operation) use ($type, $date_start, $date_end): bool {
+            if (!is_array($operation)) {
+                return false;
+            }
+            if ($type !== '' && (string) ($operation['type'] ?? '') !== $type) {
+                return false;
+            }
+
+            $occurred_at = (string) ($operation['occurredAt'] ?? '');
+            $date_key = substr($occurred_at, 0, 10);
+            if ($date_start !== '' && $date_key < $date_start) {
+                return false;
+            }
+            if ($date_end !== '' && $date_key > $date_end) {
+                return false;
+            }
+
+            return true;
+        }));
 
         return new \WP_REST_Response([
             'ok' => true,
@@ -3431,13 +3474,19 @@ JS;
 
             update_post_meta($post_id, 'apolo_reconciliacao_motivo', 'Vendido');
             update_post_meta($post_id, 'apolo_presente', 0);
+            $sold_at = (string) get_post_meta($post_id, 'apolo_vendido_em', true);
+            $should_record_sale = $sold_at === '';
             if ((string) get_post_meta($post_id, 'apolo_removido_em', true) === '') {
                 update_post_meta($post_id, 'apolo_removido_em', current_time('mysql'));
             }
-            if ((string) get_post_meta($post_id, 'apolo_vendido_em', true) === '') {
-                update_post_meta($post_id, 'apolo_vendido_em', current_time('mysql'));
+            if ($sold_at === '') {
+                $sold_at = current_time('mysql');
+                update_post_meta($post_id, 'apolo_vendido_em', $sold_at);
             }
             update_post_meta($post_id, 'apolo_status_operacional', 'vendido');
+            if ($should_record_sale) {
+                self::record_dashboard_operation('saida', $post_id, $sold_at);
+            }
             update_post_meta($post_id, 'savol_sync_signature', '');
             self::set_status_loja_term($post_id, 'Vendido');
             $post = get_post($post_id);
@@ -3880,6 +3929,44 @@ JS;
         return self::parse_money_value(get_post_meta($post_id, $key, true));
     }
 
+    private static function get_dashboard_operations_log(): array {
+        $operations = get_option(self::DASHBOARD_OPERATIONS_OPTION, []);
+        return is_array($operations) ? $operations : [];
+    }
+
+    private static function record_dashboard_operation(string $type, int $post_id, string $occurred_at): void {
+        $type = sanitize_key($type);
+        if ($type === '' || $post_id <= 0 || $occurred_at === '') {
+            return;
+        }
+
+        $post = get_post($post_id);
+        if (!$post instanceof \WP_Post) {
+            return;
+        }
+
+        $vehicle = self::dashboard_vehicle_payload($post);
+        $operation = array_merge($vehicle, [
+            'operationId' => $type . ':' . $post_id . ':' . substr($occurred_at, 0, 10),
+            'type' => $type,
+            'occurredAt' => $occurred_at,
+            'createdAt' => $occurred_at,
+            'operationalStatus' => $type === 'saida' ? 'vendido' : 'em_estoque',
+        ]);
+
+        $operations = self::get_dashboard_operations_log();
+        $operations = array_values(array_filter($operations, static function ($item) use ($operation): bool {
+            return is_array($item) && (string) ($item['operationId'] ?? '') !== (string) $operation['operationId'];
+        }));
+        array_unshift($operations, $operation);
+
+        if (count($operations) > self::DASHBOARD_OPERATIONS_MAX_ITEMS) {
+            $operations = array_slice($operations, 0, self::DASHBOARD_OPERATIONS_MAX_ITEMS);
+        }
+
+        update_option(self::DASHBOARD_OPERATIONS_OPTION, $operations, false);
+    }
+
     private static function dashboard_photo_urls(int $post_id): array {
         $urls = [];
         $featured_id = get_post_thumbnail_id($post_id);
@@ -4164,7 +4251,6 @@ JS;
         } else {
             delete_post_meta($post_id, 'dias_proposta');
         }
-
         self::set_term_if_value($post_id, 'veiculo_marca', (string) ($vehicle['brandName'] ?? ''));
         self::set_term_if_value($post_id, 'veiculo_modelo', (string) ($vehicle['modelName'] ?? ''));
         self::set_term_if_value($post_id, 'veiculo_versao', (string) ($vehicle['versionName'] ?? ''));
@@ -4184,6 +4270,9 @@ JS;
             $published_price,
             !empty($apolo_reconciliation['apolo']['repasse'])
         );
+        if (!$was_in_apolo) {
+            self::record_dashboard_operation('entrada', $post_id, $now);
+        }
 
         $real_photo_urls = self::extract_real_vehicle_photo_urls($photo_urls);
         $card_photo_url = (string) ($real_photo_urls[0] ?? '');
