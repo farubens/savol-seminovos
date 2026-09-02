@@ -1060,6 +1060,50 @@ final class Savol_Veiculos_CPT {
             'callback' => [__CLASS__, 'handle_dashboard_vehicles_request'],
             'permission_callback' => '__return_true',
         ]);
+
+        register_rest_route('savol/v1', '/dashboard/login', [
+            'methods' => \WP_REST_Server::CREATABLE,
+            'callback' => [__CLASS__, 'handle_dashboard_login_request'],
+            'permission_callback' => '__return_true',
+        ]);
+    }
+
+    public static function handle_dashboard_login_request(\WP_REST_Request $request): \WP_REST_Response {
+        $username = sanitize_user((string) $request->get_param('username'));
+        $password = (string) $request->get_param('password');
+
+        if ($username === '' || $password === '') {
+            return new \WP_REST_Response([
+                'ok' => false,
+                'message' => 'Informe usuario e senha.',
+            ], 400);
+        }
+
+        $user = wp_authenticate($username, $password);
+        if (is_wp_error($user) || !($user instanceof \WP_User)) {
+            return new \WP_REST_Response([
+                'ok' => false,
+                'message' => 'Usuario ou senha invalidos.',
+            ], 401);
+        }
+
+        if (!user_can($user, 'edit_posts')) {
+            return new \WP_REST_Response([
+                'ok' => false,
+                'message' => 'Usuario sem permissao para acessar o painel.',
+            ], 403);
+        }
+
+        return new \WP_REST_Response([
+            'ok' => true,
+            'user' => [
+                'id' => (int) $user->ID,
+                'name' => $user->display_name,
+                'username' => $user->user_login,
+                'email' => $user->user_email,
+                'roles' => array_values((array) $user->roles),
+            ],
+        ], 200);
     }
 
     public static function handle_dashboard_vehicles_request(\WP_REST_Request $request): \WP_REST_Response {
