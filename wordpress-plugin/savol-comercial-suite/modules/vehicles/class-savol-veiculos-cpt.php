@@ -3378,13 +3378,17 @@ JS;
                 continue;
             }
 
-            update_post_meta($post_id, 'apolo_reconciliacao_motivo', 'Não cadastrado no APOLO');
+            update_post_meta($post_id, 'apolo_reconciliacao_motivo', 'Vendido');
             update_post_meta($post_id, 'apolo_presente', 0);
             if ((string) get_post_meta($post_id, 'apolo_removido_em', true) === '') {
                 update_post_meta($post_id, 'apolo_removido_em', current_time('mysql'));
             }
+            if ((string) get_post_meta($post_id, 'apolo_vendido_em', true) === '') {
+                update_post_meta($post_id, 'apolo_vendido_em', current_time('mysql'));
+            }
+            update_post_meta($post_id, 'apolo_status_operacional', 'vendido');
             update_post_meta($post_id, 'savol_sync_signature', '');
-            self::set_status_loja_term($post_id, 'Não cadastrado no APOLO');
+            self::set_status_loja_term($post_id, 'Vendido');
             $post = get_post($post_id);
             $title = $post ? self::strip_apolo_draft_reason_from_title((string) $post->post_title) : '';
             $postarr = [
@@ -3861,7 +3865,7 @@ JS;
         $status_label = $post_status === 'publish' ? 'Publicado no site' : ($reason !== '' ? $reason : 'Rascunho');
         $slug = (string) $post->post_name;
         $in_apolo = (string) get_post_meta($post_id, 'apolo_presente', true);
-        $in_apolo = $in_apolo === '' ? !str_contains(self::canonicalize_text($reason), 'nao cadastrado no apolo') : $in_apolo === '1';
+        $in_apolo = $in_apolo === '' ? !str_contains(self::canonicalize_text($reason), 'vendido') : $in_apolo === '1';
 
         return [
             'id' => $post_id,
@@ -3897,6 +3901,11 @@ JS;
             'visibleOnSite' => $post_status === 'publish',
             'inApolo' => $in_apolo,
             'apoloRemovedAt' => (string) get_post_meta($post_id, 'apolo_removido_em', true),
+            'apoloSoldAt' => (string) get_post_meta($post_id, 'apolo_vendido_em', true),
+            'apoloFirstSeenAt' => (string) get_post_meta($post_id, 'apolo_primeiro_visto_em', true),
+            'apoloPurchasedAt' => (string) get_post_meta($post_id, 'apolo_comprado_em', true),
+            'apoloLastSeenAt' => (string) get_post_meta($post_id, 'apolo_ultimo_visto_em', true),
+            'apoloOperationalStatus' => (string) get_post_meta($post_id, 'apolo_status_operacional', true),
             'apoloUpdatedAt' => (string) get_post_meta($post_id, 'apolo_atualizado_em', true),
             'createdAt' => get_post_time('c', true, $post_id),
         ];
@@ -4045,10 +4054,23 @@ JS;
                 ? (!empty($apolo_reconciliation['apolo']['blindado']) ? 1 : 0)
                 : ''
         );
+        $now = current_time('mysql');
+        $was_in_apolo = (string) get_post_meta($post_id, 'apolo_presente', true) === '1';
+
+        if ((string) get_post_meta($post_id, 'apolo_primeiro_visto_em', true) === '') {
+            update_post_meta($post_id, 'apolo_primeiro_visto_em', $now);
+        }
+        if (!$was_in_apolo) {
+            update_post_meta($post_id, 'apolo_comprado_em', $now);
+        }
+
         update_post_meta($post_id, 'apolo_reconciliacao_motivo', (string) $apolo_reconciliation['reason']);
         update_post_meta($post_id, 'apolo_presente', 1);
-        update_post_meta($post_id, 'apolo_atualizado_em', current_time('mysql'));
+        update_post_meta($post_id, 'apolo_atualizado_em', $now);
+        update_post_meta($post_id, 'apolo_ultimo_visto_em', $now);
         delete_post_meta($post_id, 'apolo_removido_em');
+        delete_post_meta($post_id, 'apolo_vendido_em');
+        update_post_meta($post_id, 'apolo_status_operacional', 'em_estoque');
         update_post_meta($post_id, 'combustivel', (string) ($vehicle['fuelName'] ?? ''));
         update_post_meta($post_id, 'cambio', (string) ($vehicle['transmissionName'] ?? ''));
         update_post_meta($post_id, 'categoria', (string) ($vehicle['section'] ?? ''));
