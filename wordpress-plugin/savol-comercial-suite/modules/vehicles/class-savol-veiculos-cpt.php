@@ -3894,6 +3894,11 @@ JS;
             'publicUrl' => self::PUBLIC_SITE_URL . '/veiculos/' . ($slug !== '' ? $slug : $post_id),
             'photoCount' => count($photos),
             'stockDays' => max(0, (int) get_post_meta($post_id, 'dias_estoque', true)),
+            'proposalDays' => get_post_meta($post_id, 'dias_proposta', true) !== ''
+                ? max(0, (int) get_post_meta($post_id, 'dias_proposta', true))
+                : null,
+            'purchaseDate' => (string) get_post_meta($post_id, 'apolo_comprado_em', true),
+            'saleDate' => (string) get_post_meta($post_id, 'apolo_vendido_em', true),
             'repasse' => (int) get_post_meta($post_id, 'repasse', true) === 1,
             'negotiated' => (int) get_post_meta($post_id, 'negociacao', true) === 1,
             'transit' => (int) get_post_meta($post_id, 'transito', true) === 1
