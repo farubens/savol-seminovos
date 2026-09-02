@@ -68,6 +68,10 @@ final class Savol_Veiculos_CPT {
         '17:1',
         '1:1',
         '1:2',
+        '14:1',
+        '5:1',
+        '14:3',
+        '14:4',
     ];
     private const APOLO_ALLOWED_SITUATIONS_DEFAULT = ['ES', 'ED'];
     private const APOLO_DRAFT_REASONS = [
@@ -1067,7 +1071,10 @@ final class Savol_Veiculos_CPT {
             'order' => 'DESC',
         ]);
 
-        $items = array_map([__CLASS__, 'dashboard_vehicle_payload'], $posts);
+        $items = array_values(array_filter(
+            array_map([__CLASS__, 'dashboard_vehicle_payload'], $posts),
+            [__CLASS__, 'dashboard_vehicle_is_allowed_company_reseller']
+        ));
 
         return new \WP_REST_Response([
             'ok' => true,
@@ -3900,6 +3907,8 @@ JS;
             'draftReason' => $reason,
             'visibleOnSite' => $post_status === 'publish',
             'inApolo' => $in_apolo,
+            'apoloCompany' => (string) get_post_meta($post_id, 'apolo_empresa', true),
+            'apoloReseller' => (string) get_post_meta($post_id, 'apolo_revenda_origem', true),
             'apoloRemovedAt' => (string) get_post_meta($post_id, 'apolo_removido_em', true),
             'apoloSoldAt' => (string) get_post_meta($post_id, 'apolo_vendido_em', true),
             'apoloFirstSeenAt' => (string) get_post_meta($post_id, 'apolo_primeiro_visto_em', true),
@@ -3909,6 +3918,17 @@ JS;
             'apoloUpdatedAt' => (string) get_post_meta($post_id, 'apolo_atualizado_em', true),
             'createdAt' => get_post_time('c', true, $post_id),
         ];
+    }
+
+    private static function dashboard_vehicle_is_allowed_company_reseller(array $vehicle): bool {
+        $company = preg_replace('/\D+/', '', (string) ($vehicle['apoloCompany'] ?? ''));
+        $reseller = preg_replace('/\D+/', '', (string) ($vehicle['apoloReseller'] ?? ''));
+
+        if ($company === '' || $reseller === '') {
+            return false;
+        }
+
+        return in_array(ltrim($company, '0') . ':' . ltrim($reseller, '0'), self::get_apolo_allowed_company_resellers(), true);
     }
 
     private static function resolve_vehicle_sale_price(array $vehicle, array $apolo_item): float {
