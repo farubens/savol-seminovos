@@ -2,8 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   BadgeCheck,
   CalendarDays,
@@ -236,11 +235,6 @@ function toAbsoluteDetailUrl(url: string): string {
   return new URL(url, window.location.origin).toString();
 }
 
-function shouldIgnoreCardNavigation(target: EventTarget | null): boolean {
-  if (typeof Element === "undefined" || !(target instanceof Element)) return false;
-  return Boolean(target.closest("a, button, input, select, textarea, label, [role='button']"));
-}
-
 function normalizeStoreName(value: string): string {
   return value.replace(/^loja:\s*/i, "").trim();
 }
@@ -412,7 +406,6 @@ export function VehicleOfferCard({
     consent: boolean;
   };
 
-  const router = useRouter();
   const { hasVisited, isFavorite, toggleFavorite } = useSavolAccount();
   const financeId = useId();
   const safeImage = !image || isPreparationImage(image) ? FALLBACK_IMAGE : image;
@@ -965,27 +958,6 @@ export function VehicleOfferCard({
   const isSavedAsFavorite = isFavorite(vehicleId);
   const wasVisited = hasVisited(vehicleId);
 
-  const navigateToDetails = () => {
-    if (detailUrlIsExternal) {
-      window.open(resolvedDetailUrl, "_blank", "noopener,noreferrer");
-      return;
-    }
-    rememberVehicleNavigation(resolvedDetailUrl);
-    router.push(resolvedDetailUrl);
-  };
-
-  const handleCardClick = (event: ReactMouseEvent<HTMLElement>) => {
-    if (shouldIgnoreCardNavigation(event.target)) return;
-    navigateToDetails();
-  };
-
-  const handleCardKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
-    if (event.defaultPrevented || shouldIgnoreCardNavigation(event.target)) return;
-    if (event.key !== "Enter" && event.key !== " ") return;
-    event.preventDefault();
-    navigateToDetails();
-  };
-
   const goToNextGalleryImage = () => {
     setSelectedImageIndex((current) => (current + 1) % modalGallery.length);
   };
@@ -998,16 +970,27 @@ export function VehicleOfferCard({
     <>
       <motion.article
         className={`offer-card offer-card--${variant}`}
-        role="link"
-        tabIndex={0}
-        aria-label={`Ver detalhes de ${modalTitle || name}`}
-        onClick={handleCardClick}
-        onKeyDown={handleCardKeyDown}
         initial={{ opacity: 0, y: 22 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, amount: 0.2 }}
         transition={{ duration: 0.45, delay, ease: "easeOut" }}
       >
+        {detailUrlIsExternal ? (
+          <a
+            className="offer-card-link-overlay"
+            href={resolvedDetailUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`Ver detalhes de ${modalTitle || name}`}
+          />
+        ) : (
+          <Link
+            className="offer-card-link-overlay"
+            href={resolvedDetailUrl}
+            aria-label={`Ver detalhes de ${modalTitle || name}`}
+            onClick={() => rememberVehicleNavigation(resolvedDetailUrl)}
+          />
+        )}
         <div className={`offer-media${isPreparationFallback ? " offer-media--preparation" : ""}`}>
           <div className={`offer-card-actions-floating${wasVisited ? "" : " is-favorite-only"}`}>
             {wasVisited ? (

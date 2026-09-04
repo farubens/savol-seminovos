@@ -5,6 +5,7 @@ const DEFAULT_VEHICLES_PER_PAGE = 24;
 const MAX_VEHICLES_PER_PAGE = 200;
 const STORES_PER_PAGE = 60;
 const HOME_CACHE_TTL_MS = 2 * 60 * 1000;
+const HOME_PARTIAL_CACHE_TTL_MS = 10 * 1000;
 
 type ApiListResponse<T> = {
   items?: T[];
@@ -60,15 +61,15 @@ export async function GET(request: NextRequest) {
         ]);
 
         const payload: HomeDataPayload = {
-          vehicles,
-          stores,
+          vehicles: vehicles.length ? vehicles : homeCache?.payload.vehicles ?? [],
+          stores: stores.length ? stores : homeCache?.payload.stores ?? [],
           fetchedAt: Date.now()
         };
 
-        const hasContent = payload.vehicles.length > 0 || payload.stores.length > 0;
+        const hasVehicles = payload.vehicles.length > 0;
         homeCache = {
           payload,
-          expiresAt: Date.now() + (hasContent ? HOME_CACHE_TTL_MS : 10 * 1000)
+          expiresAt: Date.now() + (hasVehicles ? HOME_CACHE_TTL_MS : HOME_PARTIAL_CACHE_TTL_MS)
         };
 
         return payload;

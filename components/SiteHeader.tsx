@@ -2,8 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { Facebook, Heart, Instagram, Menu, Search, ShieldCheck, X } from "lucide-react";
 
 type HeaderProps = {
@@ -13,11 +13,52 @@ type HeaderProps = {
 
 export function SiteHeader({ active = "home", showEnvNote = false }: HeaderProps) {
   const pathname = usePathname();
+  const router = useRouter();
+  const searchWrapRef = useRef<HTMLDivElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     setMobileMenuOpen(false);
+    setSearchOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    if (!searchOpen) return;
+    searchInputRef.current?.focus();
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!searchWrapRef.current?.contains(event.target as Node)) {
+        setSearchOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setSearchOpen(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [searchOpen]);
+
+  const submitSearch = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const query = searchTerm.trim();
+    const destination = query ? `/veiculos?q=${encodeURIComponent(query)}` : "/veiculos";
+
+    setSearchOpen(false);
+    setMobileMenuOpen(false);
+    router.push(destination);
+  };
 
   return (
     <>
@@ -78,9 +119,35 @@ export function SiteHeader({ active = "home", showEnvNote = false }: HeaderProps
             <Link className={`btn btn-sm ${active === "contato" ? "active" : ""}`} href="/contato">
               Contato
             </Link>
-            <Link href="/veiculos" className="icon-btn" aria-label="Buscar">
-              <Search size={16} />
-            </Link>
+            <div className={`header-search${searchOpen ? " is-open" : ""}`} ref={searchWrapRef}>
+              <button
+                type="button"
+                className="icon-btn header-search-trigger"
+                aria-label={searchOpen ? "Fechar busca" : "Buscar"}
+                aria-expanded={searchOpen}
+                aria-controls="header-search-panel"
+                onClick={() => setSearchOpen((current) => !current)}
+              >
+                {searchOpen ? <X size={16} /> : <Search size={16} />}
+              </button>
+              <form className="header-search-panel" id="header-search-panel" role="search" onSubmit={submitSearch}>
+                <label htmlFor="header-search-input">Buscar seminovo</label>
+                <div className="header-search-field">
+                  <Search size={17} />
+                  <input
+                    ref={searchInputRef}
+                    id="header-search-input"
+                    type="search"
+                    value={searchTerm}
+                    onChange={(event) => setSearchTerm(event.target.value)}
+                    placeholder="Modelo, marca, ano..."
+                  />
+                  <button type="submit" aria-label="Buscar veículos">
+                    <Search size={16} />
+                  </button>
+                </div>
+              </form>
+            </div>
             <Link href="/minha-conta" className={`icon-btn ${active === "conta" ? "active" : ""}`} aria-label="Minha conta e favoritos">
               <Heart size={16} />
             </Link>

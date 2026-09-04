@@ -136,6 +136,22 @@ function formatPriceValue(value: number): string {
   }).format(value);
 }
 
+function formatPriceInputValue(value: number | null): string {
+  if (value == null) return "";
+  return `R$ ${new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 }).format(value)}`;
+}
+
+function parsePriceInputValue(value: string): number | null {
+  const parsedCurrency = /,\d{1,2}\s*$/.test(value) ? parseCurrencyToInteger(value) : null;
+  if (parsedCurrency != null) return parsedCurrency;
+
+  const digits = value.replace(/[^\d]/g, "");
+  if (!digits) return null;
+
+  const parsed = Number(digits);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function formatKmValue(value: number): string {
   return `${new Intl.NumberFormat("pt-BR").format(value)} km`;
 }
@@ -588,6 +604,30 @@ export function VehicleCatalog({ mode = "all", basePath = "/veiculos" }: Vehicle
   const priceRightPercent = toPercent(sliderPriceMax, priceSliderMinBound, priceSliderMaxBound);
   const kmLeftPercent = toPercent(sliderKmMin, kmSliderMinBound, kmSliderMaxBound);
   const kmRightPercent = toPercent(sliderKmMax, kmSliderMinBound, kmSliderMaxBound);
+
+  const handlePriceMinInputChange = (raw: string) => {
+    const parsed = parsePriceInputValue(raw);
+    if (parsed == null) {
+      setPriceMin(null);
+      return;
+    }
+
+    const next = clampNumber(parsed, priceSliderMinBound, priceSliderMaxBound);
+    setPriceMin(next);
+    if (priceMax != null && next > priceMax) setPriceMax(next);
+  };
+
+  const handlePriceMaxInputChange = (raw: string) => {
+    const parsed = parsePriceInputValue(raw);
+    if (parsed == null) {
+      setPriceMax(null);
+      return;
+    }
+
+    const next = clampNumber(parsed, priceSliderMinBound, priceSliderMaxBound);
+    setPriceMax(next);
+    if (priceMin != null && next < priceMin) setPriceMin(next);
+  };
 
   const filteredVehicles = useMemo(() => {
     const queryTokens = normalize(query)
@@ -1268,46 +1308,20 @@ export function VehicleCatalog({ mode = "all", basePath = "/veiculos" }: Vehicle
                       <label>
                         Mínimo
                         <input
-                          type="number"
-                          min={priceSliderMinBound}
-                          max={priceSliderMaxBound}
-                          step={1000}
-                          value={priceMin ?? ""}
-                          onChange={(event) => {
-                            const raw = event.target.value;
-                            if (!raw) {
-                              setPriceMin(null);
-                              return;
-                            }
-                            const parsed = Number(raw);
-                            if (!Number.isFinite(parsed)) return;
-                            const next = clampNumber(parsed, priceSliderMinBound, priceSliderMaxBound);
-                            setPriceMin(next);
-                            if (priceMax != null && next > priceMax) setPriceMax(next);
-                          }}
+                          type="text"
+                          inputMode="numeric"
+                          value={formatPriceInputValue(priceMin)}
+                          onChange={(event) => handlePriceMinInputChange(event.target.value)}
                           placeholder="Sem mínimo"
                         />
                       </label>
                       <label>
                         Máximo
                         <input
-                          type="number"
-                          min={priceSliderMinBound}
-                          max={priceSliderMaxBound}
-                          step={1000}
-                          value={priceMax ?? ""}
-                          onChange={(event) => {
-                            const raw = event.target.value;
-                            if (!raw) {
-                              setPriceMax(null);
-                              return;
-                            }
-                            const parsed = Number(raw);
-                            if (!Number.isFinite(parsed)) return;
-                            const next = clampNumber(parsed, priceSliderMinBound, priceSliderMaxBound);
-                            setPriceMax(next);
-                            if (priceMin != null && next < priceMin) setPriceMin(next);
-                          }}
+                          type="text"
+                          inputMode="numeric"
+                          value={formatPriceInputValue(priceMax)}
+                          onChange={(event) => handlePriceMaxInputChange(event.target.value)}
                           placeholder="Sem máximo"
                         />
                       </label>

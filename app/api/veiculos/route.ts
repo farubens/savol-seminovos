@@ -18,6 +18,7 @@ const WP_PAGE_SIZE = 100;
 const MISSING_SPEC_LABEL = "N/A";
 const API_CACHE_TTL_MS = 2 * 60 * 1000;
 const WP_FETCH_TIMEOUT_MS = 12000;
+const EMPTY_STOCK_RETRY_DELAY_MS = 1200;
 const WP_DEFAULT_USER = "fa.rubens@gmail.com";
 const WP_DEFAULT_APP_PASSWORD = "W9y4 bUld QOIG PV4u oIHo csrb";
 const SITE_BASE_URL = (process.env.NEXT_PUBLIC_SITE_URL?.trim() || "https://www.savolseminovos.com.br").replace(/\/+$/, "");
@@ -115,6 +116,10 @@ function toInt(value: string | null | undefined, fallback: number): number {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function decodeHtml(value: string): string {
@@ -838,8 +843,12 @@ export async function GET(request: NextRequest) {
     if (!vehiclesInFlight) {
       vehiclesInFlight = (async () => {
         const authHeaders = getAuthHeaders();
-        const rows = await fetchVehiclePosts(MAX_PER_PAGE, authHeaders);
-        if (!rows.length) return [];
+        let rows = await fetchVehiclePosts(MAX_PER_PAGE, authHeaders);
+        if (!rows.length) {
+          await delay(EMPTY_STOCK_RETRY_DELAY_MS);
+          rows = await fetchVehiclePosts(MAX_PER_PAGE, authHeaders);
+        }
+        if (!rows.length) return vehiclesCache?.items ?? [];
 
         const dayKey = getSaoPauloDayKey();
         const items = rows
