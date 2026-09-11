@@ -639,9 +639,38 @@ function getQualityTag(content: string, condition: string): string {
   return "Disponível";
 }
 
+function normalizeStoreLabelText(value: string): string {
+  return normalizeForMatch(value).replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
+}
+
 function buildStoreLabel(value: string): string {
   if (!value) return "Unidade não informada";
-  return value.replace(/\s*-\s*/g, " - ");
+  const label = cleanText(value).replace(/\s*-\s*/g, " - ");
+  const normalized = normalizeStoreLabelText(label);
+
+  if (normalized.includes("toyota")) {
+    if (normalized.includes("dom pedro")) return "SAVOL TOYOTA DOM PEDRO";
+    if (normalized.includes("praia grande")) return "SAVOL TOYOTA PRAIA GRANDE";
+    if (normalized.includes("maua")) return "SAVOL TOYOTA MAUA";
+    if (normalized.includes("sao bernardo") || normalized.includes("sbc")) return "SAVOL TOYOTA SBC";
+    if (normalized.includes("santo andre")) return "SAVOL TOYOTA SANTO ANDR\u00c9";
+  }
+
+  if (normalized.includes("volks") || normalized.includes("volkswagen")) {
+    if (normalized.includes("pereira barreto")) return "SAVOL VOLKS PEREIRA BARRETO";
+    if (normalized.includes("santo andre")) return "SAVOL VOLKS SANTO ANDRE";
+  }
+
+  if (normalized.includes("jetour")) return "SAVOL JETOUR DOM PEDRO";
+  if (normalized.includes("mg")) return "SAVOL MG S\u00c3O CAETANO";
+
+  if (normalized.includes("peugeot") || normalized.includes("citroen")) {
+    if (normalized.includes("sao caetano")) return "PEUGEOT/CITROEN SAO CAETANO";
+    if (normalized.includes("sao bernardo") || normalized.includes("sbc")) return "PEUGEOT/CITROEN SBC";
+    if (normalized.includes("santo andre")) return "PEUGEOT/CITROEN SANTO ANDRE";
+  }
+
+  return label;
 }
 
 function parseBrandModelVersionFromTitle(title: string): { brand: string; model: string; version: string } {

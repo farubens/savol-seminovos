@@ -1,4 +1,4 @@
-export const VEHICLE_FALLBACK_IMAGE = "/images/fallback-atualizado.webp";
+export const VEHICLE_FALLBACK_IMAGE = "/images/fallback-oficial.jpg";
 
 function normalizeImageReference(value: string): string {
   let decoded = value;
@@ -22,6 +22,7 @@ export function isPreparationVehicleImageUrl(value: string): boolean {
   return (
     normalized.includes("imagesempreparacao") ||
     normalized.includes("imagesfallbackatualizado") ||
+    normalized.includes("fallbackoficial") ||
     normalized.includes("empreparacao") ||
     normalized.includes("empreparao") ||
     normalized.includes("preparacao") ||

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search, SlidersHorizontal, X } from "lucide-react";
+import { ChevronDown, Search, SlidersHorizontal, X } from "lucide-react";
 import type { ApiVehicle } from "@/types/home";
 import { useHomeSessionData } from "@/components/HomeSessionDataProvider";
 import { SellYourCarCta } from "@/components/SellYourCarCta";
@@ -17,6 +17,7 @@ const SKELETON_COUNT = 20;
 type OptionEntry = [slug: string, label: string];
 type BodyInfo = { slug: string; label: string };
 type CategoryInfo = { slug: string; label: string };
+type MobileQuickFilter = "stores" | "brands" | "models";
 type CatalogCategoryOption =
   | { kind: "body"; slug: string; label: string; count: number }
   | { kind: "energy"; slug: "eletrico" | "hibrido"; label: string; count: number };
@@ -24,6 +25,21 @@ type CatalogCategoryOption =
 const DEFAULT_TRANSMISSION_OPTIONS: OptionEntry[] = [
   ["automatico", "Automático"],
   ["manual", "Manual"]
+];
+
+const STORE_FILTER_ORDER = [
+  "SAVOL TOYOTA DOM PEDRO",
+  "SAVOL TOYOTA SANTO ANDR\u00c9",
+  "SAVOL TOYOTA PRAIA GRANDE",
+  "SAVOL TOYOTA MAUA",
+  "SAVOL TOYOTA SBC",
+  "SAVOL VOLKS SANTO ANDRE",
+  "SAVOL VOLKS PEREIRA BARRETO",
+  "SAVOL JETOUR DOM PEDRO",
+  "SAVOL MG S\u00c3O CAETANO",
+  "PEUGEOT/CITROEN SANTO ANDRE",
+  "PEUGEOT/CITROEN SBC",
+  "PEUGEOT/CITROEN SAO CAETANO"
 ];
 
 function normalize(value: string): string {
@@ -202,6 +218,16 @@ function buildOptionEntries(values: string[]): OptionEntry[] {
   return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1], "pt-BR"));
 }
 
+function orderStoreEntries(entries: OptionEntry[]): OptionEntry[] {
+  const orderMap = new Map(STORE_FILTER_ORDER.map((label, index) => [toSlug(label), index]));
+  return [...entries].sort((a, b) => {
+    const orderA = orderMap.get(a[0]) ?? Number.MAX_SAFE_INTEGER;
+    const orderB = orderMap.get(b[0]) ?? Number.MAX_SAFE_INTEGER;
+    if (orderA !== orderB) return orderA - orderB;
+    return a[1].localeCompare(b[1], "pt-BR");
+  });
+}
+
 function getBodyInfo(vehicle: ApiVehicle): BodyInfo {
   const source = normalize(`${vehicle.name} ${vehicle.model} ${vehicle.version}`);
 
@@ -330,6 +356,7 @@ export function VehicleCatalog({ mode = "all", basePath = "/veiculos" }: Vehicle
   const [isHydrated, setIsHydrated] = useState(false);
   const [showFilters, setShowFilters] = useState(true);
   const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
+  const [mobileQuickFilter, setMobileQuickFilter] = useState<MobileQuickFilter | null>(null);
   const [isCatalogRefreshing, setIsCatalogRefreshing] = useState(Boolean(searchKey));
 
   const storesParam = searchParams.get("stores");
@@ -481,7 +508,7 @@ export function VehicleCatalog({ mode = "all", basePath = "/veiculos" }: Vehicle
     };
   }, [isMobileFiltersOpen]);
 
-  const stores = useMemo(() => buildOptionEntries(vehicles.map((vehicle) => vehicle.store)), [vehicles]);
+  const stores = useMemo(() => orderStoreEntries(buildOptionEntries(vehicles.map((vehicle) => vehicle.store))), [vehicles]);
   const brands = useMemo(() => buildOptionEntries(vehicles.map((vehicle) => vehicle.brand)), [vehicles]);
   const models = useMemo(() => {
     if (!selectedBrands.length) return [];
@@ -819,10 +846,12 @@ export function VehicleCatalog({ mode = "all", basePath = "/veiculos" }: Vehicle
 
   const applyFilters = () => {
     pushQuery();
+    setMobileQuickFilter(null);
     setIsMobileFiltersOpen(false);
   };
 
   const handleFilterButtonClick = () => {
+    setMobileQuickFilter(null);
     if (typeof window !== "undefined" && window.matchMedia("(max-width: 760px)").matches) {
       setIsMobileFiltersOpen(true);
       return;
@@ -851,6 +880,7 @@ export function VehicleCatalog({ mode = "all", basePath = "/veiculos" }: Vehicle
 
     setQuery("");
     setSort(DEFAULT_SORT);
+    setMobileQuickFilter(null);
 
     setIsCatalogRefreshing(true);
     router.push(basePath);
@@ -884,6 +914,87 @@ export function VehicleCatalog({ mode = "all", basePath = "/veiculos" }: Vehicle
     (priceMin != null || priceMax != null ? 1 : 0) +
     (kmMin != null || kmMax != null ? 1 : 0) +
     (query.trim() ? 1 : 0);
+
+  const mobilePrimaryFilterCount = selectedStores.length + selectedBrands.length + selectedModels.length;
+  const mobileMoreFilterCount = Math.max(0, activeFilterCount - mobilePrimaryFilterCount);
+
+  const toggleMobileQuickFilter = (filter: MobileQuickFilter) => {
+    setIsMobileFiltersOpen(false);
+    setMobileQuickFilter((current) => (current === filter ? null : filter));
+  };
+
+  const clearMobileQuickFilter = () => {
+    if (mobileQuickFilter === "stores") {
+      setSelectedStores([]);
+    } else if (mobileQuickFilter === "brands") {
+      setSelectedBrands([]);
+      setSelectedModels([]);
+    } else if (mobileQuickFilter === "models") {
+      setSelectedModels([]);
+    }
+  };
+
+  const renderMobileQuickFilterPanel = () => {
+    if (!mobileQuickFilter) return null;
+
+    const config =
+      mobileQuickFilter === "stores"
+        ? {
+            title: "Lojas",
+            options: stores,
+            selected: selectedStores,
+            onToggle: (slug: string) => setSelectedStores((current) => toggleListValue(current, slug)),
+            empty: "Nenhuma loja disponível."
+          }
+        : mobileQuickFilter === "brands"
+          ? {
+              title: "Marcas",
+              options: brands,
+              selected: selectedBrands,
+              onToggle: (slug: string) => setSelectedBrands((current) => toggleListValue(current, slug)),
+              empty: "Nenhuma marca disponível."
+            }
+          : {
+              title: "Modelo",
+              options: models,
+              selected: selectedModels,
+              onToggle: (slug: string) => setSelectedModels((current) => toggleListValue(current, slug)),
+              empty: selectedBrands.length ? "Nenhum modelo disponível." : "Selecione uma marca primeiro."
+            };
+
+    return (
+      <div className="catalog-mobile-quick-panel">
+        <header>
+          <strong>{config.title}</strong>
+          <button type="button" onClick={() => setMobileQuickFilter(null)} aria-label="Fechar filtro">
+            <X size={16} />
+          </button>
+        </header>
+
+        <div className="catalog-mobile-quick-list">
+          {config.options.length ? (
+            config.options.map(([slug, label]) => (
+              <label key={slug} className="catalog-check-item">
+                <input type="checkbox" checked={config.selected.includes(slug)} onChange={() => config.onToggle(slug)} />
+                <span>{label}</span>
+              </label>
+            ))
+          ) : (
+            <p>{config.empty}</p>
+          )}
+        </div>
+
+        <div className="catalog-mobile-quick-actions">
+          <button type="button" onClick={clearMobileQuickFilter}>
+            Limpar
+          </button>
+          <button type="button" onClick={applyFilters}>
+            Aplicar
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   const chips = [
     ...selectedStores.map((slug) => ({
@@ -1009,6 +1120,36 @@ export function VehicleCatalog({ mode = "all", basePath = "/veiculos" }: Vehicle
 
         <div className="catalog-full-toolbar">
           <div className="catalog-toolbar-left">
+            <div className="catalog-mobile-quick-filters">
+              <div className="catalog-mobile-quick-scroll" aria-label="Filtros rápidos">
+                <button
+                  type="button"
+                  className={mobileQuickFilter === "stores" ? "is-active" : ""}
+                  onClick={() => toggleMobileQuickFilter("stores")}
+                >
+                  Loja{selectedStores.length ? ` (${selectedStores.length})` : ""} <ChevronDown size={14} />
+                </button>
+                <button
+                  type="button"
+                  className={mobileQuickFilter === "brands" ? "is-active" : ""}
+                  onClick={() => toggleMobileQuickFilter("brands")}
+                >
+                  Marca{selectedBrands.length ? ` (${selectedBrands.length})` : ""} <ChevronDown size={14} />
+                </button>
+                <button
+                  type="button"
+                  className={mobileQuickFilter === "models" ? "is-active" : ""}
+                  onClick={() => toggleMobileQuickFilter("models")}
+                >
+                  Modelo{selectedModels.length ? ` (${selectedModels.length})` : ""} <ChevronDown size={14} />
+                </button>
+                <button type="button" onClick={handleFilterButtonClick}>
+                  Mais filtros{mobileMoreFilterCount ? ` (${mobileMoreFilterCount})` : ""} <SlidersHorizontal size={14} />
+                </button>
+              </div>
+              {renderMobileQuickFilterPanel()}
+            </div>
+
             <button type="button" className="catalog-toggle-filters-btn" onClick={handleFilterButtonClick}>
               <SlidersHorizontal size={14} /> Filtros ({activeFilterCount})
             </button>
@@ -1062,7 +1203,7 @@ export function VehicleCatalog({ mode = "all", basePath = "/veiculos" }: Vehicle
                   </button>
                 </header>
 
-                <details className="catalog-filter-block">
+                <details className="catalog-filter-block catalog-filter-block--mobile-primary">
                   <summary>Lojas</summary>
                   <div className="catalog-checklist">
                     {stores.map(([slug, label]) => (
@@ -1101,7 +1242,7 @@ export function VehicleCatalog({ mode = "all", basePath = "/veiculos" }: Vehicle
                   </div>
                 </details>
 
-                <details className="catalog-filter-block">
+                <details className="catalog-filter-block catalog-filter-block--mobile-primary">
                   <summary>Marcas</summary>
                   <div className="catalog-checklist">
                     {brands.map(([slug, label]) => (
@@ -1114,7 +1255,7 @@ export function VehicleCatalog({ mode = "all", basePath = "/veiculos" }: Vehicle
                 </details>
 
                 {selectedBrands.length > 0 && models.length > 0 ? (
-                  <details className="catalog-filter-block">
+                  <details className="catalog-filter-block catalog-filter-block--mobile-primary">
                     <summary>Modelo</summary>
                     <div className="catalog-checklist">
                       {models.map(([slug, label]) => (

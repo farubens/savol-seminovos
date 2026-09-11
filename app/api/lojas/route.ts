@@ -81,7 +81,7 @@ const OFFICIAL_STORES: ApiStore[] = [
     brand: "Toyota",
     name: "Unidade SAVOL Toyota Praia Grande",
     address: "Av. Guilhermina, 1021 - Guilhermina, Praia Grande - SP, 11701-500",
-    phone: resolveSavolWhatsAppPhone("Toyota"),
+    phone: resolveSavolWhatsAppPhone("SAVOL Toyota Praia Grande"),
     vehiclesCount: 0,
     storeUrl: "/lojas",
     mapUrl: mapUrl("Av. Guilhermina, 1021 - Guilhermina, Praia Grande - SP, 11701-500")

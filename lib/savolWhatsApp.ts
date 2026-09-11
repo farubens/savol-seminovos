@@ -1,6 +1,7 @@
 const DEFAULT_WHATSAPP_PHONE = "(11) 4435-1000";
 
 const BRAND_WHATSAPP_PHONES: Array<{ aliases: string[]; phone: string }> = [
+  { aliases: ["toyota praia grande", "savol toyota praia grande"], phone: "(13) 3476-7000" },
   { aliases: ["toyota"], phone: "(11) 4979-6000" },
   { aliases: ["volkswagen", "volks", "vw"], phone: "(11) 4435-1000" },
   { aliases: ["peugeot"], phone: "(11) 3381-1005" },
