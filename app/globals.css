@@ -10285,11 +10285,11 @@ button.stores-filter-input svg {
     flex-direction: column;
     align-items: stretch;
     gap: 0;
-    border: 1px solid #dce6f8;
+    border: 0 solid transparent;
     border-radius: 14px;
     background: #ffffff;
-    box-shadow: 0 16px 30px rgba(5, 26, 77, 0.1);
-    padding: 8px 10px 10px;
+    box-shadow: none;
+    padding: 0 10px;
     max-height: 0;
     opacity: 0;
     overflow: hidden;
@@ -10300,6 +10300,10 @@ button.stores-filter-input svg {
   }
 
   .site-nav.is-open {
+    border-width: 1px;
+    border-color: #dce6f8;
+    box-shadow: 0 16px 30px rgba(5, 26, 77, 0.1);
+    padding: 8px 10px 10px;
     max-height: 640px;
     opacity: 1;
     pointer-events: auto;
