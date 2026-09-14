@@ -91,6 +91,7 @@ final class Savol_Veiculos_CPT {
     private const PRICE_OVERRIDE_USER_NAME_META = 'publicacao_preco_usuario_nome';
     private const PRICE_OVERRIDE_DATE_META = 'publicacao_preco_data';
     private const PRICE_OVERRIDE_NOTICE_TRANSIENT = 'savol_preco_publicacao_notice_';
+    private const MANUAL_STATUS_LOCK_META = 'savol_status_manual_lock';
     private const PHOTO_IMPORT_TIMEOUT = 5;
     private const SELL_YOUR_CAR_MAX_PHOTO_SIZE = 8388608;
     private const SELL_YOUR_CAR_REST_NAMESPACE = 'savol/v1';
@@ -546,6 +547,16 @@ final class Savol_Veiculos_CPT {
                 },
             ]);
         }
+
+        register_post_meta(self::POST_TYPE, self::MANUAL_STATUS_LOCK_META, [
+            'single' => true,
+            'show_in_rest' => true,
+            'type' => 'boolean',
+            'auth_callback' => '__return_true',
+            'sanitize_callback' => static function($value) {
+                return (bool) $value;
+            },
+        ]);
     }
 
     public static function add_meta_boxes(): void {
@@ -900,16 +911,23 @@ final class Savol_Veiculos_CPT {
             update_post_meta($post_id, self::PRICE_OVERRIDE_REASON_META, $selected_reason);
             update_post_meta($post_id, self::PRICE_OVERRIDE_DETAILS_META, $details);
 
-            if ($selected_reason === '' && get_post_status($post_id) === 'publish') {
+            if ($selected_reason === '') {
                 delete_post_meta($post_id, self::PRICE_OVERRIDE_USER_ID_META);
                 delete_post_meta($post_id, self::PRICE_OVERRIDE_USER_NAME_META);
                 delete_post_meta($post_id, self::PRICE_OVERRIDE_DATE_META);
-                self::force_price_override_back_to_draft($post_id);
+                delete_post_meta($post_id, self::MANUAL_STATUS_LOCK_META);
+                if (get_post_status($post_id) === 'publish') {
+                    self::force_price_override_back_to_draft($post_id);
+                }
                 return;
             }
 
-            if ($selected_reason !== '' && get_post_status($post_id) === 'publish' && !get_post_meta($post_id, self::PRICE_OVERRIDE_USER_ID_META, true)) {
-                self::record_price_override_publisher($post_id);
+            if ($selected_reason !== '' && get_post_status($post_id) === 'publish') {
+                if (!get_post_meta($post_id, self::PRICE_OVERRIDE_USER_ID_META, true)) {
+                    self::record_price_override_publisher($post_id);
+                } else {
+                    update_post_meta($post_id, self::MANUAL_STATUS_LOCK_META, 1);
+                }
             }
         }
     }
@@ -966,12 +984,19 @@ final class Savol_Veiculos_CPT {
         return in_array($selected_reason, self::price_override_reason_options(), true);
     }
 
+    private static function has_manual_status_lock(int $post_id): bool {
+        return (string) get_post_meta($post_id, self::MANUAL_STATUS_LOCK_META, true) === '1';
+    }
+
     private static function record_price_override_publisher(int $post_id): void {
         $user_id = get_current_user_id();
         $user = $user_id > 0 ? get_user_by('id', $user_id) : null;
         update_post_meta($post_id, self::PRICE_OVERRIDE_USER_ID_META, $user_id);
         update_post_meta($post_id, self::PRICE_OVERRIDE_USER_NAME_META, $user ? $user->display_name : 'Sistema');
         update_post_meta($post_id, self::PRICE_OVERRIDE_DATE_META, current_time('d/m/Y H:i'));
+        if ($user_id > 0) {
+            update_post_meta($post_id, self::MANUAL_STATUS_LOCK_META, 1);
+        }
     }
 
     private static function force_price_override_back_to_draft(int $post_id): void {
@@ -3487,6 +3512,7 @@ JS;
             if ($should_record_sale) {
                 self::record_dashboard_operation('saida', $post_id, $sold_at);
             }
+            delete_post_meta($post_id, self::MANUAL_STATUS_LOCK_META);
             update_post_meta($post_id, 'savol_sync_signature', '');
             self::set_status_loja_term($post_id, 'Vendido');
             $post = get_post($post_id);
@@ -3818,6 +3844,7 @@ JS;
             'title' => $title,
             'status' => (string) ($apolo_reconciliation['status'] ?? ''),
             'reason' => (string) ($apolo_reconciliation['reason'] ?? ''),
+            'manual_status_lock' => !empty($apolo_reconciliation['manual_status_lock']),
             'unit' => $official_unit_name,
             'photos' => $photo_urls,
             'apolo' => [
@@ -4113,12 +4140,22 @@ JS;
             $title = 'Veiculo ' . $external_id;
         }
         $title = self::strip_apolo_draft_reason_from_title($title);
+        $current_post = $post_id > 0 ? get_post($post_id) : null;
+        $current_status = $current_post ? (string) $current_post->post_status : '';
         if (
             $post_id > 0
             && $apolo_reconciliation['reason'] === self::PRICE_OVERRIDE_REASON
             && self::has_price_override_justification($post_id)
         ) {
             $apolo_reconciliation['status'] = 'publish';
+        }
+        if (
+            $post_id > 0
+            && self::has_manual_status_lock($post_id)
+            && in_array($current_status, ['publish', 'draft', 'pending', 'private', 'future'], true)
+        ) {
+            $apolo_reconciliation['status'] = $current_status;
+            $apolo_reconciliation['manual_status_lock'] = true;
         }
         $official_unit_name = self::resolve_official_unidade_name($apolo_reconciliation['apolo'] ?? [], (string) ($vehicle['entityName'] ?? ''));
         $published_price = self::resolve_vehicle_sale_price($vehicle, $apolo_reconciliation['apolo'] ?? []);
@@ -4128,8 +4165,6 @@ JS;
         if ($post_id > 0) {
             $previous_signature = (string) get_post_meta($post_id, 'savol_sync_signature', true);
             $current_price = self::parse_money_value(get_post_meta($post_id, 'preco', true));
-            $current_post = get_post($post_id);
-            $current_status = $current_post ? (string) $current_post->post_status : '';
             $current_title = $current_post ? self::strip_apolo_draft_reason_from_title((string) $current_post->post_title) : '';
             if (
                 $previous_signature !== ''
