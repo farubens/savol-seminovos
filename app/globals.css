@@ -65,6 +65,12 @@ select {
   object-fit: contain;
 }
 
+.header > a:first-child {
+  display: inline-flex;
+  align-items: center;
+  line-height: 0;
+}
+
 .topbar {
   background: linear-gradient(90deg, var(--blue-dark), var(--blue));
   color: #fff;
@@ -10259,9 +10265,10 @@ button.stores-filter-input svg {
     min-height: 0;
     display: grid;
     grid-template-columns: 1fr auto;
-    row-gap: 10px;
+    grid-template-rows: 74px auto;
+    row-gap: 0;
     column-gap: 10px;
-    padding: 10px 0;
+    padding: 0;
     align-items: center;
   }
 
