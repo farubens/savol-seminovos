@@ -1,4 +1,4 @@
-export const VEHICLE_FALLBACK_IMAGE = "/images/fallback-oficial.jpg";
+export const VEHICLE_FALLBACK_IMAGE = "/images/em-preparacao-novo-2.jpg";
 
 function normalizeImageReference(value: string): string {
   let decoded = value;
