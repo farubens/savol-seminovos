@@ -81,6 +81,7 @@ const STORE_UNIT_ALIAS_GROUPS = [
   ["peugeot"],
   ["citroen", "citro"],
   ["kia"],
+  ["savol toyota sbc", "toyota sbc", "savol toyota sao bernardo", "toyota sao bernardo", "sao bernardo do campo"],
   ["toyota"],
   ["volkswagen", "volks", "vw"]
 ];
