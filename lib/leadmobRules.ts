@@ -13,7 +13,7 @@ const LEADMOB_COMPANIES_BY_UNIT = [
   { id: 10039, terms: ["toyota praia grande", "toyota pr grande"] },
   { id: 10051, terms: ["toyota maua"] },
   { id: 10223, terms: ["toyota dom pedro", "toyota dom pedro ii", "toyota em breve"] },
-  { id: 10040, terms: ["toyota sao bernardo", "toyota s bernardo"] },
+  { id: 10040, terms: ["toyota sao bernardo", "toyota s bernardo", "toyota sbc"] },
   { id: 10057, terms: ["volkswagen santo andre", "volks santo andre", "vw santo andre"] },
   { id: 10058, terms: ["volkswagen pereira barreto", "volks pereira barreto", "vw pereira barreto"] },
   { id: 10125, terms: ["citroen sao caetano"] },

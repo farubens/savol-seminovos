@@ -7,7 +7,7 @@ type StoreRule = {
 
 const SAVOL_TECHNICAL_STORE_RULES: StoreRule[] = [
   { id: 18882, aliases: ["savol volks santo andre", "savol volkswagen santo andre", "volkswagen santo andre", "volks santo andre"] },
-  { id: 25815, aliases: ["savol toyota sao bernardo", "toyota sao bernardo"] },
+  { id: 25815, aliases: ["unidade savol toyota sao bernardo do campo", "savol toyota sao bernardo", "savol toyota sbc", "toyota sao bernardo", "toyota sbc"] },
   { id: 25817, aliases: ["savol toyota santo andre", "toyota santo andre", "toyota dom pedro"] },
   { id: 25820, aliases: ["savol toyota praia grande", "toyota praia grande"] },
   { id: 101181625, aliases: ["savol citroen peugeot santo andre", "citroen santo andre", "peugeot santo andre"] },

@@ -652,7 +652,7 @@ function buildStoreLabel(value: string): string {
     if (normalized.includes("dom pedro")) return "SAVOL TOYOTA DOM PEDRO";
     if (normalized.includes("praia grande")) return "SAVOL TOYOTA PRAIA GRANDE";
     if (normalized.includes("maua")) return "SAVOL TOYOTA MAUA";
-    if (normalized.includes("sao bernardo") || normalized.includes("sbc")) return "SAVOL TOYOTA SBC";
+    if (normalized.includes("sao bernardo") || normalized.includes("sbc")) return "Unidade Savol Toyota S\u00e3o Bernardo do Campo";
     if (normalized.includes("santo andre")) return "SAVOL TOYOTA SANTO ANDR\u00c9";
   }
 
