@@ -55,6 +55,7 @@ type Props = {
   price: string;
   officialPrice?: string;
   detailUrl?: string;
+  returnUrl?: string;
   adUrl?: string;
   qualityTag?: string;
   secondaryHighlights?: string[];
@@ -385,6 +386,7 @@ export function VehicleOfferCard({
   price,
   officialPrice,
   detailUrl = "#",
+  returnUrl = "",
   adUrl = "",
   qualityTag = "",
   secondaryHighlights = [],
@@ -991,7 +993,7 @@ export function VehicleOfferCard({
             className="offer-card-link-overlay"
             href={resolvedDetailUrl}
             aria-label={`Ver detalhes de ${modalTitle || name}`}
-            onClick={() => rememberVehicleNavigation(resolvedDetailUrl)}
+            onClick={() => rememberVehicleNavigation(resolvedDetailUrl, returnUrl)}
           />
         )}
         <div className={`offer-media${isPreparationFallback ? " offer-media--preparation" : ""}`}>
@@ -1108,7 +1110,7 @@ export function VehicleOfferCard({
                   Saiba mais
                 </a>
               ) : (
-                <Link className="offer-secondary" href={resolvedDetailUrl} onClick={() => rememberVehicleNavigation(resolvedDetailUrl)}>
+                <Link className="offer-secondary" href={resolvedDetailUrl} onClick={() => rememberVehicleNavigation(resolvedDetailUrl, returnUrl)}>
                   Saiba mais
                 </Link>
               )}

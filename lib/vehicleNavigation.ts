@@ -16,6 +16,16 @@ function currentRelativeUrl(): string {
   return `${window.location.pathname}${window.location.search}${window.location.hash}`;
 }
 
+function toRelativeUrl(value: string): string | null {
+  try {
+    const url = new URL(value, window.location.href);
+    if (url.origin !== window.location.origin) return null;
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return null;
+  }
+}
+
 function readStoredValue<T>(key: string): T | null {
   try {
     const raw = window.sessionStorage.getItem(key);
@@ -30,15 +40,16 @@ function isFresh(savedAt: number): boolean {
   return Number.isFinite(savedAt) && Date.now() - savedAt <= MAX_STATE_AGE_MS;
 }
 
-export function rememberVehicleNavigation(destination: string): void {
+export function rememberVehicleNavigation(destination: string, source?: string): void {
   if (typeof window === "undefined") return;
 
   try {
     const destinationUrl = new URL(destination, window.location.href);
     if (destinationUrl.origin !== window.location.origin) return;
+    const sourceUrl = source ? toRelativeUrl(source) : null;
 
     const origin: VehicleNavigationOrigin = {
-      sourceUrl: currentRelativeUrl(),
+      sourceUrl: sourceUrl || currentRelativeUrl(),
       destinationPath: destinationUrl.pathname,
       scrollX: window.scrollX,
       scrollY: window.scrollY,

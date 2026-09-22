@@ -814,7 +814,7 @@ export function VehicleCatalog({ mode = "all", basePath = "/veiculos" }: Vehicle
     return () => window.clearTimeout(timeoutId);
   }, [isHydrated, isResultsLoading, resultVehicles.length]);
 
-  const pushQuery = (nextSort = sort) => {
+  const buildCurrentCatalogUrl = (nextSort = sort) => {
     const priceRange = normalizeOptionalRange(priceMin, priceMax, priceSliderMinBound, priceSliderMaxBound);
     const kmRange = normalizeOptionalRange(kmMin, kmMax, kmSliderMinBound, kmSliderMaxBound);
 
@@ -840,8 +840,14 @@ export function VehicleCatalog({ mode = "all", basePath = "/veiculos" }: Vehicle
       aiSeed: aiSeedParam
     });
 
+    return `${basePath}${queryString ? `?${queryString}` : ""}`;
+  };
+
+  const catalogReturnUrl = buildCurrentCatalogUrl();
+
+  const pushQuery = (nextSort = sort) => {
     setIsCatalogRefreshing(true);
-    router.push(`${basePath}${queryString ? `?${queryString}` : ""}`);
+    router.push(buildCurrentCatalogUrl(nextSort));
   };
 
   const applyFilters = () => {
@@ -1586,6 +1592,7 @@ export function VehicleCatalog({ mode = "all", basePath = "/veiculos" }: Vehicle
                     price={vehicle.price}
                     officialPrice={vehicle.officialPrice}
                     detailUrl={vehicle.url}
+                    returnUrl={catalogReturnUrl}
                     adUrl={vehicle.absoluteUrl}
                     qualityTag={vehicle.qualityTag}
                     secondaryHighlights={vehicle.secondaryHighlights}
