@@ -19,6 +19,8 @@ const MISSING_SPEC_LABEL = "N/A";
 const API_CACHE_TTL_MS = 2 * 60 * 1000;
 const WP_FETCH_TIMEOUT_MS = 12000;
 const EMPTY_STOCK_RETRY_DELAY_MS = 1200;
+const APOLO_STOCK_URL = "https://drive.google.com/uc?export=download&id=1zyCN8JXUa5kUD-kjeIsO49y7J3wRmFd4";
+const APOLO_CACHE_TTL_MS = 5 * 60 * 1000;
 const WP_DEFAULT_USER = "fa.rubens@gmail.com";
 const WP_DEFAULT_APP_PASSWORD = "W9y4 bUld QOIG PV4u oIHo csrb";
 const SITE_BASE_URL = (process.env.NEXT_PUBLIC_SITE_URL?.trim() || "https://www.savolseminovos.com.br").replace(/\/+$/, "");
@@ -99,8 +101,20 @@ type CachedVehicles = {
   expiresAt: number;
 };
 
+type ApoloSituationIndex = {
+  byPlate: Map<string, string>;
+  byChassi: Map<string, string>;
+};
+
+type CachedApoloSituations = {
+  index: ApoloSituationIndex;
+  expiresAt: number;
+};
+
 let vehiclesCache: CachedVehicles | null = null;
 let vehiclesInFlight: Promise<ApiVehicle[]> | null = null;
+let apoloSituationCache: CachedApoloSituations | null = null;
+let apoloSituationInFlight: Promise<ApoloSituationIndex> | null = null;
 
 const TITLE_YEAR_REGEX = /\b((?:19|20)\d{2})(?:\s*[/-]\s*((?:19|20)\d{2}))?\b/;
 const CONTENT_YEAR_REGEX = /\bano[:\s]+((?:19|20)\d{2})(?:\s*[/-]\s*((?:19|20)\d{2}))?/i;
@@ -395,6 +409,10 @@ function normalizePlateValue(value: string): string {
   return value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 7);
 }
 
+function normalizeVehicleLookupKey(value: string): string {
+  return value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
 function parseBooleanMeta(value: string): boolean {
   const normalized = normalizeForMatch(value).replace(/[^a-z0-9]+/g, "");
   return ["1", "s", "sim", "true", "yes", "y"].includes(normalized);
@@ -461,6 +479,55 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<{ data: T 
   } finally {
     clearTimeout(timeoutId);
   }
+}
+
+async function fetchApoloSituationIndex(): Promise<ApoloSituationIndex> {
+  const now = Date.now();
+  if (apoloSituationCache && apoloSituationCache.expiresAt > now) {
+    return apoloSituationCache.index;
+  }
+
+  if (!apoloSituationInFlight) {
+    apoloSituationInFlight = (async () => {
+      const emptyIndex: ApoloSituationIndex = { byPlate: new Map(), byChassi: new Map() };
+
+      try {
+        const result = await fetchJson<{ dados?: unknown[]; data?: unknown[] } | unknown[]>(APOLO_STOCK_URL);
+        const payload = result.data;
+        const rows = Array.isArray(payload)
+          ? payload
+          : Array.isArray(payload?.dados)
+            ? payload.dados
+            : Array.isArray(payload?.data)
+              ? payload.data
+              : [];
+
+        for (const row of rows) {
+          if (!row || typeof row !== "object") continue;
+          const source = row as Record<string, unknown>;
+          const situation = normalizeApoloSituation(String(source.situacao ?? ""));
+          if (!situation) continue;
+
+          const plate = normalizePlateValue(String(source.placa ?? ""));
+          const chassi = normalizeVehicleLookupKey(String(source.chassi ?? ""));
+          if (plate) emptyIndex.byPlate.set(plate, situation);
+          if (chassi) emptyIndex.byChassi.set(chassi, situation);
+        }
+      } catch {
+        // The WP data still renders the catalog if APOLO is temporarily unavailable.
+      }
+
+      apoloSituationCache = {
+        index: emptyIndex,
+        expiresAt: Date.now() + APOLO_CACHE_TTL_MS
+      };
+      return emptyIndex;
+    })().finally(() => {
+      apoloSituationInFlight = null;
+    });
+  }
+
+  return apoloSituationInFlight;
 }
 
 function buildVehicleUrl(perPage: number, options?: { context?: "edit"; embed?: boolean; page?: number }): string {
@@ -714,7 +781,7 @@ function buildSubtitle(version: string, model: string, excerpt: string): string 
   return "Versão não informada";
 }
 
-function mapVehicle(vehicle: WpVehicle): ApiVehicle {
+function mapVehicle(vehicle: WpVehicle, apoloSituations?: ApoloSituationIndex): ApiVehicle {
   const title = cleanText(vehicle.title?.rendered ?? vehicle.title?.raw);
   const content = stripHtml(vehicle.content?.raw ?? vehicle.content?.rendered);
   const excerpt = stripHtml(vehicle.excerpt?.raw ?? vehicle.excerpt?.rendered);
@@ -752,6 +819,7 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
   const metaPhotoCount = getMetaField(vehicle, "quantidade_fotos");
   const metaMolicar = getMetaField(vehicle, "molicar");
   const metaPlate = normalizePlateValue(getMetaField(vehicle, "placa") || getMetaField(vehicle, "plate"));
+  const metaChassi = normalizeVehicleLookupKey(getMetaField(vehicle, "chassi_vin") || getMetaField(vehicle, "chassi") || getMetaField(vehicle, "vin"));
   const metaArmored = getMetaField(vehicle, "blindado");
   const metaNegotiating = getMetaField(vehicle, "negociacao") || getMetaField(vehicle, "apolo_negociacao");
   const metaRepasse = getMetaField(vehicle, "repasse");
@@ -765,6 +833,11 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
     getMetaField(vehicle, "dias_proposta") ||
     getMetaField(vehicle, "apolo_dias_proposta");
   const metaApoloSituation = getMetaField(vehicle, "apolo_situacao") || getMetaField(vehicle, "situacao");
+  const apoloSituation =
+    normalizeApoloSituation(metaApoloSituation) ||
+    (metaPlate ? apoloSituations?.byPlate.get(metaPlate) : "") ||
+    (metaChassi ? apoloSituations?.byChassi.get(metaChassi) : "") ||
+    "";
   const embeddedImage = getEmbeddedImage(vehicle);
   const galleryFromMeta = parseGalleryUrls(metaGalleryUrls);
   const autosyncFeaturedImage = parseGalleryUrls(metaAutosyncFeaturedUrl)[0] ?? galleryFromMeta[0] ?? null;
@@ -850,7 +923,7 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
     photoCount,
     stockDays,
     proposalDays,
-    apoloSituation: normalizeApoloSituation(metaApoloSituation)
+    apoloSituation
   };
 }
 
@@ -867,9 +940,12 @@ export async function GET(request: NextRequest) {
       }
 
       const authHeaders = getAuthHeaders();
-      const row = await fetchVehicleBySlug(slug, authHeaders);
+      const [row, apoloSituations] = await Promise.all([
+        fetchVehicleBySlug(slug, authHeaders),
+        fetchApoloSituationIndex()
+      ]);
       if (!row) return NextResponse.json({ items: [] });
-      return NextResponse.json({ items: [mapVehicle(row)] });
+      return NextResponse.json({ items: [mapVehicle(row, apoloSituations)] });
     }
 
     const now = Date.now();
@@ -880,6 +956,7 @@ export async function GET(request: NextRequest) {
     if (!vehiclesInFlight) {
       vehiclesInFlight = (async () => {
         const authHeaders = getAuthHeaders();
+        const apoloSituationsPromise = fetchApoloSituationIndex();
         let rows = await fetchVehiclePosts(MAX_PER_PAGE, authHeaders);
         if (!rows.length) {
           await delay(EMPTY_STOCK_RETRY_DELAY_MS);
@@ -887,9 +964,10 @@ export async function GET(request: NextRequest) {
         }
         if (!rows.length) return vehiclesCache?.items ?? [];
 
+        const apoloSituations = await apoloSituationsPromise;
         const dayKey = getSaoPauloDayKey();
         const items = rows
-          .map(mapVehicle)
+          .map((row) => mapVehicle(row, apoloSituations))
           .sort((left, right) => compareVehicleListingOrder(left, right, dayKey));
         vehiclesCache = {
           items,
