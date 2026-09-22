@@ -1,9 +1,11 @@
 export function formatVehicleStockCode(
   stockDays: number | null | undefined,
-  proposalDays?: number | null
+  proposalDays?: number | null,
+  apoloSituation?: string | null
 ): string {
   const normalizedDays = Math.max(0, Math.trunc(Number(stockDays) || 0));
-  const stockCode = `SV${String(normalizedDays).padStart(5, "0")}`;
+  const statusPrefix = (apoloSituation || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 3) || "SV";
+  const stockCode = `${statusPrefix}${String(normalizedDays).padStart(5, "0")}`;
 
   if (
     proposalDays === null ||

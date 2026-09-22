@@ -91,6 +91,7 @@ type ApiVehicle = {
   photoCount: number;
   stockDays: number;
   proposalDays: number | null;
+  apoloSituation: string;
 };
 
 type CachedVehicles = {
@@ -139,6 +140,11 @@ function decodeHtml(value: string): string {
 function cleanText(value: string | undefined): string {
   if (!value) return "";
   return decodeHtml(value).replace(/\s+/g, " ").trim();
+}
+
+function normalizeApoloSituation(value: string): string {
+  const code = cleanText(value).toUpperCase().replace(/[^A-Z0-9]/g, "");
+  return code.slice(0, 3);
 }
 
 function isMissingVehicleInfo(value: string): boolean {
@@ -758,6 +764,7 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
   const metaProposalDays =
     getMetaField(vehicle, "dias_proposta") ||
     getMetaField(vehicle, "apolo_dias_proposta");
+  const metaApoloSituation = getMetaField(vehicle, "apolo_situacao") || getMetaField(vehicle, "situacao");
   const embeddedImage = getEmbeddedImage(vehicle);
   const galleryFromMeta = parseGalleryUrls(metaGalleryUrls);
   const autosyncFeaturedImage = parseGalleryUrls(metaAutosyncFeaturedUrl)[0] ?? galleryFromMeta[0] ?? null;
@@ -842,7 +849,8 @@ function mapVehicle(vehicle: WpVehicle): ApiVehicle {
     preparing: photoCount <= 1,
     photoCount,
     stockDays,
-    proposalDays
+    proposalDays,
+    apoloSituation: normalizeApoloSituation(metaApoloSituation)
   };
 }
 

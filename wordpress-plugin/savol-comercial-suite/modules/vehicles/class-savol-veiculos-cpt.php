@@ -24,6 +24,13 @@ final class Savol_Veiculos_CPT {
     ];
     private const PUBLIC_SITE_URL = 'https://savolseminovos.com.br';
     private const SELL_YOUR_CAR_PUBLIC_PATH = '/venda-seu-carro';
+    private const SELL_YOUR_CAR_ALERT_RECIPIENTS = [
+        'rubens@untidigital.com.br',
+        'kaua.queiroz@savol.com.br',
+        'assistente.marketing@savol.com.br',
+        'assistenteadm.marketing@savol.com.br',
+        'luciana@savol.com.br',
+    ];
     private const SELL_LEAD_CAPS = [
         'edit_post' => 'edit_venda_carro_lead',
         'read_post' => 'read_venda_carro_lead',
@@ -1377,6 +1384,7 @@ final class Savol_Veiculos_CPT {
 
         $security = self::build_sell_your_car_security($payload, $protocol, $received_at, count($attachment_ids));
         update_post_meta($post_id, 'savol_vsc_security', wp_json_encode($security, JSON_UNESCAPED_UNICODE));
+        self::send_sell_your_car_alert_email($post_id);
 
         return new \WP_REST_Response([
             'ok' => true,
@@ -2606,6 +2614,45 @@ JS;
 
     private static function lead_pdf_url(int $lead_id): string {
         return wp_nonce_url(admin_url('admin-post.php?action=savol_vsc_export_pdf&lead_id=' . $lead_id), 'savol_vsc_pdf_' . $lead_id);
+    }
+
+    private static function send_sell_your_car_alert_email(int $lead_id): bool {
+        if (!self::is_sell_your_car_lead($lead_id)) {
+            return false;
+        }
+
+        $recipients = array_values(array_filter(self::SELL_YOUR_CAR_ALERT_RECIPIENTS, 'is_email'));
+        if (empty($recipients)) {
+            return false;
+        }
+
+        $plate = strtoupper(trim((string) get_post_meta($lead_id, 'savol_vsc_vehicle_plate', true)));
+        $subject = 'Alerta de venda seu carro' . ($plate !== '' ? ' ' . $plate : '');
+        $temp_pdf = wp_tempnam('lead-venda-seu-carro-' . $lead_id . '.pdf');
+        $attachments = [];
+
+        if ($temp_pdf) {
+            file_put_contents($temp_pdf, self::generate_lead_pdf($lead_id));
+            $attachments[] = $temp_pdf;
+        }
+
+        $sent = wp_mail(
+            $recipients,
+            $subject,
+            'Um novo cadastro no venda seu carro',
+            ['Content-Type: text/plain; charset=UTF-8'],
+            $attachments
+        );
+
+        update_post_meta($lead_id, 'savol_vsc_alert_email_sent', $sent ? '1' : '0');
+        update_post_meta($lead_id, 'savol_vsc_alert_email_sent_at', current_time('mysql'));
+        update_post_meta($lead_id, 'savol_vsc_alert_email_recipients', implode(',', $recipients));
+
+        if ($temp_pdf && file_exists($temp_pdf)) {
+            unlink($temp_pdf);
+        }
+
+        return (bool) $sent;
     }
 
     private static function send_lead_email(int $lead_id, int $seller_id): bool {

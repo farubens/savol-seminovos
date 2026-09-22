@@ -396,7 +396,8 @@ function toSavedVehicle(vehicle: ApiVehicle): SavedVehicle {
     negotiating: vehicle.negotiating,
     repasse: vehicle.repasse,
     stockDays: vehicle.stockDays,
-    proposalDays: vehicle.proposalDays
+    proposalDays: vehicle.proposalDays,
+    apoloSituation: vehicle.apoloSituation
   };
 }
 
@@ -638,7 +639,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
   const storeAddress = storeItem?.address || (!isUnknownValue(vehicle?.city ?? "") ? `${vehicle?.city} - ${vehicle?.uf}` : "Endereço sob consulta");
   const storePhone = storeItem?.phone || resolveFallbackStorePhone(vehicle);
   const plateEndingDigit = getPlateEndingDigit(vehicle?.plate);
-  const stockCode = formatVehicleStockCode(vehicle?.stockDays, vehicle?.proposalDays);
+  const stockCode = formatVehicleStockCode(vehicle?.stockDays, vehicle?.proposalDays, vehicle?.apoloSituation);
   const officialVehiclePrice = vehicle?.officialPrice || vehicle?.price || "";
   const leadVehicleContext = useMemo(
     () => ({
@@ -1069,16 +1070,15 @@ export function VehicleDetailsPageClient({ slug }: Props) {
   const handleBackToResults = () => {
     const origin = getVehicleNavigationOrigin();
     if (!origin) {
-      router.push("/veiculos");
-      return;
-    }
-
-    queueVehicleScrollRestoration(origin);
-    if (window.history.length > 1) {
+      if (typeof window !== "undefined" && window.history.length <= 1) {
+        router.push("/veiculos");
+        return;
+      }
       router.back();
       return;
     }
 
+    queueVehicleScrollRestoration(origin);
     router.replace(origin.sourceUrl, { scroll: false });
   };
 
@@ -1494,6 +1494,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
                   repasse={item.repasse}
                   stockDays={item.stockDays}
                   proposalDays={item.proposalDays}
+                  apoloSituation={item.apoloSituation}
                   showFinanceButton={false}
                 />
               ))}

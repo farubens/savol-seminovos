@@ -664,6 +664,7 @@ export function CategoryFinder() {
                 repasse={vehicle.repasse}
                 stockDays={vehicle.stockDays}
                 proposalDays={vehicle.proposalDays}
+                apoloSituation={vehicle.apoloSituation}
               />
             ))
           )}

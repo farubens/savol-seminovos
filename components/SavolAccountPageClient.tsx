@@ -40,7 +40,8 @@ function toSavedVehicle(vehicle: ApiVehicle): SavedVehicle {
     negotiating: vehicle.negotiating,
     repasse: vehicle.repasse,
     stockDays: vehicle.stockDays,
-    proposalDays: vehicle.proposalDays
+    proposalDays: vehicle.proposalDays,
+    apoloSituation: vehicle.apoloSituation
   };
 }
 
@@ -74,6 +75,7 @@ function SavedVehicleCard({ vehicle, index }: { vehicle: SavedVehicle; index: nu
       repasse={vehicle.repasse}
       stockDays={vehicle.stockDays}
       proposalDays={vehicle.proposalDays}
+      apoloSituation={vehicle.apoloSituation}
     />
   );
 }
