@@ -4188,21 +4188,6 @@ JS;
         return array_values(array_unique(array_filter(array_map('esc_url_raw', $urls))));
     }
 
-    private static function dashboard_vehicle_status_label(int $post_id, string $post_status, string $reason): string {
-        if ($reason !== self::PRICE_OVERRIDE_REASON) {
-            return $post_status === 'publish' ? 'Publicado no site' : ($reason !== '' ? $reason : 'Rascunho');
-        }
-
-        $publication_reason = trim((string) get_post_meta($post_id, self::PRICE_OVERRIDE_REASON_META, true));
-        $publication_details = trim((string) get_post_meta($post_id, self::PRICE_OVERRIDE_DETAILS_META, true));
-        $label_reason = $publication_reason !== '' ? $publication_reason : 'Falta justificativa';
-        if ($publication_details !== '') {
-            $label_reason .= ' - ' . $publication_details;
-        }
-
-        return ($post_status === 'publish' ? 'Publicado: ' : 'Nao publicado: ') . $label_reason;
-    }
-
     private static function dashboard_vehicle_payload(\WP_Post $post): array {
         $post_id = (int) $post->ID;
         $post_status = (string) $post->post_status;
@@ -4218,7 +4203,7 @@ JS;
         if ($fipe <= 0) {
             $fipe = self::dashboard_meta_number($post_id, 'apolo_fipe');
         }
-        $status_label = self::dashboard_vehicle_status_label($post_id, $post_status, $reason);
+        $status_label = $post_status === 'publish' ? 'Publicado no site' : ($reason !== '' ? $reason : 'Rascunho');
         $slug = (string) $post->post_name;
         $in_apolo = (string) get_post_meta($post_id, 'apolo_presente', true);
         $in_apolo = $in_apolo === '' ? !str_contains(self::canonicalize_text($reason), 'vendido') : $in_apolo === '1';
