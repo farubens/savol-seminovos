@@ -272,6 +272,7 @@ final class Savol_Veiculos_CPT {
         return self::fields() + [
             'apolo_val_compra' => ['label' => 'Custo APOLO', 'type' => 'number'],
             'apolo_valor_venda' => ['label' => 'Venda APOLO', 'type' => 'number'],
+            'apolo_situacao' => ['label' => 'Situacao APOLO', 'type' => 'text'],
             'fipe' => ['label' => 'FIPE', 'type' => 'number'],
         ];
     }
