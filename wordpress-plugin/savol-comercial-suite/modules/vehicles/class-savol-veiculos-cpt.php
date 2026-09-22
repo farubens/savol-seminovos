@@ -1385,7 +1385,7 @@ final class Savol_Veiculos_CPT {
 
         $security = self::build_sell_your_car_security($payload, $protocol, $received_at, count($attachment_ids));
         update_post_meta($post_id, 'savol_vsc_security', wp_json_encode($security, JSON_UNESCAPED_UNICODE));
-        self::send_sell_your_car_alert_email($post_id);
+        $alert_email = self::send_sell_your_car_alert_email($post_id);
 
         return new \WP_REST_Response([
             'ok' => true,
@@ -1396,6 +1396,7 @@ final class Savol_Veiculos_CPT {
             'payloadKeys' => array_keys($payload),
             'photoCount' => count($attachment_ids),
             'photoError' => (string) get_post_meta($post_id, 'savol_vsc_photo_error', true),
+            'alertEmail' => $alert_email,
             'security' => $security,
         ], 201);
     }
@@ -2617,14 +2618,23 @@ JS;
         return wp_nonce_url(admin_url('admin-post.php?action=savol_vsc_export_pdf&lead_id=' . $lead_id), 'savol_vsc_pdf_' . $lead_id);
     }
 
-    private static function send_sell_your_car_alert_email(int $lead_id): bool {
+    private static function send_sell_your_car_alert_email(int $lead_id): array {
+        $result = [
+            'sent' => false,
+            'recipientCount' => 0,
+            'error' => '',
+        ];
+
         if (!self::is_sell_your_car_lead($lead_id)) {
-            return false;
+            $result['error'] = 'Lead invalido.';
+            return $result;
         }
 
         $recipients = array_values(array_filter(self::SELL_YOUR_CAR_ALERT_RECIPIENTS, 'is_email'));
+        $result['recipientCount'] = count($recipients);
         if (empty($recipients)) {
-            return false;
+            $result['error'] = 'Nenhum destinatario valido configurado.';
+            return $result;
         }
 
         $plate = strtoupper(trim((string) get_post_meta($lead_id, 'savol_vsc_vehicle_plate', true)));
@@ -2637,6 +2647,14 @@ JS;
             $attachments[] = $temp_pdf;
         }
 
+        $mail_error = '';
+        $failure_handler = static function($error) use (&$mail_error): void {
+            if ($error instanceof \WP_Error) {
+                $mail_error = $error->get_error_message();
+            }
+        };
+
+        add_action('wp_mail_failed', $failure_handler, 10, 1);
         $sent = wp_mail(
             $recipients,
             $subject,
@@ -2644,16 +2662,20 @@ JS;
             ['Content-Type: text/plain; charset=UTF-8'],
             $attachments
         );
+        remove_action('wp_mail_failed', $failure_handler, 10);
 
+        $result['sent'] = (bool) $sent;
+        $result['error'] = $sent ? '' : ($mail_error !== '' ? $mail_error : 'wp_mail retornou falso.');
         update_post_meta($lead_id, 'savol_vsc_alert_email_sent', $sent ? '1' : '0');
         update_post_meta($lead_id, 'savol_vsc_alert_email_sent_at', current_time('mysql'));
         update_post_meta($lead_id, 'savol_vsc_alert_email_recipients', implode(',', $recipients));
+        update_post_meta($lead_id, 'savol_vsc_alert_email_error', $result['error']);
 
         if ($temp_pdf && file_exists($temp_pdf)) {
             unlink($temp_pdf);
         }
 
-        return (bool) $sent;
+        return $result;
     }
 
     private static function send_lead_email(int $lead_id, int $seller_id): bool {
