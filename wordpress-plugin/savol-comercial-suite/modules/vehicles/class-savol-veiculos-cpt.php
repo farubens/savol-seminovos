@@ -4206,6 +4206,7 @@ JS;
             'apoloPurchasedAt' => (string) get_post_meta($post_id, 'apolo_comprado_em', true),
             'apoloLastSeenAt' => (string) get_post_meta($post_id, 'apolo_ultimo_visto_em', true),
             'apoloOperationalStatus' => (string) get_post_meta($post_id, 'apolo_status_operacional', true),
+            'apoloSituation' => strtoupper((string) get_post_meta($post_id, 'apolo_situacao', true)),
             'apoloUpdatedAt' => (string) get_post_meta($post_id, 'apolo_atualizado_em', true),
             'createdAt' => get_post_time('c', true, $post_id),
         ];
