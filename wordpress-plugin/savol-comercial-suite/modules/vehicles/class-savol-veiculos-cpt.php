@@ -2638,14 +2638,24 @@ JS;
         }
 
         $plate = strtoupper(trim((string) get_post_meta($lead_id, 'savol_vsc_vehicle_plate', true)));
-        $subject = 'Alerta de venda seu carro' . ($plate !== '' ? ' ' . $plate : '');
-        $temp_pdf = wp_tempnam('lead-venda-seu-carro-' . $lead_id . '.pdf');
-        $attachments = [];
-
-        if ($temp_pdf) {
-            file_put_contents($temp_pdf, self::generate_lead_pdf($lead_id));
-            $attachments[] = $temp_pdf;
+        $subject = 'SAVOL SEMINOVOS'
+            . ($plate !== '' ? ' | PLACA ' . $plate : '')
+            . ' | NOVO ALERTA';
+        $temp_pdf = self::create_lead_pdf_attachment($lead_id);
+        if ($temp_pdf === '') {
+            $result['error'] = 'Nao foi possivel gerar o PDF do lead.';
+            update_post_meta($lead_id, 'savol_vsc_alert_email_sent', '0');
+            update_post_meta($lead_id, 'savol_vsc_alert_email_sent_at', current_time('mysql'));
+            update_post_meta($lead_id, 'savol_vsc_alert_email_recipients', implode(',', $recipients));
+            update_post_meta($lead_id, 'savol_vsc_alert_email_error', $result['error']);
+            return $result;
         }
+        $attachments = [$temp_pdf];
+        $message = "Um novo alerta de Venda Seu Carro foi recebido.\n";
+        if ($plate !== '') {
+            $message .= "\nPlaca: {$plate}\n";
+        }
+        $message .= "\nConsulte os dados completos no PDF em anexo.";
 
         $mail_error = '';
         $failure_handler = static function($error) use (&$mail_error): void {
@@ -2654,14 +2664,20 @@ JS;
             }
         };
 
+        $from_name_filter = static function($name): string {
+            return 'SAVOL SEMINOVOS';
+        };
+
         add_action('wp_mail_failed', $failure_handler, 10, 1);
+        add_filter('wp_mail_from_name', $from_name_filter, PHP_INT_MAX, 1);
         $sent = wp_mail(
             $recipients,
             $subject,
-            'Um novo cadastro no venda seu carro',
+            $message,
             ['Content-Type: text/plain; charset=UTF-8'],
             $attachments
         );
+        remove_filter('wp_mail_from_name', $from_name_filter, PHP_INT_MAX);
         remove_action('wp_mail_failed', $failure_handler, 10);
 
         $result['sent'] = (bool) $sent;
@@ -2684,13 +2700,16 @@ JS;
             return false;
         }
 
-        $temp_pdf = wp_tempnam('lead-venda-seu-carro-' . $lead_id . '.pdf');
-        $attachments = [];
-        if ($temp_pdf) {
-            file_put_contents($temp_pdf, self::generate_lead_pdf($lead_id));
-            $attachments[] = $temp_pdf;
+        $temp_pdf = self::create_lead_pdf_attachment($lead_id);
+        if ($temp_pdf === '') {
+            return false;
         }
+        $attachments = [$temp_pdf];
+        $from_name_filter = static function($name): string {
+            return 'SAVOL SEMINOVOS';
+        };
 
+        add_filter('wp_mail_from_name', $from_name_filter, PHP_INT_MAX, 1);
         $sent = wp_mail(
             $seller->user_email,
             'Novo lead Venda Seu Carro: ' . self::lead_vehicle_label($lead_id),
@@ -2698,12 +2717,38 @@ JS;
             ['Content-Type: text/html; charset=UTF-8'],
             $attachments
         );
+        remove_filter('wp_mail_from_name', $from_name_filter, PHP_INT_MAX);
 
         if ($temp_pdf && file_exists($temp_pdf)) {
             unlink($temp_pdf);
         }
 
         return $sent;
+    }
+
+    private static function create_lead_pdf_attachment(int $lead_id): string {
+        $temporary_file = wp_tempnam('lead-venda-seu-carro-' . $lead_id . '.pdf');
+        if (!$temporary_file) {
+            return '';
+        }
+
+        $pdf_file = preg_replace('/\.[^.]+$/', '.pdf', $temporary_file);
+        if (!is_string($pdf_file) || $pdf_file === '' || $pdf_file === $temporary_file) {
+            $pdf_file = $temporary_file . '.pdf';
+        }
+
+        if (!@rename($temporary_file, $pdf_file)) {
+            @unlink($temporary_file);
+            return '';
+        }
+
+        $written = file_put_contents($pdf_file, self::generate_lead_pdf($lead_id));
+        if ($written === false) {
+            @unlink($pdf_file);
+            return '';
+        }
+
+        return $pdf_file;
     }
 
     private static function lead_email_html(int $lead_id, \WP_User $seller): string {
@@ -2781,7 +2826,7 @@ JS;
             $content .= $color . "\nBT /F1 " . (int) $size . " Tf {$x} {$y} Td (" . self::pdf_escape($text) . ") Tj ET\n";
             $y -= ((int) $size >= 14) ? 22 : 15;
         }
-        $content .= "0.64 0.70 0.78 rg\nBT /F1 9 Tf 54 28 Td (Documento gerado pelo plugin Venda Seu Carro) Tj ET\n";
+        $content .= "0.64 0.70 0.78 rg\nBT /F1 9 Tf 54 28 Td (Documento gerado pela SAVOL Seminovos) Tj ET\n";
 
         $objects = [
             "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n",
