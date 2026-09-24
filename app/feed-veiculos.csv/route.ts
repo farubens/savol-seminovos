@@ -12,7 +12,7 @@ type VehicleApiResponse = {
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
-  const vehicleApiUrl = new URL("/api/veiculos?per_page=200", request.nextUrl.origin);
+  const vehicleApiUrl = new URL("/api/veiculos?per_page=all", request.nextUrl.origin);
   const response = await fetch(vehicleApiUrl, {
     headers: { Accept: "application/json" },
     cache: "no-store"

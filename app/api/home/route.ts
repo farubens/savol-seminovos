@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import type { ApiStore, ApiVehicle, HomeDataPayload } from "@/types/home";
 
 const DEFAULT_VEHICLES_PER_PAGE = 24;
-const MAX_VEHICLES_PER_PAGE = 200;
 const STORES_PER_PAGE = 60;
 const HOME_CACHE_TTL_MS = 2 * 60 * 1000;
 const HOME_PARTIAL_CACHE_TTL_MS = 10 * 1000;
@@ -26,10 +25,6 @@ function toInt(value: string | null | undefined, fallback: number): number {
   return Number.isNaN(parsed) ? fallback : parsed;
 }
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}
-
 async function fetchList<T>(url: string): Promise<T[]> {
   const response = await fetch(url, { cache: "no-store" });
   if (!response.ok) return [];
@@ -40,18 +35,23 @@ async function fetchList<T>(url: string): Promise<T[]> {
 
 export async function GET(request: NextRequest) {
   try {
-    const vehiclesPerPage = clamp(toInt(request.nextUrl.searchParams.get("vehicles_per_page"), DEFAULT_VEHICLES_PER_PAGE), 1, MAX_VEHICLES_PER_PAGE);
+    const vehiclesPerPageParam = request.nextUrl.searchParams.get("vehicles_per_page");
+    const vehiclesPerPage = vehiclesPerPageParam === "all"
+      ? null
+      : Math.max(1, toInt(vehiclesPerPageParam, DEFAULT_VEHICLES_PER_PAGE));
+    const selectRequestedVehicles = (vehicles: ApiVehicle[]) =>
+      vehiclesPerPage === null ? vehicles : vehicles.slice(0, vehiclesPerPage);
     const now = Date.now();
     if (homeCache && homeCache.expiresAt > now) {
       return NextResponse.json({
         ...homeCache.payload,
-        vehicles: homeCache.payload.vehicles.slice(0, vehiclesPerPage)
+        vehicles: selectRequestedVehicles(homeCache.payload.vehicles)
       });
     }
 
     if (!homeInFlight) {
       const origin = request.nextUrl.origin;
-      const vehiclesUrl = `${origin}/api/veiculos?per_page=${MAX_VEHICLES_PER_PAGE}`;
+      const vehiclesUrl = `${origin}/api/veiculos?per_page=all`;
       const storesUrl = `${origin}/api/lojas?per_page=${STORES_PER_PAGE}`;
 
       homeInFlight = (async () => {
@@ -91,7 +91,7 @@ export async function GET(request: NextRequest) {
     const payload = await homeInFlight;
     return NextResponse.json({
       ...payload,
-      vehicles: payload.vehicles.slice(0, vehiclesPerPage)
+      vehicles: selectRequestedVehicles(payload.vehicles)
     });
   } catch {
     return NextResponse.json(

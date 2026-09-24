@@ -8,7 +8,7 @@ export default function VeiculosPage() {
   return (
     <main>
       <SiteHeader active="veiculos" />
-      <HomeSessionDataProvider vehiclesPerPage={200}>
+      <HomeSessionDataProvider vehiclesPerPage="all">
         <Suspense fallback={<section className="container simple-page"><p>Carregando catálogo...</p></section>}>
           <VehicleCatalog />
         </Suspense>

@@ -21,7 +21,7 @@ function isValidPayload(value: unknown): value is HomeDataPayload {
   return Array.isArray(candidate.vehicles) && Array.isArray(candidate.stores) && typeof candidate.fetchedAt === "number";
 }
 
-export function HomeSessionDataProvider({ children, vehiclesPerPage = 24 }: { children: ReactNode; vehiclesPerPage?: number }) {
+export function HomeSessionDataProvider({ children, vehiclesPerPage = 24 }: { children: ReactNode; vehiclesPerPage?: number | "all" }) {
   const [vehicles, setVehicles] = useState<ApiVehicle[]>([]);
   const [stores, setStores] = useState<ApiStore[]>([]);
   const [loading, setLoading] = useState(true);

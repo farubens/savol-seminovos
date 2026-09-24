@@ -13,7 +13,6 @@ const DEFAULT_WP_BASE_URL =
 const WP_BASE_URL = (process.env.WP_BASE_URL?.trim() || DEFAULT_WP_BASE_URL).replace(/\/+$/, "");
 const VEICULO_ENDPOINT = `${WP_BASE_URL}/wp-json/wp/v2/veiculo`;
 const DEFAULT_PER_PAGE = 12;
-const MAX_PER_PAGE = 200;
 const WP_PAGE_SIZE = 100;
 const MISSING_SPEC_LABEL = "N/A";
 const API_CACHE_TTL_MS = 2 * 60 * 1000;
@@ -127,10 +126,6 @@ function toInt(value: string | null | undefined, fallback: number): number {
   const parsed = Number.parseInt(value ?? "", 10);
   if (Number.isNaN(parsed)) return fallback;
   return parsed;
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
 }
 
 function delay(ms: number): Promise<void> {
@@ -546,15 +541,13 @@ function buildVehicleBySlugUrl(slug: string, options?: { context?: "edit"; embed
   return `${VEICULO_ENDPOINT}?${query.toString()}`;
 }
 
-async function fetchVehiclePosts(perPage: number, authHeaders: HeadersInit): Promise<WpVehicle[]> {
+async function fetchVehiclePosts(authHeaders: HeadersInit): Promise<WpVehicle[]> {
   const rows: WpVehicle[] = [];
-  const pageSize = Math.min(WP_PAGE_SIZE, perPage);
-  const maxPages = Math.ceil(perPage / pageSize);
   type FetchStrategy = { context?: "edit"; embed?: boolean; useAuth?: boolean };
 
   const fetchPage = async (page: number, options?: FetchStrategy): Promise<WpVehicle[] | null> => {
     try {
-      const result = await fetchJson<WpVehicle[]>(buildVehicleUrl(pageSize, { ...options, page }), {
+      const result = await fetchJson<WpVehicle[]>(buildVehicleUrl(WP_PAGE_SIZE, { ...options, page }), {
         headers: options?.useAuth === false ? {} : authHeaders
       });
       return Array.isArray(result.data) ? result.data : [];
@@ -575,7 +568,7 @@ async function fetchVehiclePosts(perPage: number, authHeaders: HeadersInit): Pro
   for (const strategy of strategies) {
     rows.length = 0;
     let strategyFailed = false;
-    for (let page = 1; page <= maxPages; page += 1) {
+    for (let page = 1; ; page += 1) {
       const pageRows = await fetchPage(page, strategy);
       if (pageRows === null) {
         strategyFailed = true;
@@ -583,9 +576,9 @@ async function fetchVehiclePosts(perPage: number, authHeaders: HeadersInit): Pro
       }
       if (!pageRows.length) break;
       rows.push(...pageRows);
-      if (pageRows.length < pageSize || rows.length >= perPage) break;
+      if (pageRows.length < WP_PAGE_SIZE) break;
     }
-    if (rows.length) return rows.slice(0, perPage);
+    if (!strategyFailed && rows.length) return rows;
     if (strategyFailed) continue;
   }
 
@@ -928,9 +921,10 @@ function mapVehicle(vehicle: WpVehicle, apoloSituations?: ApoloSituationIndex): 
 }
 
 export async function GET(request: NextRequest) {
-  const perPageInput = toInt(request.nextUrl.searchParams.get("per_page"), DEFAULT_PER_PAGE);
-  const perPage = clamp(perPageInput, 1, MAX_PER_PAGE);
+  const perPageParam = request.nextUrl.searchParams.get("per_page");
+  const perPage = perPageParam === "all" ? null : Math.max(1, toInt(perPageParam, DEFAULT_PER_PAGE));
   const slug = cleanText(request.nextUrl.searchParams.get("slug") ?? "");
+  const selectRequestedItems = (items: ApiVehicle[]) => (perPage === null ? items : items.slice(0, perPage));
 
   try {
     if (slug) {
@@ -950,17 +944,17 @@ export async function GET(request: NextRequest) {
 
     const now = Date.now();
     if (vehiclesCache && vehiclesCache.expiresAt > now) {
-      return NextResponse.json({ items: vehiclesCache.items.slice(0, perPage) });
+      return NextResponse.json({ items: selectRequestedItems(vehiclesCache.items) });
     }
 
     if (!vehiclesInFlight) {
       vehiclesInFlight = (async () => {
         const authHeaders = getAuthHeaders();
         const apoloSituationsPromise = fetchApoloSituationIndex();
-        let rows = await fetchVehiclePosts(MAX_PER_PAGE, authHeaders);
+        let rows = await fetchVehiclePosts(authHeaders);
         if (!rows.length) {
           await delay(EMPTY_STOCK_RETRY_DELAY_MS);
-          rows = await fetchVehiclePosts(MAX_PER_PAGE, authHeaders);
+          rows = await fetchVehiclePosts(authHeaders);
         }
         if (!rows.length) return vehiclesCache?.items ?? [];
 
@@ -982,8 +976,8 @@ export async function GET(request: NextRequest) {
     }
 
     const items = await vehiclesInFlight;
-    return NextResponse.json({ items: items.slice(0, perPage) });
+    return NextResponse.json({ items: selectRequestedItems(items) });
   } catch {
-    return NextResponse.json({ items: vehiclesCache?.items.slice(0, perPage) ?? [] }, { status: 200 });
+    return NextResponse.json({ items: selectRequestedItems(vehiclesCache?.items ?? []) }, { status: 200 });
   }
 }

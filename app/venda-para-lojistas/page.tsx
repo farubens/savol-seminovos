@@ -14,7 +14,7 @@ export default function VendaParaLojistasPage() {
   return (
     <main>
       <SiteHeader active="lojistas" />
-      <HomeSessionDataProvider vehiclesPerPage={200}>
+      <HomeSessionDataProvider vehiclesPerPage="all">
         <Suspense fallback={<section className="container simple-page"><p>Carregando veículos de repasse...</p></section>}>
           <VehicleCatalog mode="repasse" basePath="/venda-para-lojistas" />
         </Suspense>

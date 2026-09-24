@@ -24,7 +24,7 @@ export default function Home() {
     <main>
       <SiteHeader active="home" showEnvNote />
 
-      <HomeSessionDataProvider vehiclesPerPage={200}>
+      <HomeSessionDataProvider vehiclesPerPage="all">
         <section className="hero">
           <div className="container hero-grid">
             <div className="hero-copy">

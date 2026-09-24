@@ -96,7 +96,7 @@ export function SavolAccountPageClient() {
     if (!user) return;
     const controller = new AbortController();
 
-    fetch("/api/veiculos?per_page=200", { signal: controller.signal })
+    fetch("/api/veiculos?per_page=all", { signal: controller.signal })
       .then((response) => (response.ok ? response.json() : { items: [] }))
       .then((payload: VehiclesResponse) => {
         const items = Array.isArray(payload.items) ? payload.items : [];
