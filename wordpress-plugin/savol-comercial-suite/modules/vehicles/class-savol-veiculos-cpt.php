@@ -1114,6 +1114,19 @@ final class Savol_Veiculos_CPT {
             'permission_callback' => [__CLASS__, 'dashboard_can_edit_vehicle'],
         ]);
 
+        register_rest_route('savol/v1', '/dashboard/veiculos/(?P<id>\d+)', [
+            [
+                'methods' => \WP_REST_Server::READABLE,
+                'callback' => [__CLASS__, 'handle_dashboard_vehicle_detail_request'],
+                'permission_callback' => [__CLASS__, 'dashboard_can_edit_vehicle'],
+            ],
+            [
+                'methods' => \WP_REST_Server::EDITABLE,
+                'callback' => [__CLASS__, 'handle_dashboard_vehicle_update_request'],
+                'permission_callback' => [__CLASS__, 'dashboard_can_edit_vehicle'],
+            ],
+        ]);
+
         register_rest_route('savol/v1', '/dashboard/users', [
             'methods' => \WP_REST_Server::CREATABLE,
             'callback' => [__CLASS__, 'handle_dashboard_create_user_request'],
@@ -1172,6 +1185,61 @@ final class Savol_Veiculos_CPT {
         }
         wp_set_current_user((int) $user->ID);
         return true;
+    }
+
+    public static function handle_dashboard_vehicle_detail_request(\WP_REST_Request $request) {
+        $post_id = absint($request->get_param('id'));
+        $core_request = new \WP_REST_Request('GET', '/wp/v2/veiculo/' . $post_id);
+        $core_request->set_param('context', 'edit');
+        $core_request->set_param('_embed', '1');
+        return rest_do_request($core_request);
+    }
+
+    public static function handle_dashboard_vehicle_update_request(\WP_REST_Request $request) {
+        $post_id = absint($request->get_param('id'));
+        $input = $request->get_json_params();
+        if (!is_array($input)) {
+            return new \WP_Error('savol_dashboard_invalid_vehicle', 'Dados invalidos.', ['status' => 400]);
+        }
+
+        $allowed_fields = [
+            'title', 'content', 'excerpt', 'status', 'meta', 'veiculo_marca', 'veiculo_modelo',
+            'veiculo_versao', 'veiculo_cor', 'veiculo_cidade', 'veiculo_uf', 'veiculo_unidade',
+            'veiculo_informacao_destaque', 'veiculo_destaque_secundario',
+        ];
+        $payload = array_intersect_key($input, array_flip($allowed_fields));
+        if (isset($payload['meta'])) {
+            if (!is_array($payload['meta'])) {
+                return new \WP_Error('savol_dashboard_invalid_vehicle', 'Metadados invalidos.', ['status' => 400]);
+            }
+            $allowed_meta = [
+                'condicao', 'placa', 'ano', 'ano_modelo', 'km', 'preco', 'status', 'combustivel', 'cambio',
+                'categoria', 'carroceria', 'portas', 'lugares', 'tracao', 'motor', 'potencia_cv', 'torque_nm',
+                'qtd_donos', 'ipva_pago', 'licenciado', 'blindado', 'negociacao', 'repasse', 'transito',
+            ];
+            $payload['meta'] = array_intersect_key($payload['meta'], array_flip($allowed_meta));
+        }
+        if (isset($payload['status']) && !in_array($payload['status'], ['draft', 'publish'], true)) {
+            return new \WP_Error('savol_dashboard_invalid_vehicle', 'Status invalido.', ['status' => 400]);
+        }
+        if (($payload['status'] ?? '') === 'publish') {
+            $cost = (float) get_post_meta($post_id, 'apolo_val_compra', true);
+            $price = (float) ($payload['meta']['preco'] ?? get_post_meta($post_id, 'preco', true));
+            $justification = (string) get_post_meta($post_id, self::PRICE_OVERRIDE_REASON_META, true);
+            if ($price <= 0) {
+                return new \WP_Error('savol_dashboard_missing_price', 'Informe um preco antes de publicar.', ['status' => 422]);
+            }
+            if ($cost > 0 && $price > 0 && $price < $cost && $justification === '') {
+                return new \WP_Error('savol_dashboard_price_override_required', 'Preco abaixo do custo. Use a autorizacao de publicacao.', ['status' => 409]);
+            }
+        }
+        if (!$payload) {
+            return new \WP_Error('savol_dashboard_invalid_vehicle', 'Nenhuma alteracao informada.', ['status' => 400]);
+        }
+
+        $core_request = new \WP_REST_Request('POST', '/wp/v2/veiculo/' . $post_id);
+        $core_request->set_body_params($payload);
+        return rest_do_request($core_request);
     }
 
     public static function dashboard_can_create_users(\WP_REST_Request $request) {
