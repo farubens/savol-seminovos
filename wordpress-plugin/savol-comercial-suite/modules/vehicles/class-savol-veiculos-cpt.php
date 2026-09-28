@@ -2801,14 +2801,20 @@ JS;
         $page_index = 0;
         $y = 718.0;
 
-        self::pdf_rect($pages[$page_index]['content'], 36, $y - 64, 523, 58, [1, 1, 1]);
-        self::pdf_text($pages[$page_index]['content'], 'PROTOCOLO', 52, $y - 24, 8, [0.42, 0.48, 0.58], true);
-        self::pdf_text($pages[$page_index]['content'], $protocol !== '' ? $protocol : '-', 52, $y - 42, 12, [0.07, 0.09, 0.16], true);
-        self::pdf_text($pages[$page_index]['content'], 'VEICULO', 224, $y - 24, 8, [0.42, 0.48, 0.58], true);
-        self::pdf_text($pages[$page_index]['content'], self::pdf_short_text($vehicle_label, 35), 224, $y - 42, 11, [0.07, 0.09, 0.16], true);
-        self::pdf_text($pages[$page_index]['content'], 'PLACA', 470, $y - 24, 8, [0.42, 0.48, 0.58], true);
-        self::pdf_text($pages[$page_index]['content'], $plate !== '' ? $plate : '-', 470, $y - 42, 12, [0.10, 0.28, 0.55], true);
-        $y -= 82;
+        self::pdf_rect($pages[$page_index]['content'], 36, $y - 120, 523, 114, [1, 1, 1]);
+        self::pdf_rect($pages[$page_index]['content'], 36, $y - 120, 4, 114, [0.10, 0.28, 0.55]);
+        self::pdf_rect($pages[$page_index]['content'], 52, $y - 47, 491, 1, [0.90, 0.92, 0.95]);
+        self::pdf_rect($pages[$page_index]['content'], 52, $y - 83, 491, 1, [0.90, 0.92, 0.95]);
+
+        self::pdf_text($pages[$page_index]['content'], 'PROTOCOLO', 52, $y - 29, 8, [0.42, 0.48, 0.58], true);
+        self::pdf_text($pages[$page_index]['content'], self::pdf_short_text($protocol !== '' ? $protocol : '-', 58), 154, $y - 30, 11, [0.07, 0.09, 0.16], true);
+
+        self::pdf_text($pages[$page_index]['content'], 'VEICULO', 52, $y - 65, 8, [0.42, 0.48, 0.58], true);
+        self::pdf_text($pages[$page_index]['content'], self::pdf_short_text($vehicle_label, 58), 154, $y - 66, 11, [0.07, 0.09, 0.16], true);
+
+        self::pdf_text($pages[$page_index]['content'], 'PLACA', 52, $y - 101, 8, [0.42, 0.48, 0.58], true);
+        self::pdf_text($pages[$page_index]['content'], $plate !== '' ? $plate : '-', 154, $y - 102, 12, [0.10, 0.28, 0.55], true);
+        $y -= 138;
 
         $sections = self::lead_sections($lead_id);
         if (isset($sections['Resumo']['Recebido em'])) {
