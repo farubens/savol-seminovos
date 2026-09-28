@@ -1,9 +1,13 @@
 ﻿import Image from "next/image";
+import { notFound } from "next/navigation";
 import { CarFront, Monitor, ShieldCheck, Store } from "lucide-react";
 import { SavolMegaFooter } from "@/components/SavolMegaFooter";
 import { SiteHeader } from "@/components/SiteHeader";
+import { SITE_FEATURES } from "@/lib/features";
 
 export default function VendaPorAtacadoPage() {
+  if (!SITE_FEATURES.wholesaleSale) notFound();
+
   return (
     <main>
       <SiteHeader active="atacado" />

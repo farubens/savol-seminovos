@@ -3,9 +3,15 @@
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { logLeadmobResponse, logLeadPayload } from "@/lib/leadDebug";
 import { getLeadTrackingPayload } from "@/lib/leadTracking";
+import { SITE_FEATURES } from "@/lib/features";
 import type { ApiStore } from "@/types/home";
 
-const CONTACT_SUBJECTS = ["Seminovos", "Venda seu carro", "Venda por atacado", "Outros"];
+const CONTACT_SUBJECTS = [
+  "Seminovos",
+  "Venda seu carro",
+  ...(SITE_FEATURES.wholesaleSale ? ["Venda por atacado"] : []),
+  "Outros"
+];
 
 type StoresResponse = {
   items?: ApiStore[];

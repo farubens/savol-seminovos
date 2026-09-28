@@ -2784,24 +2784,142 @@ JS;
     }
 
     private static function generate_lead_pdf(int $lead_id): string {
-        $lines = [
-            ['SAVOL Seminovos', 22],
-            ['Lead Venda Seu Carro', 14],
-            [self::lead_short_label($lead_id), 12],
-            ['', 10],
-        ];
-
-        foreach (self::lead_sections($lead_id) as $title => $items) {
-            $lines[] = [$title, 14];
-            foreach ($items as $label => $value) {
-                foreach (self::wrap_pdf_text($label . ': ' . ($value !== '' ? $value : '-'), 92) as $wrapped) {
-                    $lines[] = [$wrapped, 10];
-                }
-            }
-            $lines[] = ['', 6];
+        $received_at = self::lead_received_at_label($lead_id);
+        $vehicle_label = self::lead_vehicle_label($lead_id);
+        $plate = strtoupper(trim((string) get_post_meta($lead_id, 'savol_vsc_vehicle_plate', true)));
+        $protocol = trim((string) get_post_meta($lead_id, 'savol_vsc_protocol', true));
+        $images = [];
+        $logo_path = defined('SAVOL_COMERCIAL_SUITE_PATH')
+            ? SAVOL_COMERCIAL_SUITE_PATH . 'assets/savol-logo.png'
+            : '';
+        $logo = self::prepare_pdf_image($logo_path, 500, 120, 90);
+        if ($logo !== null) {
+            $images['Logo'] = $logo;
         }
 
-        return self::simple_pdf($lines);
+        $pages = [self::new_lead_pdf_page('Venda Seu Carro', $received_at, isset($images['Logo']))];
+        $page_index = 0;
+        $y = 718.0;
+
+        self::pdf_rect($pages[$page_index]['content'], 36, $y - 64, 523, 58, [1, 1, 1]);
+        self::pdf_text($pages[$page_index]['content'], 'PROTOCOLO', 52, $y - 24, 8, [0.42, 0.48, 0.58], true);
+        self::pdf_text($pages[$page_index]['content'], $protocol !== '' ? $protocol : '-', 52, $y - 42, 12, [0.07, 0.09, 0.16], true);
+        self::pdf_text($pages[$page_index]['content'], 'VEICULO', 224, $y - 24, 8, [0.42, 0.48, 0.58], true);
+        self::pdf_text($pages[$page_index]['content'], self::pdf_short_text($vehicle_label, 35), 224, $y - 42, 11, [0.07, 0.09, 0.16], true);
+        self::pdf_text($pages[$page_index]['content'], 'PLACA', 470, $y - 24, 8, [0.42, 0.48, 0.58], true);
+        self::pdf_text($pages[$page_index]['content'], $plate !== '' ? $plate : '-', 470, $y - 42, 12, [0.10, 0.28, 0.55], true);
+        $y -= 82;
+
+        $sections = self::lead_sections($lead_id);
+        if (isset($sections['Resumo']['Recebido em'])) {
+            $sections['Resumo']['Recebido em'] = $received_at;
+        }
+
+        foreach ($sections as $title => $items) {
+            if ($y < 100) {
+                $pages[] = self::new_lead_pdf_page('Venda Seu Carro', $received_at, isset($images['Logo']));
+                $page_index = count($pages) - 1;
+                $y = 718.0;
+            }
+
+            self::pdf_rect($pages[$page_index]['content'], 36, $y - 24, 523, 24, [0.88, 0.92, 0.98]);
+            self::pdf_text($pages[$page_index]['content'], strtoupper((string) $title), 48, $y - 17, 10, [0.10, 0.28, 0.55], true);
+            $y -= 30;
+            $alternate = false;
+
+            foreach ($items as $label => $value) {
+                $display_value = trim((string) $value) !== '' ? (string) $value : '-';
+                $value_lines = self::wrap_pdf_text($display_value, 58);
+                $row_height = max(25, 10 + (count($value_lines) * 13));
+
+                if ($y - $row_height < 48) {
+                    $pages[] = self::new_lead_pdf_page('Venda Seu Carro', $received_at, isset($images['Logo']));
+                    $page_index = count($pages) - 1;
+                    $y = 718.0;
+                    self::pdf_rect($pages[$page_index]['content'], 36, $y - 24, 523, 24, [0.88, 0.92, 0.98]);
+                    self::pdf_text($pages[$page_index]['content'], strtoupper((string) $title) . ' - CONTINUACAO', 48, $y - 17, 10, [0.10, 0.28, 0.55], true);
+                    $y -= 30;
+                }
+
+                self::pdf_rect(
+                    $pages[$page_index]['content'],
+                    36,
+                    $y - $row_height,
+                    523,
+                    $row_height,
+                    $alternate ? [0.965, 0.973, 0.984] : [1, 1, 1]
+                );
+                self::pdf_text($pages[$page_index]['content'], (string) $label, 48, $y - 17, 9, [0.42, 0.48, 0.58], true);
+                foreach ($value_lines as $line_index => $line) {
+                    self::pdf_text($pages[$page_index]['content'], $line, 190, $y - 17 - ($line_index * 13), 10, [0.07, 0.09, 0.16]);
+                }
+                $y -= $row_height;
+                $alternate = !$alternate;
+            }
+            $y -= 14;
+        }
+
+        $photo_ids = array_values(array_filter(array_map(
+            'absint',
+            explode(',', (string) get_post_meta($lead_id, 'savol_vsc_photo_ids', true))
+        )));
+        $photo_items = [];
+        foreach ($photo_ids as $photo_id) {
+            $file = get_attached_file($photo_id);
+            $photo = self::prepare_pdf_image(is_string($file) ? $file : '', 1200, 900, 82);
+            if ($photo === null) {
+                continue;
+            }
+
+            $key = 'Photo' . (count($photo_items) + 1);
+            $images[$key] = $photo;
+            $label = trim((string) get_post_meta($photo_id, 'savol_vsc_photo_label', true));
+            $photo_items[] = [
+                'key' => $key,
+                'label' => $label !== '' ? $label : 'Foto do veiculo',
+            ];
+        }
+
+        if (!empty($photo_items)) {
+            foreach (array_chunk($photo_items, 4) as $photo_page_items) {
+                $page = self::new_lead_pdf_page('Registro fotografico', $received_at, isset($images['Logo']));
+                self::pdf_text($page['content'], $vehicle_label . ($plate !== '' ? ' | ' . $plate : ''), 38, 726, 11, [0.10, 0.28, 0.55], true);
+
+                foreach ($photo_page_items as $index => $photo_item) {
+                    $column = $index % 2;
+                    $row = intdiv($index, 2);
+                    $x = $column === 0 ? 36.0 : 303.0;
+                    $top = $row === 0 ? 706.0 : 392.0;
+                    $width = 256.0;
+                    $height = 286.0;
+                    self::pdf_rect($page['content'], $x, $top - $height, $width, $height, [0.86, 0.89, 0.93]);
+                    self::pdf_rect($page['content'], $x + 1, $top - $height + 1, $width - 2, $height - 2, [1, 1, 1]);
+
+                    $image = $images[$photo_item['key']];
+                    $box_width = 236.0;
+                    $box_height = 238.0;
+                    $scale = min($box_width / $image['width'], $box_height / $image['height']);
+                    $draw_width = $image['width'] * $scale;
+                    $draw_height = $image['height'] * $scale;
+                    $draw_x = $x + 10 + (($box_width - $draw_width) / 2);
+                    $draw_y = ($top - $height + 38) + (($box_height - $draw_height) / 2);
+                    self::pdf_image($page['content'], $photo_item['key'], $draw_x, $draw_y, $draw_width, $draw_height);
+                    $page['images'][] = $photo_item['key'];
+                    self::pdf_text($page['content'], self::pdf_short_text($photo_item['label'], 42), $x + 12, $top - $height + 18, 9, [0.07, 0.09, 0.16], true);
+                }
+
+                $pages[] = $page;
+            }
+        }
+
+        $page_count = count($pages);
+        foreach ($pages as $index => &$page) {
+            self::pdf_text($page['content'], 'SAVOL SEMINOVOS', 36, 24, 8, [0.48, 0.54, 0.63], true);
+            self::pdf_text($page['content'], 'Pagina ' . ($index + 1) . ' de ' . $page_count, 492, 24, 8, [0.48, 0.54, 0.63]);
+        }
+        unset($page);
+
+        return self::build_pdf_document($pages, $images);
     }
 
     private static function wrap_pdf_text(string $text, int $limit): array {
@@ -2809,44 +2927,253 @@ JS;
         return strlen($text) <= $limit ? [$text] : explode("\n", wordwrap($text, $limit, "\n", true));
     }
 
-    private static function simple_pdf(array $lines): string {
-        $content = "0.92 0.95 0.99 rg\n0 0 595 842 re f\n0.07 0.09 0.16 rg\n0 770 595 72 re f\n";
-        $y = 804;
-        foreach ($lines as $line) {
-            [$text, $size] = $line;
-            if ($text === '') {
-                $y -= max(8, (int) $size);
-                continue;
-            }
-            if ($y < 54) {
-                break;
-            }
-            $x = ((int) $size >= 14 && $y > 760) ? 44 : 54;
-            $color = $y > 760 ? '1 1 1 rg' : (((int) $size >= 14) ? '0.10 0.22 0.46 rg' : '0.10 0.12 0.18 rg');
-            $content .= $color . "\nBT /F1 " . (int) $size . " Tf {$x} {$y} Td (" . self::pdf_escape($text) . ") Tj ET\n";
-            $y -= ((int) $size >= 14) ? 22 : 15;
+    private static function lead_received_at_label(int $lead_id): string {
+        $raw = trim((string) get_post_meta($lead_id, 'savol_vsc_received_at', true));
+        $timestamp = $raw !== '' ? strtotime($raw) : false;
+        if ($timestamp === false) {
+            $post_timestamp = get_post_timestamp($lead_id, 'date');
+            $timestamp = is_int($post_timestamp) ? $post_timestamp : time();
         }
-        $content .= "0.64 0.70 0.78 rg\nBT /F1 9 Tf 54 28 Td (Documento gerado pela SAVOL Seminovos) Tj ET\n";
 
-        $objects = [
-            "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n",
-            "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
-            "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>\nendobj\n",
-            "4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n",
-            "5 0 obj\n<< /Length " . strlen($content) . " >>\nstream\n{$content}\nendstream\nendobj\n",
+        return wp_date('d/m/Y \a\s H:i', $timestamp);
+    }
+
+    private static function new_lead_pdf_page(string $title, string $received_at, bool $has_logo): array {
+        $content = '';
+        self::pdf_rect($content, 0, 0, 595, 842, [0.94, 0.96, 0.98]);
+        self::pdf_rect($content, 0, 754, 595, 88, [0.055, 0.075, 0.125]);
+
+        $images = [];
+        if ($has_logo) {
+            self::pdf_rect($content, 34, 775, 152, 44, [1, 1, 1]);
+            self::pdf_image($content, 'Logo', 44, 782, 132, 31.68);
+            $images[] = 'Logo';
+        } else {
+            self::pdf_text($content, 'SAVOL', 38, 794, 22, [1, 1, 1], true);
+            self::pdf_text($content, 'SEMINOVOS', 39, 780, 8, [0.58, 0.72, 0.95], true);
+        }
+
+        self::pdf_text($content, $title, 210, 805, 19, [1, 1, 1], true);
+        self::pdf_text($content, 'Enviado em ' . $received_at, 210, 783, 10, [0.74, 0.81, 0.91]);
+
+        return [
+            'content' => $content,
+            'images' => $images,
         ];
-        $pdf = "%PDF-1.4\n";
+    }
+
+    private static function prepare_pdf_image(string $path, int $max_width, int $max_height, int $quality): ?array {
+        if ($path === '' || !is_file($path) || !is_readable($path)) {
+            return null;
+        }
+
+        $info = @getimagesize($path);
+        if (!is_array($info) || empty($info[0]) || empty($info[1])) {
+            return null;
+        }
+
+        $mime = strtolower((string) ($info['mime'] ?? ''));
+        $source = null;
+        if ($mime === 'image/jpeg' && function_exists('imagecreatefromjpeg')) {
+            $source = @imagecreatefromjpeg($path);
+        } elseif ($mime === 'image/png' && function_exists('imagecreatefrompng')) {
+            $source = @imagecreatefrompng($path);
+        } elseif ($mime === 'image/webp' && function_exists('imagecreatefromwebp')) {
+            $source = @imagecreatefromwebp($path);
+        }
+
+        if ($source !== false && $source !== null && function_exists('imagecreatetruecolor') && function_exists('imagejpeg')) {
+            $source_width = imagesx($source);
+            $source_height = imagesy($source);
+            $scale = min(1, $max_width / $source_width, $max_height / $source_height);
+            $width = max(1, (int) round($source_width * $scale));
+            $height = max(1, (int) round($source_height * $scale));
+            $canvas = imagecreatetruecolor($width, $height);
+            $white = imagecolorallocate($canvas, 255, 255, 255);
+            imagefill($canvas, 0, 0, $white);
+            imagecopyresampled($canvas, $source, 0, 0, 0, 0, $width, $height, $source_width, $source_height);
+
+            ob_start();
+            imagejpeg($canvas, null, max(60, min(95, $quality)));
+            $data = (string) ob_get_clean();
+            imagedestroy($canvas);
+            imagedestroy($source);
+
+            if ($data !== '') {
+                return ['data' => $data, 'width' => $width, 'height' => $height];
+            }
+        }
+
+        if ($mime === 'image/jpeg') {
+            $data = file_get_contents($path);
+            if (is_string($data) && $data !== '') {
+                return ['data' => $data, 'width' => (int) $info[0], 'height' => (int) $info[1]];
+            }
+        }
+
+        return self::prepare_pdf_image_with_editor($path, $max_width, $max_height, $quality);
+    }
+
+    private static function prepare_pdf_image_with_editor(string $path, int $max_width, int $max_height, int $quality): ?array {
+        if (!function_exists('wp_get_image_editor')) {
+            return null;
+        }
+
+        $editor = wp_get_image_editor($path);
+        if (is_wp_error($editor)) {
+            return null;
+        }
+
+        $editor->resize($max_width, $max_height, false);
+        $editor->set_quality(max(60, min(95, $quality)));
+        $temporary_file = wp_tempnam('savol-pdf-image.jpg');
+        if (!$temporary_file) {
+            return null;
+        }
+        $jpeg_file = preg_replace('/\.[^.]+$/', '.jpg', $temporary_file);
+        if (!is_string($jpeg_file) || $jpeg_file === '') {
+            $jpeg_file = $temporary_file . '.jpg';
+        }
+
+        $saved = $editor->save($jpeg_file, 'image/jpeg');
+        $data = !is_wp_error($saved) && is_file($jpeg_file) ? file_get_contents($jpeg_file) : false;
+        $info = !is_wp_error($saved) && is_file($jpeg_file) ? @getimagesize($jpeg_file) : false;
+        @unlink($temporary_file);
+        @unlink($jpeg_file);
+
+        if (!is_string($data) || $data === '' || !is_array($info)) {
+            return null;
+        }
+
+        return ['data' => $data, 'width' => (int) $info[0], 'height' => (int) $info[1]];
+    }
+
+    private static function pdf_short_text(string $text, int $limit): string {
+        $text = self::pdf_clean_text($text);
+        if (strlen($text) <= $limit) {
+            return $text;
+        }
+
+        return rtrim(substr($text, 0, max(1, $limit - 3))) . '...';
+    }
+
+    private static function pdf_rect(string &$content, float $x, float $y, float $width, float $height, array $color): void {
+        $content .= sprintf(
+            "%.3F %.3F %.3F rg\n%.2F %.2F %.2F %.2F re f\n",
+            (float) $color[0],
+            (float) $color[1],
+            (float) $color[2],
+            $x,
+            $y,
+            $width,
+            $height
+        );
+    }
+
+    private static function pdf_text(
+        string &$content,
+        string $text,
+        float $x,
+        float $y,
+        int $size,
+        array $color,
+        bool $bold = false
+    ): void {
+        $font = $bold ? 'F2' : 'F1';
+        $content .= sprintf(
+            "%.3F %.3F %.3F rg\nBT /%s %d Tf %.2F %.2F Td (%s) Tj ET\n",
+            (float) $color[0],
+            (float) $color[1],
+            (float) $color[2],
+            $font,
+            $size,
+            $x,
+            $y,
+            self::pdf_escape($text)
+        );
+    }
+
+    private static function pdf_image(
+        string &$content,
+        string $name,
+        float $x,
+        float $y,
+        float $width,
+        float $height
+    ): void {
+        $content .= sprintf(
+            "q %.2F 0 0 %.2F %.2F %.2F cm /%s Do Q\n",
+            $width,
+            $height,
+            $x,
+            $y,
+            preg_replace('/[^A-Za-z0-9]/', '', $name)
+        );
+    }
+
+    private static function build_pdf_document(array $pages, array $images): string {
+        $objects = [
+            1 => '',
+            2 => '',
+            3 => "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+            4 => "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>",
+        ];
+        $next_id = 5;
+        $image_object_ids = [];
+
+        foreach ($images as $name => $image) {
+            $image_object_ids[$name] = $next_id;
+            $data = (string) $image['data'];
+            $objects[$next_id] = "<< /Type /XObject /Subtype /Image /Width " . (int) $image['width']
+                . " /Height " . (int) $image['height']
+                . " /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length " . strlen($data)
+                . " >>\nstream\n" . $data . "\nendstream";
+            $next_id++;
+        }
+
+        $page_object_ids = [];
+        foreach ($pages as $page) {
+            $content_id = $next_id++;
+            $page_id = $next_id++;
+            $content = (string) $page['content'];
+            $objects[$content_id] = "<< /Length " . strlen($content) . " >>\nstream\n{$content}\nendstream";
+
+            $xobjects = [];
+            foreach (array_unique((array) $page['images']) as $image_name) {
+                if (isset($image_object_ids[$image_name])) {
+                    $resource_name = preg_replace('/[^A-Za-z0-9]/', '', (string) $image_name);
+                    $xobjects[] = '/' . $resource_name . ' ' . $image_object_ids[$image_name] . ' 0 R';
+                }
+            }
+            $image_resources = !empty($xobjects) ? ' /XObject << ' . implode(' ', $xobjects) . ' >>' : '';
+            $objects[$page_id] = "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842]"
+                . " /Resources << /Font << /F1 3 0 R /F2 4 0 R >>{$image_resources} >>"
+                . " /Contents {$content_id} 0 R >>";
+            $page_object_ids[] = $page_id;
+        }
+
+        $kids = implode(' ', array_map(static function(int $id): string {
+            return $id . ' 0 R';
+        }, $page_object_ids));
+        $objects[1] = "<< /Type /Catalog /Pages 2 0 R >>";
+        $objects[2] = "<< /Type /Pages /Kids [{$kids}] /Count " . count($page_object_ids) . " >>";
+        ksort($objects);
+
+        $pdf = "%PDF-1.4\n%SAVOL\n";
         $offsets = [0];
-        foreach ($objects as $object) {
-            $offsets[] = strlen($pdf);
-            $pdf .= $object;
+        foreach ($objects as $id => $object) {
+            $offsets[$id] = strlen($pdf);
+            $pdf .= $id . " 0 obj\n" . $object . "\nendobj\n";
         }
+
         $xref = strlen($pdf);
-        $pdf .= "xref\n0 " . (count($objects) + 1) . "\n0000000000 65535 f \n";
-        for ($i = 1; $i <= count($objects); $i++) {
-            $pdf .= sprintf("%010d 00000 n \n", $offsets[$i]);
+        $size = count($objects) + 1;
+        $pdf .= "xref\n0 {$size}\n0000000000 65535 f \n";
+        for ($id = 1; $id < $size; $id++) {
+            $pdf .= sprintf("%010d 00000 n \n", $offsets[$id]);
         }
-        $pdf .= "trailer\n<< /Size " . (count($objects) + 1) . " /Root 1 0 R >>\nstartxref\n{$xref}\n%%EOF";
+        $pdf .= "trailer\n<< /Size {$size} /Root 1 0 R >>\nstartxref\n{$xref}\n%%EOF";
+
         return $pdf;
     }
 
