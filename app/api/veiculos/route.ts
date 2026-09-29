@@ -118,7 +118,6 @@ let apoloSituationInFlight: Promise<ApoloSituationIndex> | null = null;
 const TITLE_YEAR_REGEX = /\b((?:19|20)\d{2})(?:\s*[/-]\s*((?:19|20)\d{2}))?\b/;
 const CONTENT_YEAR_REGEX = /\bano[:\s]+((?:19|20)\d{2})(?:\s*[/-]\s*((?:19|20)\d{2}))?/i;
 const KM_REGEX = /\b(\d{1,3}(?:[.\s]\d{3})+|\d{2,6})\s*km\b/i;
-const PRICE_REGEX = /(?:de\s*)?r\$\s*([\d.]+(?:,\d{2})?)/i;
 
 export const dynamic = "force-dynamic";
 
@@ -682,19 +681,13 @@ function toCurrencyValue(raw: string): string {
   return formatCurrencyBRL(numeric);
 }
 
-function extractPriceData(content: string, metaPrice: string): { oldPrice: string; price: string } {
+function extractPriceData(metaPrice: string): { oldPrice: string; price: string } {
   if (metaPrice) {
     const formatted = toCurrencyValue(metaPrice);
     if (formatted) return { oldPrice: buildOldPriceLabelFromOfficialPrice(formatted), price: formatted };
   }
 
-  const matches = [...content.matchAll(new RegExp(PRICE_REGEX, "gi"))];
-  if (!matches.length) return { oldPrice: "", price: "Preço sob consulta" };
-
-  const values = matches.map((match) => toCurrencyValue(match[0])).filter(Boolean);
-  if (!values.length) return { oldPrice: "", price: "Preço sob consulta" };
-  const officialPrice = values[values.length - 1];
-  return { oldPrice: buildOldPriceLabelFromOfficialPrice(officialPrice), price: officialPrice };
+  return { oldPrice: "", price: "Preço sob consulta" };
 }
 
 function getQualityTag(content: string, condition: string): string {
@@ -856,7 +849,7 @@ function mapVehicle(vehicle: WpVehicle, apoloSituations?: ApoloSituationIndex): 
   const repasse =
     parseBooleanMeta(metaRepasse) ||
     normalizeForMatch(metaApoloProposalSeller) === "repasse";
-  const priceData = extractPriceData(content, metaPrice);
+  const priceData = extractPriceData(metaPrice);
   const displayPrice = buildVisualPriceLabel(priceData.price, repasse);
   const parsedStockDays = Number.parseInt(metaStockDays, 10);
   const stockDays = Number.isFinite(parsedStockDays) ? Math.max(0, parsedStockDays) : 0;

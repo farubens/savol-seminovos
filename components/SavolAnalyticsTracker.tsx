@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
+import { getLeadTrackingPayload } from "@/lib/leadTracking";
 
 const VISITOR_KEY = "savol_analytics_visitor_id";
 const SESSION_KEY = "savol_analytics_session_id";
@@ -136,6 +137,7 @@ export function SavolAnalyticsTracker() {
     lastRouteKey.current = routeKey;
 
     const params = new URLSearchParams(search);
+    getLeadTrackingPayload();
     const utm = getUtmPayload(params);
     sendAnalytics({ event_type: "pageview", ...utm });
 

@@ -4295,6 +4295,7 @@ JS;
                 $vehicle[$key] = $value;
             }
         }
+        $vehicle['value'] = $field_map['value'];
 
         if (!empty($apolo_item['blindado_informado'])) {
             $vehicle['blindado'] = !empty($apolo_item['blindado']);
@@ -4739,13 +4740,9 @@ JS;
         return in_array(ltrim($company, '0') . ':' . ltrim($reseller, '0'), self::get_apolo_allowed_company_resellers(), true);
     }
 
-    private static function resolve_vehicle_sale_price(array $vehicle, array $apolo_item): float {
-        $apolo_sale_price = self::parse_money_value($apolo_item['valor_venda'] ?? null);
-        if ($apolo_sale_price > 0) {
-            return $apolo_sale_price;
-        }
-
-        return self::parse_money_value($vehicle['value'] ?? null);
+    private static function resolve_vehicle_sale_price(array $apolo_item): ?float {
+        $price = self::parse_money_value($apolo_item['valor_venda'] ?? null);
+        return $price > 0 ? $price : null;
     }
 
     private static function upsert_vehicle(array $vehicle, array $apolo_stock_index, ?array $apolo_item = null): void {
@@ -4803,20 +4800,23 @@ JS;
             $apolo_reconciliation['manual_status_lock'] = true;
         }
         $official_unit_name = self::resolve_official_unidade_name($apolo_reconciliation['apolo'] ?? [], (string) ($vehicle['entityName'] ?? ''));
-        $published_price = self::resolve_vehicle_sale_price($vehicle, $apolo_reconciliation['apolo'] ?? []);
+        $published_price = self::resolve_vehicle_sale_price($apolo_reconciliation['apolo'] ?? []);
         $photo_urls = self::extract_vehicle_photo_urls($vehicle);
         $sync_signature = self::build_vehicle_sync_signature($vehicle, $apolo_reconciliation, $photo_urls, $official_unit_name, $title);
 
         if ($post_id > 0) {
             $previous_signature = (string) get_post_meta($post_id, 'savol_sync_signature', true);
-            $current_price = self::parse_money_value(get_post_meta($post_id, 'preco', true));
+            $current_price_raw = get_post_meta($post_id, 'preco', true);
+            $current_price = $current_price_raw === '' ? null : self::parse_money_value($current_price_raw);
+            $price_unchanged = ($current_price === null && $published_price === null)
+                || ($current_price !== null && $published_price !== null && abs($current_price - $published_price) < 0.01);
             $current_title = $current_post ? self::strip_apolo_draft_reason_from_title((string) $current_post->post_title) : '';
             if (
                 $previous_signature !== ''
                 && hash_equals($previous_signature, $sync_signature)
                 && $current_status === (string) $apolo_reconciliation['status']
                 && $current_title === $title
-                && abs($current_price - $published_price) < 0.01
+                && $price_unchanged
             ) {
                 return;
             }
@@ -4845,7 +4845,11 @@ JS;
         update_post_meta($post_id, 'ano', is_numeric($vehicle['manufacturingYear'] ?? null) ? (float) $vehicle['manufacturingYear'] : 0);
         update_post_meta($post_id, 'ano_modelo', is_numeric($vehicle['modelYear'] ?? null) ? (float) $vehicle['modelYear'] : 0);
         update_post_meta($post_id, 'km', is_numeric($vehicle['kilometers'] ?? null) ? (float) $vehicle['kilometers'] : 0);
-        update_post_meta($post_id, 'preco', $published_price);
+        if ($published_price === null) {
+            delete_post_meta($post_id, 'preco');
+        } else {
+            update_post_meta($post_id, 'preco', $published_price);
+        }
         $fipe_value = self::parse_money_value($vehicle['fipeValue'] ?? ($apolo_reconciliation['apolo']['fipeValue'] ?? ($apolo_reconciliation['apolo']['fipe_value'] ?? ($apolo_reconciliation['apolo']['valor_fipe'] ?? null))));
         update_post_meta($post_id, 'fipe', $fipe_value);
         update_post_meta($post_id, 'apolo_fipe', $fipe_value);
