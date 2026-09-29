@@ -98,6 +98,9 @@ final class Savol_Veiculos_CPT {
     private const PRICE_OVERRIDE_USER_NAME_META = 'publicacao_preco_usuario_nome';
     private const PRICE_OVERRIDE_DATE_META = 'publicacao_preco_data';
     private const PRICE_OVERRIDE_NOTICE_TRANSIENT = 'savol_preco_publicacao_notice_';
+    private const PRICE_HISTORY_META = '_savol_preco_historico';
+    private static array $price_before_change = [];
+    private static string $price_change_source = '';
     private const MANUAL_STATUS_LOCK_META = 'savol_status_manual_lock';
     private const PHOTO_IMPORT_TIMEOUT = 5;
     private const SELL_YOUR_CAR_MAX_PHOTO_SIZE = 8388608;
@@ -310,6 +313,11 @@ final class Savol_Veiculos_CPT {
         add_action('admin_notices', [__CLASS__, 'render_price_override_admin_notice']);
         add_action('add_meta_boxes', [__CLASS__, 'add_meta_boxes']);
         add_action('save_post_' . self::POST_TYPE, [__CLASS__, 'save_meta']);
+        add_filter('update_post_metadata', [__CLASS__, 'capture_price_before_update'], 10, 5);
+        add_filter('delete_post_metadata', [__CLASS__, 'capture_price_before_delete'], 10, 5);
+        add_action('added_post_meta', [__CLASS__, 'record_price_meta_change'], 10, 4);
+        add_action('updated_post_meta', [__CLASS__, 'record_price_meta_change'], 10, 4);
+        add_action('deleted_post_meta', [__CLASS__, 'record_price_meta_change'], 10, 4);
         add_action('admin_enqueue_scripts', [__CLASS__, 'enqueue_admin_assets']);
         add_action('admin_menu', [__CLASS__, 'register_admin_menu'], 1001);
         add_action('admin_init', [__CLASS__, 'restrict_seller_admin']);
@@ -581,6 +589,15 @@ final class Savol_Veiculos_CPT {
             'savol_veiculos_justificativa_publicacao',
             'Justificativa de publicacao',
             [__CLASS__, 'render_price_override_meta_box'],
+            self::POST_TYPE,
+            'normal',
+            'default'
+        );
+
+        add_meta_box(
+            'savol_veiculos_historico_preco',
+            'Historico de precos do anuncio',
+            [__CLASS__, 'render_price_history_meta_box'],
             self::POST_TYPE,
             'normal',
             'default'
@@ -940,6 +957,89 @@ final class Savol_Veiculos_CPT {
         }
     }
 
+    private static function price_history(int $post_id): array {
+        return array_values(array_filter(get_post_meta($post_id, self::PRICE_HISTORY_META, false), 'is_array'));
+    }
+
+    private static function seed_price_history_baseline(int $post_id): void {
+        if (self::price_history($post_id)) {
+            return;
+        }
+        $price = round(self::dashboard_meta_number($post_id, 'preco'), 2);
+        if ($price > 0) {
+            self::append_price_history($post_id, $price, null, 'baseline');
+        }
+    }
+
+    private static function append_price_history(int $post_id, ?float $price, ?float $previous, string $kind): void {
+        $user = wp_get_current_user();
+        add_post_meta($post_id, self::PRICE_HISTORY_META, [
+            'at' => (new \DateTimeImmutable('now', new \DateTimeZone('UTC')))->format('Y-m-d\TH:i:s.u\Z'),
+            'price' => $price,
+            'previousPrice' => $previous,
+            'kind' => $kind,
+            'source' => $kind === 'baseline' ? 'Valor inicial observado' : (self::$price_change_source ?: (get_current_user_id() ? 'Painel do site' : 'Sistema')),
+            'actor' => $kind === 'baseline' ? '' : ($user instanceof \WP_User && $user->ID ? $user->display_name : ''),
+        ]);
+    }
+
+    private static function remember_price_before_change(int $post_id, string $key): void {
+        if ($key !== 'preco' || get_post_type($post_id) !== self::POST_TYPE) {
+            return;
+        }
+        $previous = round(self::dashboard_meta_number($post_id, 'preco'), 2);
+        self::$price_before_change[$post_id] = $previous;
+        self::seed_price_history_baseline($post_id);
+    }
+
+    public static function capture_price_before_update($check, int $post_id, string $key, $value, $previous_value) {
+        self::remember_price_before_change($post_id, $key);
+        return $check;
+    }
+
+    public static function capture_price_before_delete($check, int $post_id, string $key, $value, bool $delete_all) {
+        if (!$delete_all) {
+            self::remember_price_before_change($post_id, $key);
+        }
+        return $check;
+    }
+
+    public static function record_price_meta_change($meta_id, int $post_id, string $key, $value): void {
+        if ($key !== 'preco' || get_post_type($post_id) !== self::POST_TYPE) {
+            return;
+        }
+        $history = self::price_history($post_id);
+        $last = $history ? end($history) : null;
+        $previous = self::$price_before_change[$post_id] ?? (float) ($last['price'] ?? 0);
+        unset(self::$price_before_change[$post_id]);
+        $current = round(self::dashboard_meta_number($post_id, 'preco'), 2);
+        if ($previous === $current) {
+            return;
+        }
+        self::append_price_history($post_id, $current > 0 ? $current : null, $previous > 0 ? $previous : null, 'change');
+    }
+
+    public static function render_price_history_meta_box(\WP_Post $post): void {
+        self::seed_price_history_baseline((int) $post->ID);
+        $history = array_reverse(self::price_history((int) $post->ID));
+        if (!$history) {
+            echo '<p>O historico comeca a partir da instalacao deste recurso. Alteracoes antigas nao tem data recuperavel.</p>';
+            return;
+        }
+        echo '<div style="max-height:400px;overflow:auto"><table class="widefat striped"><thead><tr><th>Data e hora</th><th>De</th><th>Para</th><th>Origem</th><th>Usuario</th></tr></thead><tbody>';
+        foreach ($history as $event) {
+            $at = strtotime((string) ($event['at'] ?? ''));
+            $before = isset($event['previousPrice']) ? (float) $event['previousPrice'] : 0;
+            $after = isset($event['price']) ? (float) $event['price'] : 0;
+            echo '<tr><td>' . esc_html($at ? wp_date('d/m/Y H:i:s', $at) : '--') . '</td>';
+            echo '<td>' . esc_html($before > 0 ? 'R$ ' . number_format($before, 2, ',', '.') : '--') . '</td>';
+            echo '<td>' . esc_html($after > 0 ? 'R$ ' . number_format($after, 2, ',', '.') : '--') . '</td>';
+            echo '<td>' . esc_html((string) ($event['source'] ?? '')) . '</td>';
+            echo '<td>' . esc_html((string) ($event['actor'] ?? '')) . '</td></tr>';
+        }
+        echo '</tbody></table></div>';
+    }
+
     public static function capture_vehicle_publish_user(string $new_status, string $old_status, \WP_Post $post): void {
         if ($post->post_type !== self::POST_TYPE || $new_status !== 'publish' || $old_status === 'publish') {
             return;
@@ -1114,6 +1214,12 @@ final class Savol_Veiculos_CPT {
             'permission_callback' => [__CLASS__, 'dashboard_can_edit_vehicle'],
         ]);
 
+        register_rest_route('savol/v1', '/dashboard/veiculos/(?P<id>\d+)/historico-precos', [
+            'methods' => \WP_REST_Server::READABLE,
+            'callback' => [__CLASS__, 'handle_dashboard_price_history_request'],
+            'permission_callback' => [__CLASS__, 'dashboard_can_view_price_history'],
+        ]);
+
         register_rest_route('savol/v1', '/dashboard/veiculos/(?P<id>\d+)', [
             [
                 'methods' => \WP_REST_Server::READABLE,
@@ -1187,6 +1293,24 @@ final class Savol_Veiculos_CPT {
         return true;
     }
 
+    public static function dashboard_can_view_price_history(\WP_REST_Request $request) {
+        $user = self::dashboard_request_user($request);
+        $post_id = absint($request->get_param('id'));
+        if (!$user || !user_can($user, 'read') || get_post_type($post_id) !== self::POST_TYPE) {
+            return new \WP_Error('savol_dashboard_forbidden', 'Acesso nao autorizado.', ['status' => 403]);
+        }
+        return true;
+    }
+
+    public static function handle_dashboard_price_history_request(\WP_REST_Request $request): \WP_REST_Response {
+        $post_id = absint($request->get_param('id'));
+        self::seed_price_history_baseline($post_id);
+        return new \WP_REST_Response([
+            'items' => self::price_history($post_id),
+            'currentPrice' => self::dashboard_meta_number($post_id, 'preco') ?: null,
+        ], 200);
+    }
+
     public static function handle_dashboard_vehicle_detail_request(\WP_REST_Request $request) {
         $post_id = absint($request->get_param('id'));
         $core_request = new \WP_REST_Request('GET', '/wp/v2/veiculo/' . $post_id);
@@ -1239,7 +1363,12 @@ final class Savol_Veiculos_CPT {
 
         $core_request = new \WP_REST_Request('POST', '/wp/v2/veiculo/' . $post_id);
         $core_request->set_body_params($payload);
-        return rest_do_request($core_request);
+        self::$price_change_source = 'Dashboard';
+        try {
+            return rest_do_request($core_request);
+        } finally {
+            self::$price_change_source = '';
+        }
     }
 
     public static function dashboard_can_create_users(\WP_REST_Request $request) {
@@ -4845,10 +4974,15 @@ JS;
         update_post_meta($post_id, 'ano', is_numeric($vehicle['manufacturingYear'] ?? null) ? (float) $vehicle['manufacturingYear'] : 0);
         update_post_meta($post_id, 'ano_modelo', is_numeric($vehicle['modelYear'] ?? null) ? (float) $vehicle['modelYear'] : 0);
         update_post_meta($post_id, 'km', is_numeric($vehicle['kilometers'] ?? null) ? (float) $vehicle['kilometers'] : 0);
-        if ($published_price === null) {
-            delete_post_meta($post_id, 'preco');
-        } else {
-            update_post_meta($post_id, 'preco', $published_price);
+        self::$price_change_source = 'Apolo';
+        try {
+            if ($published_price === null) {
+                delete_post_meta($post_id, 'preco');
+            } else {
+                update_post_meta($post_id, 'preco', $published_price);
+            }
+        } finally {
+            self::$price_change_source = '';
         }
         $fipe_value = self::parse_money_value($vehicle['fipeValue'] ?? ($apolo_reconciliation['apolo']['fipeValue'] ?? ($apolo_reconciliation['apolo']['fipe_value'] ?? ($apolo_reconciliation['apolo']['valor_fipe'] ?? null))));
         update_post_meta($post_id, 'fipe', $fipe_value);
