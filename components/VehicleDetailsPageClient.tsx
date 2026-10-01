@@ -397,7 +397,8 @@ function toSavedVehicle(vehicle: ApiVehicle): SavedVehicle {
     repasse: vehicle.repasse,
     stockDays: vehicle.stockDays,
     proposalDays: vehicle.proposalDays,
-    apoloSituation: vehicle.apoloSituation
+    apoloSituation: vehicle.apoloSituation,
+    premiada: vehicle.premiada
   };
 }
 
@@ -639,7 +640,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
   const storeAddress = storeItem?.address || (!isUnknownValue(vehicle?.city ?? "") ? `${vehicle?.city} - ${vehicle?.uf}` : "Endereço sob consulta");
   const storePhone = storeItem?.phone || resolveFallbackStorePhone(vehicle);
   const plateEndingDigit = getPlateEndingDigit(vehicle?.plate);
-  const stockCode = formatVehicleStockCode(vehicle?.stockDays, vehicle?.proposalDays, vehicle?.apoloSituation);
+  const stockCode = formatVehicleStockCode(vehicle?.stockDays, vehicle?.proposalDays, vehicle?.apoloSituation, vehicle?.premiada);
   const officialVehiclePrice = vehicle?.officialPrice || vehicle?.price || "";
   const leadVehicleContext = useMemo(
     () => ({
@@ -1495,6 +1496,7 @@ export function VehicleDetailsPageClient({ slug }: Props) {
                   stockDays={item.stockDays}
                   proposalDays={item.proposalDays}
                   apoloSituation={item.apoloSituation}
+                  premiada={item.premiada}
                   showFinanceButton={false}
                 />
               ))}

@@ -93,6 +93,7 @@ type ApiVehicle = {
   stockDays: number;
   proposalDays: number | null;
   apoloSituation: string;
+  premiada: boolean;
 };
 
 type CachedVehicles = {
@@ -720,6 +721,18 @@ function buildStoreLabel(value: string): string {
     if (normalized.includes("santo andre")) return "SAVOL VOLKS SANTO ANDRE";
   }
 
+  if (normalized.includes("fiat")) {
+    if (normalized.includes("sao caetano") || normalized.includes("scs")) return "SAVOL FIAT SCS";
+    if (normalized.includes("sao bernardo") || normalized.includes("sbc")) return "SAVOL FIAT SBC";
+    if (normalized.includes("santo andre")) return "SAVOL FIAT SANTO ANDRE";
+  }
+
+  if (normalized.includes("kia")) {
+    if (normalized.includes("sao caetano") || normalized.includes("scs")) return "SAVOL KIA SCS";
+    if (normalized.includes("sao bernardo") || normalized.includes("sbc")) return "SAVOL KIA SBC";
+    if (normalized.includes("santo andre")) return "SAVOL KIA SANTO ANDRE";
+  }
+
   if (normalized.includes("jetour")) return "SAVOL JETOUR DOM PEDRO";
   if (normalized.includes("mg")) return "SAVOL MG S\u00c3O CAETANO";
 
@@ -819,6 +832,11 @@ function mapVehicle(vehicle: WpVehicle, apoloSituations?: ApoloSituationIndex): 
     getMetaField(vehicle, "dias_proposta") ||
     getMetaField(vehicle, "apolo_dias_proposta");
   const metaApoloSituation = getMetaField(vehicle, "apolo_situacao") || getMetaField(vehicle, "situacao");
+  const metaPremiada =
+    getMetaField(vehicle, "premiada") ||
+    getMetaField(vehicle, "premiado") ||
+    getMetaField(vehicle, "veiculo_premiada") ||
+    getMetaField(vehicle, "veiculo_premiado");
   const apoloSituation =
     normalizeApoloSituation(metaApoloSituation) ||
     (metaPlate ? apoloSituations?.byPlate.get(metaPlate) : "") ||
@@ -909,7 +927,8 @@ function mapVehicle(vehicle: WpVehicle, apoloSituations?: ApoloSituationIndex): 
     photoCount,
     stockDays,
     proposalDays,
-    apoloSituation
+    apoloSituation,
+    premiada: parseBooleanMeta(metaPremiada)
   };
 }
 

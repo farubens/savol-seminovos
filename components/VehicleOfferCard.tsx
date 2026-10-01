@@ -69,6 +69,7 @@ type Props = {
   stockDays?: number;
   proposalDays?: number | null;
   apoloSituation?: string;
+  premiada?: boolean;
   showFinanceButton?: boolean;
 };
 
@@ -400,6 +401,7 @@ export function VehicleOfferCard({
   stockDays = 0,
   proposalDays = null,
   apoloSituation = "",
+  premiada = false,
   showFinanceButton = true
 }: Props) {
   type ProposalFormState = {
@@ -413,7 +415,7 @@ export function VehicleOfferCard({
   const { hasVisited, isFavorite, toggleFavorite } = useSavolAccount();
   const financeId = useId();
   const safeImage = !image || isPreparationImage(image) ? FALLBACK_IMAGE : image;
-  const stockCode = formatVehicleStockCode(stockDays, proposalDays, apoloSituation);
+  const stockCode = formatVehicleStockCode(stockDays, proposalDays, apoloSituation, premiada);
   const localImageFallback = useMemo(
     () => gallery.find((item) => !item.includes("storage.googleapis.com") && !isPreparationImage(item)) ?? FALLBACK_IMAGE,
     [gallery]
@@ -956,9 +958,10 @@ export function VehicleOfferCard({
       repasse,
       stockDays,
       proposalDays,
-      apoloSituation
+      apoloSituation,
+      premiada
     }),
-    [apoloSituation, armored, fuel, gallery, km, molicar, name, negotiating, officialPriceLabel, oldPrice, plate, price, proposalDays, qualityTag, repasse, resolvedDetailUrl, safeImage, secondaryHighlights, stockDays, store, subtitle, transmission, vehicleId, year]
+    [apoloSituation, armored, fuel, gallery, km, molicar, name, negotiating, officialPriceLabel, oldPrice, plate, premiada, price, proposalDays, qualityTag, repasse, resolvedDetailUrl, safeImage, secondaryHighlights, stockDays, store, subtitle, transmission, vehicleId, year]
   );
   const isSavedAsFavorite = isFavorite(vehicleId);
   const wasVisited = hasVisited(vehicleId);

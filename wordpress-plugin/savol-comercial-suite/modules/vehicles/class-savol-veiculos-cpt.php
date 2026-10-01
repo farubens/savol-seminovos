@@ -269,6 +269,7 @@ final class Savol_Veiculos_CPT {
             'negociacao' => ['label' => 'Em negociacao', 'type' => 'boolean'],
             'repasse' => ['label' => 'Repasse', 'type' => 'boolean'],
             'transito' => ['label' => 'Transito', 'type' => 'boolean'],
+            'premiada' => ['label' => 'Premiada', 'type' => 'boolean'],
             'dias_estoque' => ['label' => 'Dias de estoque', 'type' => 'number'],
             'dias_proposta' => ['label' => 'Dias de proposta', 'type' => 'number'],
         ];

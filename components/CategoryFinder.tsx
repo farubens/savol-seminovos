@@ -665,6 +665,7 @@ export function CategoryFinder() {
                 stockDays={vehicle.stockDays}
                 proposalDays={vehicle.proposalDays}
                 apoloSituation={vehicle.apoloSituation}
+                premiada={vehicle.premiada}
               />
             ))
           )}

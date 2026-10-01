@@ -105,6 +105,7 @@ export function VehicleGrid() {
               stockDays={vehicle.stockDays}
               proposalDays={vehicle.proposalDays}
               apoloSituation={vehicle.apoloSituation}
+              premiada={vehicle.premiada}
             />
           ))}
         </div>

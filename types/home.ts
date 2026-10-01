@@ -37,6 +37,7 @@ export type ApiVehicle = {
   stockDays: number;
   proposalDays: number | null;
   apoloSituation: string;
+  premiada: boolean;
 };
 
 export type ApiStore = {

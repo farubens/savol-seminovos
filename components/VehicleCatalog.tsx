@@ -35,6 +35,12 @@ const STORE_FILTER_ORDER = [
   "SAVOL TOYOTA SBC",
   "SAVOL VOLKS SANTO ANDRE",
   "SAVOL VOLKS PEREIRA BARRETO",
+  "SAVOL FIAT SANTO ANDRE",
+  "SAVOL FIAT SBC",
+  "SAVOL FIAT SCS",
+  "SAVOL KIA SANTO ANDRE",
+  "SAVOL KIA SBC",
+  "SAVOL KIA SCS",
   "SAVOL JETOUR DOM PEDRO",
   "SAVOL MG S\u00c3O CAETANO",
   "PEUGEOT/CITROEN SANTO ANDRE",
@@ -1606,6 +1612,7 @@ export function VehicleCatalog({ mode = "all", basePath = "/veiculos" }: Vehicle
                     stockDays={vehicle.stockDays}
                     proposalDays={vehicle.proposalDays}
                     apoloSituation={vehicle.apoloSituation}
+                    premiada={vehicle.premiada}
                   />
                 ))}
               </div>
