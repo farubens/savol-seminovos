@@ -1,5 +1,6 @@
 <?php
 define('ABSPATH', __DIR__);
+define('HOUR_IN_SECONDS', 3600);
 
 class WP_User {
     public int $ID = 7;
@@ -24,6 +25,7 @@ class WP_Error {
 $meta = [];
 function absint($value): int { return abs((int) $value); }
 function wp_salt(string $scheme): string { return 'test-secret'; }
+function wp_json_encode($value): string { return (string) json_encode($value); }
 function get_user_by(string $field, int $id): ?WP_User { return $field === 'id' && $id === 7 ? new WP_User() : null; }
 function get_post_type(int $post_id): string { return $post_id === 42 ? 'veiculo' : 'post'; }
 function user_can(WP_User $user, string $capability, ...$args): bool { return false; }
@@ -45,8 +47,9 @@ $token = $payload . '.' . hash_hmac('sha256', $payload, wp_salt('auth'));
 $request = static fn(array $body = []) => new WP_REST_Request(['id' => 42], $body, 'Bearer ' . $token);
 
 $session = Savol_Veiculos_CPT::handle_dashboard_session_request($request());
-if ($session->status !== 200 || $session->data['scope'] !== 'vehicle_observations') throw new RuntimeException('Alan scope was not restricted');
+if ($session->status !== 200 || $session->data['scope'] !== 'vehicle_observations' || empty($session->data['token'])) throw new RuntimeException('Alan scope or renewed token is invalid');
 if (Savol_Veiculos_CPT::dashboard_can_edit_vehicle($request()) !== true) throw new RuntimeException('Alan cannot open vehicle observations');
+if (Savol_Veiculos_CPT::dashboard_can_view_price_history($request()) !== true) throw new RuntimeException('Alan cannot view vehicle price history');
 
 $updated = Savol_Veiculos_CPT::handle_dashboard_vehicle_update_request($request(['meta' => ['observacoes_gerais' => '  Precisa revisar  ']]));
 if ($updated->status !== 200 || $meta[42]['observacoes_gerais'] !== 'Precisa revisar') throw new RuntimeException('Observations were not saved');

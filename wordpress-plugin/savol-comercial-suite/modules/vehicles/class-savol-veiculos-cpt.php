@@ -1314,6 +1314,7 @@ final class Savol_Veiculos_CPT {
         return new \WP_REST_Response([
             'id' => (int) $user->ID,
             'scope' => self::dashboard_observations_only($user) ? 'vehicle_observations' : 'full',
+            'token' => self::create_dashboard_token($user),
         ], 200);
     }
 
@@ -1359,7 +1360,8 @@ final class Savol_Veiculos_CPT {
     public static function dashboard_can_view_price_history(\WP_REST_Request $request) {
         $user = self::dashboard_request_user($request);
         $post_id = absint($request->get_param('id'));
-        if (!$user || self::dashboard_observations_only($user) || !user_can($user, 'read') || get_post_type($post_id) !== self::POST_TYPE) {
+        if (!$user || get_post_type($post_id) !== self::POST_TYPE
+            || (!self::dashboard_observations_only($user) && !user_can($user, 'read'))) {
             return new \WP_Error('savol_dashboard_forbidden', 'Acesso nao autorizado.', ['status' => 403]);
         }
         return true;
