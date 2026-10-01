@@ -1382,7 +1382,10 @@ final class Savol_Veiculos_CPT {
                 'id' => $post_id,
                 'title' => ['rendered' => get_the_title($post_id)],
                 'status' => get_post_status($post_id),
-                'meta' => ['observacoes_gerais' => (string) get_post_meta($post_id, 'observacoes_gerais', true)],
+                'meta' => [
+                    'observacoes_gerais' => (string) get_post_meta($post_id, 'observacoes_gerais', true),
+                    'motivo_sem_foto' => (string) get_post_meta($post_id, 'motivo_sem_foto', true),
+                ],
             ], 200);
         }
         $core_request = new \WP_REST_Request('GET', '/wp/v2/veiculo/' . $post_id);
@@ -1400,12 +1403,22 @@ final class Savol_Veiculos_CPT {
 
         $user = self::dashboard_request_user($request);
         if ($user && self::dashboard_observations_only($user)) {
-            if (array_keys($input) !== ['meta'] || !is_array($input['meta'])
-                || array_keys($input['meta']) !== ['observacoes_gerais']
-                || !is_string($input['meta']['observacoes_gerais'])) {
-                return new \WP_Error('savol_dashboard_forbidden', 'Apenas observacoes gerais podem ser editadas.', ['status' => 403]);
+            $meta = is_array($input['meta'] ?? null) ? $input['meta'] : [];
+            $keys = array_keys($meta);
+            if (array_keys($input) !== ['meta'] || empty($keys)
+                || array_diff($keys, ['observacoes_gerais', 'motivo_sem_foto'])
+                || count(array_filter($meta, 'is_string')) !== count($meta)) {
+                return new \WP_Error('savol_dashboard_forbidden', 'Apenas observacoes gerais e motivo sem foto podem ser editados.', ['status' => 403]);
             }
-            update_post_meta($post_id, 'observacoes_gerais', sanitize_textarea_field($input['meta']['observacoes_gerais']));
+            if (array_key_exists('observacoes_gerais', $meta)) {
+                update_post_meta($post_id, 'observacoes_gerais', sanitize_textarea_field($meta['observacoes_gerais']));
+            }
+            if (array_key_exists('motivo_sem_foto', $meta)) {
+                if (mb_strlen($meta['motivo_sem_foto']) > 90) {
+                    return new \WP_Error('savol_dashboard_invalid_photo_reason', 'O motivo sem foto deve ter ate 90 caracteres.', ['status' => 400]);
+                }
+                update_post_meta($post_id, 'motivo_sem_foto', sanitize_text_field($meta['motivo_sem_foto']));
+            }
             return new \WP_REST_Response(['id' => $post_id, 'ok' => true], 200);
         }
 
@@ -1422,7 +1435,7 @@ final class Savol_Veiculos_CPT {
             $allowed_meta = [
                 'condicao', 'placa', 'ano', 'ano_modelo', 'km', 'preco', 'status', 'combustivel', 'cambio',
                 'categoria', 'carroceria', 'portas', 'lugares', 'tracao', 'motor', 'potencia_cv', 'torque_nm',
-                'qtd_donos', 'ipva_pago', 'licenciado', 'blindado', 'negociacao', 'repasse', 'transito', 'motivo_sem_foto', 'observacoes_gerais',
+                'qtd_donos', 'ipva_pago', 'licenciado', 'blindado', 'negociacao', 'repasse', 'transito', 'premiada', 'motivo_sem_foto', 'observacoes_gerais',
             ];
             $payload['meta'] = array_intersect_key($payload['meta'], array_flip($allowed_meta));
             if (isset($payload['meta']['motivo_sem_foto']) && (!is_string($payload['meta']['motivo_sem_foto']) || mb_strlen($payload['meta']['motivo_sem_foto']) > 90)) {
@@ -4924,9 +4937,12 @@ JS;
                 || (int) get_post_meta($post_id, 'apolo_transito', true) === 1
                 || strtoupper((string) get_post_meta($post_id, 'apolo_situacao', true)) === 'TM'
                 || str_contains(self::canonicalize_text($reason . ' ' . self::dashboard_term_name($post_id, 'status-loja')), 'transito'),
+            'premiada' => (int) get_post_meta($post_id, 'premiada', true) === 1,
             'missingPhoto' => empty($photos),
             'photoMissingReason' => (string) get_post_meta($post_id, 'motivo_sem_foto', true),
             'generalObservations' => (string) get_post_meta($post_id, 'observacoes_gerais', true),
+            'publicationJustification' => (string) get_post_meta($post_id, self::PRICE_OVERRIDE_REASON_META, true),
+            'publicationJustificationDetails' => (string) get_post_meta($post_id, self::PRICE_OVERRIDE_DETAILS_META, true),
             'missingPrice' => $price <= 0,
             'status' => $status_label,
             'postStatus' => $post_status,

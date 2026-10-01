@@ -29,6 +29,10 @@ function get_post_type(int $post_id): string { return $post_id === 42 ? 'veiculo
 function user_can(WP_User $user, string $capability, ...$args): bool { return false; }
 function wp_set_current_user(int $id): void {}
 function sanitize_textarea_field(string $value): string { return trim($value); }
+function sanitize_text_field(string $value): string { return trim($value); }
+if (!function_exists('mb_strlen')) {
+    function mb_strlen(string $value): int { return strlen($value); }
+}
 function update_post_meta(int $post_id, string $key, string $value): void {
     global $meta;
     $meta[$post_id][$key] = $value;
@@ -46,6 +50,17 @@ if (Savol_Veiculos_CPT::dashboard_can_edit_vehicle($request()) !== true) throw n
 
 $updated = Savol_Veiculos_CPT::handle_dashboard_vehicle_update_request($request(['meta' => ['observacoes_gerais' => '  Precisa revisar  ']]));
 if ($updated->status !== 200 || $meta[42]['observacoes_gerais'] !== 'Precisa revisar') throw new RuntimeException('Observations were not saved');
+
+$photo_reason = Savol_Veiculos_CPT::handle_dashboard_vehicle_update_request($request(['meta' => ['motivo_sem_foto' => '  Aguardando fotografo  ']]));
+if ($photo_reason->status !== 200 || $meta[42]['motivo_sem_foto'] !== 'Aguardando fotografo') throw new RuntimeException('Photo reason was not saved');
+
+$both = Savol_Veiculos_CPT::handle_dashboard_vehicle_update_request($request(['meta' => [
+    'observacoes_gerais' => 'Revisar novamente',
+    'motivo_sem_foto' => 'Em preparacao',
+]]));
+if ($both->status !== 200 || $meta[42]['observacoes_gerais'] !== 'Revisar novamente' || $meta[42]['motivo_sem_foto'] !== 'Em preparacao') {
+    throw new RuntimeException('Allowed fields were not saved together');
+}
 
 foreach ([['meta' => ['preco' => 1]], ['meta' => ['observacoes_gerais' => 'ok'], 'status' => 'publish']] as $payload) {
     $blocked = Savol_Veiculos_CPT::handle_dashboard_vehicle_update_request($request($payload));
