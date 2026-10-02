@@ -6,9 +6,14 @@ class WP_User {
     public int $ID = 7;
     public string $user_login;
     public string $display_name;
+    public string $user_email;
+    public string $user_pass = 'password-hash';
+    public string $user_registered = '2026-01-01 00:00:00';
+    public array $roles = ['editor'];
     public function __construct(string $login = 'alan') {
         $this->user_login = $login;
         $this->display_name = ucfirst($login);
+        $this->user_email = $login . '@savol.com.br';
     }
 }
 
@@ -29,6 +34,8 @@ class WP_Error {
 }
 
 $meta = [];
+$transients = [];
+$last_mail = [];
 $current_login = 'alan';
 class WPDB_Stub {
     public array $rows = [];
@@ -44,6 +51,7 @@ function get_post_type(int $post_id): string { return $post_id === 42 ? 'veiculo
 function user_can(WP_User $user, string $capability, ...$args): bool { return false; }
 function wp_set_current_user(int $id): void {}
 function sanitize_user(string $value): string { return $value; }
+function sanitize_email(string $value): string { return filter_var($value, FILTER_VALIDATE_EMAIL) ? $value : ''; }
 function sanitize_key(string $value): string { return strtolower(preg_replace('/[^a-z0-9_\-]/i', '', $value)); }
 function sanitize_textarea_field(string $value): string { return trim($value); }
 function sanitize_text_field(string $value): string { return trim($value); }
@@ -66,12 +74,20 @@ function update_post_meta(int $post_id, string $key, string $value): void {
 
 require dirname(__DIR__) . '/modules/vehicles/class-savol-veiculos-cpt.php';
 
-$payload = rtrim(strtr(base64_encode(json_encode(['user_id' => 7, 'expires_at' => time() + 3600])), '+/', '-_'), '=');
+$marker = hash_hmac('sha256', 'password-hash', wp_salt('auth'));
+$payload = rtrim(strtr(base64_encode(json_encode(['user_id' => 7, 'expires_at' => time() + 3600, 'auth_marker' => $marker])), '+/', '-_'), '=');
 $token = $payload . '.' . hash_hmac('sha256', $payload, wp_salt('auth'));
 $request = static fn(array $body = [], string $method = 'GET') => new WP_REST_Request(['id' => 42], $body, 'Bearer ' . $token, $method);
 
+$anonymous_data = Savol_Veiculos_CPT::dashboard_can_view_data(new WP_REST_Request());
+if (!$anonymous_data instanceof WP_Error || $anonymous_data->data['status'] !== 403) throw new RuntimeException('Dashboard data is public');
+$legacy_payload = rtrim(strtr(base64_encode(json_encode(['user_id' => 7, 'expires_at' => time() + 3600])), '+/', '-_'), '=');
+$legacy_token = $legacy_payload . '.' . hash_hmac('sha256', $legacy_payload, wp_salt('auth'));
+$legacy_session = Savol_Veiculos_CPT::handle_dashboard_session_request(new WP_REST_Request([], [], 'Bearer ' . $legacy_token));
+if (!$legacy_session instanceof WP_Error || $legacy_session->data['status'] !== 401) throw new RuntimeException('Legacy session was not invalidated');
+
 $session = Savol_Veiculos_CPT::handle_dashboard_session_request($request());
-if ($session->status !== 200 || $session->data['scope'] !== 'vehicle_observations' || empty($session->data['token'])) throw new RuntimeException('Alan scope or renewed token is invalid');
+if ($session->status !== 200 || $session->data['scope'] !== 'vehicle_observations' || isset($session->data['token'])) throw new RuntimeException('Alan scope or fixed session lifetime is invalid');
 if (Savol_Veiculos_CPT::dashboard_can_edit_vehicle($request()) !== true) throw new RuntimeException('Alan cannot open vehicle observations');
 if (Savol_Veiculos_CPT::dashboard_can_view_price_history($request()) !== true) throw new RuntimeException('Alan cannot view vehicle price history');
 
@@ -88,6 +104,14 @@ $both = Savol_Veiculos_CPT::handle_dashboard_vehicle_update_request($request(['m
 if ($both->status !== 200 || $meta[42]['observacoes_gerais'] !== 'Revisar novamente' || $meta[42]['motivo_sem_foto'] !== 'Em preparacao') {
     throw new RuntimeException('Allowed fields were not saved together');
 }
+function get_transient(string $key) { global $transients; return $transients[$key] ?? false; }
+function set_transient(string $key, $value, int $ttl): bool { global $transients; $transients[$key] = $value; return true; }
+function delete_transient(string $key): bool { global $transients; unset($transients[$key]); return true; }
+function wp_generate_password(int $length, bool $special = true, bool $extra = false): string { return str_repeat('a', $length); }
+function wp_hash_password(string $value): string { return password_hash($value, PASSWORD_DEFAULT); }
+function wp_check_password(string $value, string $hash): bool { return password_verify($value, $hash); }
+function wp_authenticate(string $username, string $password) { return $password === 'correct-password' ? new WP_User($username) : new WP_Error('invalid', 'invalid', []); }
+function wp_mail(string $email, string $subject, string $message): bool { global $last_mail; $last_mail = compact('email', 'subject', 'message'); return true; }
 
 foreach ([['meta' => ['preco' => 1]], ['meta' => ['observacoes_gerais' => 'ok'], 'status' => 'publish']] as $payload) {
     $blocked = Savol_Veiculos_CPT::handle_dashboard_vehicle_update_request($request($payload));
@@ -106,8 +130,35 @@ if (!$blocked_edit instanceof WP_Error || $blocked_edit->data['status'] !== 403)
 $blocked_publish = Savol_Veiculos_CPT::dashboard_can_manage_vehicle($request([], 'PATCH'));
 if (!$blocked_publish instanceof WP_Error || $blocked_publish->data['status'] !== 403) throw new RuntimeException('Read-only user can publish vehicles');
 if (Savol_Veiculos_CPT::dashboard_can_view_price_history($request()) !== true) throw new RuntimeException('Read-only user cannot view price history');
-if (Savol_Veiculos_CPT::dashboard_can_view_admin_data($request()) !== true) throw new RuntimeException('Read-only user cannot view users and activity');
+if (Savol_Veiculos_CPT::dashboard_can_view_data($request()) !== true) throw new RuntimeException('Read-only user cannot view dashboard data');
+if (Savol_Veiculos_CPT::dashboard_can_view_admin_data($request()) !== true) throw new RuntimeException('Read-only user cannot view activity');
 $blocked_users = Savol_Veiculos_CPT::dashboard_can_create_users($request([], 'POST'));
 if (!$blocked_users instanceof WP_Error || $blocked_users->data['status'] !== 403) throw new RuntimeException('Read-only user can manage users');
+
+$_SERVER['REMOTE_ADDR'] = '127.0.0.1';
+$login = Savol_Veiculos_CPT::handle_dashboard_login_request(new WP_REST_Request([
+    'username' => 'joao',
+    'password' => 'correct-password',
+]));
+if ($login->status !== 202 || empty($login->data['requires2fa']) || !empty($login->data['token'])) throw new RuntimeException('Password login bypassed 2FA');
+if (!preg_match('/(\d{6})/', (string) ($last_mail['message'] ?? ''), $code_match)) throw new RuntimeException('2FA code was not sent');
+$verification = Savol_Veiculos_CPT::handle_dashboard_2fa_verify_request(new WP_REST_Request([
+    'challenge' => $login->data['challenge'],
+    'code' => $code_match[1],
+]));
+if ($verification->status !== 200 || empty($verification->data['token'])) throw new RuntimeException('Valid 2FA code did not create a session');
+
+for ($attempt = 1; $attempt <= 5; $attempt++) {
+    $invalid_login = Savol_Veiculos_CPT::handle_dashboard_login_request(new WP_REST_Request([
+        'username' => 'blocked-user',
+        'password' => 'wrong-password',
+    ]));
+    if ($invalid_login->status !== 401) throw new RuntimeException('Invalid password did not fail safely');
+}
+$limited_login = Savol_Veiculos_CPT::handle_dashboard_login_request(new WP_REST_Request([
+    'username' => 'blocked-user',
+    'password' => 'wrong-password',
+]));
+if ($limited_login->status !== 429) throw new RuntimeException('Login rate limit was not enforced');
 
 echo "Observations access test passed\n";

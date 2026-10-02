@@ -17,6 +17,10 @@ final class Savol_Veiculos_CPT {
     private const GESTOR_ROLE = 'gestor_savol';
     private const OBSERVATIONS_ONLY_LOGINS = ['alan'];
     private const READ_ONLY_LOGINS = ['mayara', 'joao'];
+    private const DASHBOARD_2FA_TTL = 600;
+    private const DASHBOARD_2FA_MAX_ATTEMPTS = 5;
+    private const DASHBOARD_LOGIN_WINDOW = 900;
+    private const DASHBOARD_LOGIN_MAX_ATTEMPTS = 5;
     private const MANAGE_DELEGATION_CAPABILITY = 'savol_manage_venda_seu_carro_delegation';
     private const SELLER_USER_CAPS = [
         'list_users',
@@ -287,6 +291,13 @@ final class Savol_Veiculos_CPT {
         ];
     }
 
+    private static function private_rest_fields(): array {
+        return [
+            'apolo_val_compra', 'apolo_valor_venda', 'fipe', 'observacoes_gerais',
+            'motivo_sem_foto', 'dias_proposta', 'identificador_externo',
+        ];
+    }
+
     /**
      * Taxonomias associadas ao veiculo.
      */
@@ -312,6 +323,7 @@ final class Savol_Veiculos_CPT {
         add_action('init', [__CLASS__, 'register_meta']);
         add_action('init', [__CLASS__, 'register_sell_your_car_api_alias']);
         add_action('rest_api_init', [__CLASS__, 'register_rest_routes']);
+        add_filter('rest_post_dispatch', [__CLASS__, 'secure_dashboard_rest_response'], 10, 3);
         add_action('transition_post_status', [__CLASS__, 'capture_vehicle_publish_user'], 10, 3);
         add_filter('query_vars', [__CLASS__, 'register_sell_your_car_query_vars']);
         add_filter('wp_insert_post_data', [__CLASS__, 'enforce_price_override_before_insert'], 10, 2);
@@ -584,7 +596,7 @@ final class Savol_Veiculos_CPT {
         foreach (self::rest_fields() as $key => $field) {
             register_post_meta(self::POST_TYPE, $key, [
                 'single' => true,
-                'show_in_rest' => true,
+                'show_in_rest' => !in_array($key, self::private_rest_fields(), true),
                 'type' => $field['type'] === 'boolean' ? 'boolean' : ($field['type'] === 'number' ? 'number' : 'string'),
                 // Leitura liberada para consumo headless/publico sem 401/403 em GET.
                 'auth_callback' => '__return_true',
@@ -609,7 +621,7 @@ final class Savol_Veiculos_CPT {
 
         register_post_meta(self::POST_TYPE, self::MANUAL_STATUS_LOCK_META, [
             'single' => true,
-            'show_in_rest' => true,
+            'show_in_rest' => false,
             'type' => 'boolean',
             'auth_callback' => '__return_true',
             'sanitize_callback' => static function($value) {
@@ -1238,13 +1250,13 @@ final class Savol_Veiculos_CPT {
         register_rest_route('savol/v1', '/dashboard/veiculos', [
             'methods' => \WP_REST_Server::READABLE,
             'callback' => [__CLASS__, 'handle_dashboard_vehicles_request'],
-            'permission_callback' => '__return_true',
+            'permission_callback' => [__CLASS__, 'dashboard_can_view_data'],
         ]);
 
         register_rest_route('savol/v1', '/dashboard/operacoes', [
             'methods' => \WP_REST_Server::READABLE,
             'callback' => [__CLASS__, 'handle_dashboard_operations_request'],
-            'permission_callback' => '__return_true',
+            'permission_callback' => [__CLASS__, 'dashboard_can_view_data'],
         ]);
 
         register_rest_route('savol/v1', '/dashboard/login', [
@@ -1259,10 +1271,10 @@ final class Savol_Veiculos_CPT {
             'permission_callback' => '__return_true',
         ]);
 
-        register_rest_route('savol/v1', '/dashboard/token', [
-            'methods' => \WP_REST_Server::READABLE,
-            'callback' => [__CLASS__, 'handle_dashboard_application_token_request'],
-            'permission_callback' => static function () { return is_user_logged_in(); },
+        register_rest_route('savol/v1', '/dashboard/2fa/verify', [
+            'methods' => \WP_REST_Server::CREATABLE,
+            'callback' => [__CLASS__, 'handle_dashboard_2fa_verify_request'],
+            'permission_callback' => '__return_true',
         ]);
 
         register_rest_route('savol/v1', '/dashboard/veiculos/(?P<id>\d+)/autorizar-publicacao', [
@@ -1294,7 +1306,7 @@ final class Savol_Veiculos_CPT {
             [
                 'methods' => \WP_REST_Server::READABLE,
                 'callback' => [__CLASS__, 'handle_dashboard_users_request'],
-                'permission_callback' => [__CLASS__, 'dashboard_can_view_admin_data'],
+                'permission_callback' => [__CLASS__, 'dashboard_can_create_users'],
             ],
             [
                 'methods' => \WP_REST_Server::CREATABLE,
@@ -1316,6 +1328,18 @@ final class Savol_Veiculos_CPT {
         ]);
     }
 
+    public static function secure_dashboard_rest_response($response, $server, $request) {
+        if (!($request instanceof \WP_REST_Request) || strpos((string) $request->get_route(), '/savol/v1/dashboard/') !== 0) {
+            return $response;
+        }
+        if ($response instanceof \WP_HTTP_Response) {
+            $response->header('Cache-Control', 'private, no-store, no-cache, must-revalidate, max-age=0');
+            $response->header('Pragma', 'no-cache');
+            $response->header('X-Content-Type-Options', 'nosniff');
+        }
+        return $response;
+    }
+
     private static function dashboard_token_base64_encode(string $value): string {
         return rtrim(strtr(base64_encode($value), '+/', '-_'), '=');
     }
@@ -1332,6 +1356,7 @@ final class Savol_Veiculos_CPT {
         $payload = self::dashboard_token_base64_encode((string) wp_json_encode([
             'user_id' => (int) $user->ID,
             'expires_at' => time() + (8 * HOUR_IN_SECONDS),
+            'auth_marker' => hash_hmac('sha256', (string) $user->user_pass, wp_salt('auth')),
         ]));
         $signature = hash_hmac('sha256', $payload, wp_salt('auth'));
         return $payload . '.' . $signature;
@@ -1356,7 +1381,11 @@ final class Savol_Veiculos_CPT {
             return null;
         }
         $user = get_user_by('id', absint($data['user_id'] ?? 0));
-        return $user instanceof \WP_User ? $user : null;
+        if (!($user instanceof \WP_User)) {
+            return null;
+        }
+        $expected_marker = hash_hmac('sha256', (string) $user->user_pass, wp_salt('auth'));
+        return hash_equals($expected_marker, (string) ($data['auth_marker'] ?? '')) ? $user : null;
     }
 
     private static function dashboard_observations_only(\WP_User $user): bool {
@@ -1374,6 +1403,15 @@ final class Savol_Veiculos_CPT {
         return self::dashboard_read_only($user) ? 'read_only' : 'full';
     }
 
+    public static function dashboard_can_view_data(\WP_REST_Request $request) {
+        $user = self::dashboard_request_user($request);
+        if (!$user || (!self::dashboard_observations_only($user) && !self::dashboard_read_only($user) && !user_can($user, 'edit_posts'))) {
+            return new \WP_Error('savol_dashboard_forbidden', 'Acesso nao autorizado.', ['status' => 403]);
+        }
+        wp_set_current_user((int) $user->ID);
+        return true;
+    }
+
     public static function handle_dashboard_session_request(\WP_REST_Request $request) {
         $user = self::dashboard_request_user($request);
         if (!$user || (!self::dashboard_observations_only($user) && !self::dashboard_read_only($user) && !user_can($user, 'edit_posts'))) {
@@ -1382,25 +1420,6 @@ final class Savol_Veiculos_CPT {
         return new \WP_REST_Response([
             'id' => (int) $user->ID,
             'scope' => self::dashboard_scope($user),
-            'token' => self::create_dashboard_token($user),
-        ], 200);
-    }
-
-    public static function handle_dashboard_application_token_request() {
-        $user = wp_get_current_user();
-        if (!($user instanceof \WP_User) || (int) $user->ID <= 0
-            || (!self::dashboard_observations_only($user) && !self::dashboard_read_only($user) && !user_can($user, 'edit_posts'))) {
-            return new \WP_Error('savol_dashboard_forbidden', 'Acesso nao autorizado.', ['status' => 403]);
-        }
-        return new \WP_REST_Response([
-            'token' => self::create_dashboard_token($user),
-            'user' => [
-                'id' => (int) $user->ID,
-                'name' => $user->display_name,
-                'username' => $user->user_login,
-                'email' => $user->user_email,
-                'scope' => self::dashboard_scope($user),
-            ],
         ], 200);
     }
 
@@ -1464,7 +1483,15 @@ final class Savol_Veiculos_CPT {
         $core_request = new \WP_REST_Request('GET', '/wp/v2/veiculo/' . $post_id);
         $core_request->set_param('context', 'edit');
         $core_request->set_param('_embed', '1');
-        return rest_do_request($core_request);
+        $response = rest_do_request($core_request);
+        if ($response->get_status() < 400) {
+            $data = $response->get_data();
+            $data['meta'] = is_array($data['meta'] ?? null) ? $data['meta'] : [];
+            $data['meta']['observacoes_gerais'] = (string) get_post_meta($post_id, 'observacoes_gerais', true);
+            $data['meta']['motivo_sem_foto'] = (string) get_post_meta($post_id, 'motivo_sem_foto', true);
+            $response->set_data($data);
+        }
+        return $response;
     }
 
     public static function handle_dashboard_vehicle_update_request(\WP_REST_Request $request) {
@@ -1535,14 +1562,38 @@ final class Savol_Veiculos_CPT {
             return new \WP_Error('savol_dashboard_invalid_vehicle', 'Nenhuma alteracao informada.', ['status' => 400]);
         }
 
-        $core_request = new \WP_REST_Request('POST', '/wp/v2/veiculo/' . $post_id);
-        $core_request->set_body_params($payload);
-        $before = self::dashboard_vehicle_audit_snapshot($post_id, $payload);
+        $audit_payload = $payload;
+        $private_meta = [];
+        foreach (['observacoes_gerais', 'motivo_sem_foto'] as $private_key) {
+            if (array_key_exists($private_key, $payload['meta'] ?? [])) {
+                $private_meta[$private_key] = $payload['meta'][$private_key];
+                unset($payload['meta'][$private_key]);
+            }
+        }
+        if (isset($payload['meta']) && !$payload['meta']) {
+            unset($payload['meta']);
+        }
+
+        $before = self::dashboard_vehicle_audit_snapshot($post_id, $audit_payload);
         self::$price_change_source = 'Dashboard';
         try {
-            $response = rest_do_request($core_request);
+            if ($payload) {
+                $core_request = new \WP_REST_Request('POST', '/wp/v2/veiculo/' . $post_id);
+                $core_request->set_body_params($payload);
+                $response = rest_do_request($core_request);
+            } else {
+                $response = new \WP_REST_Response(['id' => $post_id], 200);
+            }
+            if ($response->get_status() < 400) {
+                if (array_key_exists('observacoes_gerais', $private_meta)) {
+                    update_post_meta($post_id, 'observacoes_gerais', sanitize_textarea_field((string) $private_meta['observacoes_gerais']));
+                }
+                if (array_key_exists('motivo_sem_foto', $private_meta)) {
+                    update_post_meta($post_id, 'motivo_sem_foto', sanitize_text_field((string) $private_meta['motivo_sem_foto']));
+                }
+            }
             if ($user instanceof \WP_User && $response->get_status() < 400) {
-                self::record_dashboard_vehicle_changes($user, $post_id, $before, self::dashboard_vehicle_audit_snapshot($post_id, $payload));
+                self::record_dashboard_vehicle_changes($user, $post_id, $before, self::dashboard_vehicle_audit_snapshot($post_id, $audit_payload));
             }
             return $response;
         } finally {
@@ -1924,6 +1975,37 @@ final class Savol_Veiculos_CPT {
         ], 200);
     }
 
+    private static function dashboard_client_ip(): string {
+        return sanitize_text_field((string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
+    }
+
+    private static function dashboard_login_rate_key(string $username): string {
+        return 'savol_dash_login_' . hash('sha256', strtolower($username) . '|' . self::dashboard_client_ip());
+    }
+
+    private static function dashboard_login_rate_limited(string $key): bool {
+        $rate = get_transient($key);
+        return is_array($rate) && (int) ($rate['count'] ?? 0) >= self::DASHBOARD_LOGIN_MAX_ATTEMPTS;
+    }
+
+    private static function dashboard_consume_login_attempt(string $key): void {
+        $rate = get_transient($key);
+        $count = is_array($rate) ? (int) ($rate['count'] ?? 0) : 0;
+        set_transient($key, ['count' => $count + 1], self::DASHBOARD_LOGIN_WINDOW);
+    }
+
+    private static function dashboard_mask_email(string $email): string {
+        [$local, $domain] = array_pad(explode('@', $email, 2), 2, '');
+        if ($local === '' || $domain === '') {
+            return 'e-mail cadastrado';
+        }
+        return substr($local, 0, min(2, strlen($local))) . str_repeat('*', max(2, strlen($local) - 2)) . '@' . $domain;
+    }
+
+    private static function dashboard_2fa_key(string $challenge): string {
+        return 'savol_dash_2fa_' . hash('sha256', $challenge);
+    }
+
     public static function handle_dashboard_login_request(\WP_REST_Request $request): \WP_REST_Response {
         $username = sanitize_user((string) $request->get_param('username'));
         $password = (string) $request->get_param('password');
@@ -1934,6 +2016,15 @@ final class Savol_Veiculos_CPT {
                 'message' => 'Informe usuario e senha.',
             ], 400);
         }
+
+        $rate_key = self::dashboard_login_rate_key($username);
+        if (self::dashboard_login_rate_limited($rate_key)) {
+            return new \WP_REST_Response([
+                'ok' => false,
+                'message' => 'Muitas tentativas. Aguarde 15 minutos e tente novamente.',
+            ], 429);
+        }
+        self::dashboard_consume_login_attempt($rate_key);
 
         $user = wp_authenticate($username, $password);
         if (is_wp_error($user) || !($user instanceof \WP_User)) {
@@ -1946,21 +2037,84 @@ final class Savol_Veiculos_CPT {
         if (!self::dashboard_observations_only($user) && !self::dashboard_read_only($user) && !user_can($user, 'edit_posts')) {
             return new \WP_REST_Response([
                 'ok' => false,
-                'message' => 'Usuario sem permissao para acessar o painel.',
-            ], 403);
+                'message' => 'Usuario ou senha invalidos.',
+            ], 401);
+        }
+
+        $email = sanitize_email((string) $user->user_email);
+        if ($email === '') {
+            return new \WP_REST_Response([
+                'ok' => false,
+                'message' => 'Este acesso precisa de um e-mail valido cadastrado.',
+            ], 503);
+        }
+
+        $challenge = wp_generate_password(48, false, false);
+        $code = (string) random_int(100000, 999999);
+        set_transient(self::dashboard_2fa_key($challenge), [
+            'user_id' => (int) $user->ID,
+            'code_hash' => wp_hash_password($code),
+            'attempts' => 0,
+            'rate_key' => $rate_key,
+        ], self::DASHBOARD_2FA_TTL);
+
+        $sent = wp_mail(
+            $email,
+            'Codigo de acesso - Painel Savol',
+            "Seu codigo de verificacao e: {$code}\n\nEle expira em 10 minutos. Se voce nao solicitou este acesso, ignore esta mensagem."
+        );
+        if (!$sent) {
+            delete_transient(self::dashboard_2fa_key($challenge));
+            return new \WP_REST_Response([
+                'ok' => false,
+                'message' => 'Nao foi possivel enviar o codigo de seguranca.',
+            ], 503);
         }
 
         return new \WP_REST_Response([
             'ok' => true,
+            'requires2fa' => true,
+            'challenge' => $challenge,
+            'maskedEmail' => self::dashboard_mask_email($email),
+            'expiresIn' => self::DASHBOARD_2FA_TTL,
+        ], 202);
+    }
+
+    public static function handle_dashboard_2fa_verify_request(\WP_REST_Request $request): \WP_REST_Response {
+        $challenge = sanitize_text_field((string) $request->get_param('challenge'));
+        $code = preg_replace('/\D+/', '', (string) $request->get_param('code'));
+        if (strlen($challenge) < 32 || strlen($code) !== 6) {
+            return new \WP_REST_Response(['ok' => false, 'message' => 'Codigo invalido ou expirado.'], 401);
+        }
+
+        $key = self::dashboard_2fa_key($challenge);
+        $record = get_transient($key);
+        if (!is_array($record) || (int) ($record['attempts'] ?? 0) >= self::DASHBOARD_2FA_MAX_ATTEMPTS) {
+            delete_transient($key);
+            return new \WP_REST_Response(['ok' => false, 'message' => 'Codigo invalido ou expirado.'], 401);
+        }
+
+        if (!wp_check_password($code, (string) ($record['code_hash'] ?? ''))) {
+            $record['attempts'] = (int) ($record['attempts'] ?? 0) + 1;
+            set_transient($key, $record, self::DASHBOARD_2FA_TTL);
+            return new \WP_REST_Response(['ok' => false, 'message' => 'Codigo invalido ou expirado.'], 401);
+        }
+
+        $user = get_user_by('id', absint($record['user_id'] ?? 0));
+        if (!($user instanceof \WP_User)
+            || (!self::dashboard_observations_only($user) && !self::dashboard_read_only($user) && !user_can($user, 'edit_posts'))) {
+            delete_transient($key);
+            return new \WP_REST_Response(['ok' => false, 'message' => 'Codigo invalido ou expirado.'], 401);
+        }
+
+        delete_transient($key);
+        if (!empty($record['rate_key'])) {
+            delete_transient((string) $record['rate_key']);
+        }
+        return new \WP_REST_Response([
+            'ok' => true,
             'token' => self::create_dashboard_token($user),
-            'user' => [
-                'id' => (int) $user->ID,
-                'name' => $user->display_name,
-                'username' => $user->user_login,
-                'email' => $user->user_email,
-                'roles' => array_values((array) $user->roles),
-                'scope' => self::dashboard_scope($user),
-            ],
+            'user' => self::dashboard_user_payload($user),
         ], 200);
     }
 
