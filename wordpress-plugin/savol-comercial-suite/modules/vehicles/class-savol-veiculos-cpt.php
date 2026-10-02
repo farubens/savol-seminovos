@@ -72,6 +72,8 @@ final class Savol_Veiculos_CPT {
     private const AUTOSYNC_BATCH_TIME_LIMIT = 45;
     private const DASHBOARD_OPERATIONS_OPTION = 'savol_dashboard_operations_log';
     private const DASHBOARD_OPERATIONS_MAX_ITEMS = 5000;
+    private const AUDIT_TABLE_SUFFIX = 'savol_dashboard_audit_log';
+    private const AUDIT_VALUE_MAX_LENGTH = 5000;
     private const APOLO_STOCK_URL = 'https://drive.google.com/uc?export=download&id=1zyCN8JXUa5kUD-kjeIsO49y7J3wRmFd4';
     private const APOLO_ALLOWED_COMPANY_RESELLERS_DEFAULT = [
         '16:1',
@@ -365,8 +367,43 @@ final class Savol_Veiculos_CPT {
         self::register_taxonomies();
         self::register_sell_your_car_api_alias();
         self::sync_seller_role();
+        self::install_audit_schema();
         self::ensure_autosync_schedule();
         flush_rewrite_rules();
+    }
+
+    private static function audit_table(): string {
+        global $wpdb;
+        return $wpdb->prefix . self::AUDIT_TABLE_SUFFIX;
+    }
+
+    private static function install_audit_schema(): void {
+        global $wpdb;
+        $table = self::audit_table();
+        $charset_collate = $wpdb->get_charset_collate();
+        require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+        dbDelta("CREATE TABLE {$table} (
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            user_id bigint(20) unsigned NOT NULL,
+            user_login varchar(60) NOT NULL,
+            user_name varchar(250) NOT NULL,
+            action varchar(80) NOT NULL,
+            entity_type varchar(40) NOT NULL,
+            entity_id bigint(20) unsigned NOT NULL,
+            entity_name varchar(255) DEFAULT '',
+            vehicle_plate varchar(32) DEFAULT '',
+            field_key varchar(100) DEFAULT '',
+            field_label varchar(150) DEFAULT '',
+            old_value longtext NULL,
+            new_value longtext NULL,
+            created_at datetime NOT NULL,
+            created_at_gmt datetime NOT NULL,
+            PRIMARY KEY  (id),
+            KEY user_id (user_id),
+            KEY entity (entity_type, entity_id),
+            KEY action (action),
+            KEY created_at (created_at)
+        ) {$charset_collate};");
     }
 
     public static function deactivate(): void {
@@ -1253,8 +1290,27 @@ final class Savol_Veiculos_CPT {
         ]);
 
         register_rest_route('savol/v1', '/dashboard/users', [
-            'methods' => \WP_REST_Server::CREATABLE,
-            'callback' => [__CLASS__, 'handle_dashboard_create_user_request'],
+            [
+                'methods' => \WP_REST_Server::READABLE,
+                'callback' => [__CLASS__, 'handle_dashboard_users_request'],
+                'permission_callback' => [__CLASS__, 'dashboard_can_create_users'],
+            ],
+            [
+                'methods' => \WP_REST_Server::CREATABLE,
+                'callback' => [__CLASS__, 'handle_dashboard_create_user_request'],
+                'permission_callback' => [__CLASS__, 'dashboard_can_create_users'],
+            ],
+        ]);
+
+        register_rest_route('savol/v1', '/dashboard/users/(?P<id>\d+)', [
+            'methods' => \WP_REST_Server::EDITABLE,
+            'callback' => [__CLASS__, 'handle_dashboard_update_user_request'],
+            'permission_callback' => [__CLASS__, 'dashboard_can_create_users'],
+        ]);
+
+        register_rest_route('savol/v1', '/dashboard/audit-logs', [
+            'methods' => \WP_REST_Server::READABLE,
+            'callback' => [__CLASS__, 'handle_dashboard_audit_logs_request'],
             'permission_callback' => [__CLASS__, 'dashboard_can_create_users'],
         ]);
     }
@@ -1412,6 +1468,7 @@ final class Savol_Veiculos_CPT {
                 || count(array_filter($meta, 'is_string')) !== count($meta)) {
                 return new \WP_Error('savol_dashboard_forbidden', 'Apenas observacoes gerais e motivo sem foto podem ser editados.', ['status' => 403]);
             }
+            $before = self::dashboard_vehicle_audit_snapshot($post_id, ['meta' => $meta]);
             if (array_key_exists('observacoes_gerais', $meta)) {
                 update_post_meta($post_id, 'observacoes_gerais', sanitize_textarea_field($meta['observacoes_gerais']));
             }
@@ -1421,6 +1478,7 @@ final class Savol_Veiculos_CPT {
                 }
                 update_post_meta($post_id, 'motivo_sem_foto', sanitize_text_field($meta['motivo_sem_foto']));
             }
+            self::record_dashboard_vehicle_changes($user, $post_id, $before, self::dashboard_vehicle_audit_snapshot($post_id, ['meta' => $meta]));
             return new \WP_REST_Response(['id' => $post_id, 'ok' => true], 200);
         }
 
@@ -1464,9 +1522,14 @@ final class Savol_Veiculos_CPT {
 
         $core_request = new \WP_REST_Request('POST', '/wp/v2/veiculo/' . $post_id);
         $core_request->set_body_params($payload);
+        $before = self::dashboard_vehicle_audit_snapshot($post_id, $payload);
         self::$price_change_source = 'Dashboard';
         try {
-            return rest_do_request($core_request);
+            $response = rest_do_request($core_request);
+            if ($user instanceof \WP_User && $response->get_status() < 400) {
+                self::record_dashboard_vehicle_changes($user, $post_id, $before, self::dashboard_vehicle_audit_snapshot($post_id, $payload));
+            }
+            return $response;
         } finally {
             self::$price_change_source = '';
         }
@@ -1483,6 +1546,7 @@ final class Savol_Veiculos_CPT {
 
     public static function handle_dashboard_authorize_vehicle_request(\WP_REST_Request $request): \WP_REST_Response {
         $post_id = absint($request->get_param('id'));
+        $user = self::dashboard_request_user($request);
         $post = get_post($post_id);
         if (!$post || $post->post_type !== self::POST_TYPE) {
             return new \WP_REST_Response(['ok' => false, 'message' => 'Veículo não encontrado.'], 404);
@@ -1496,31 +1560,53 @@ final class Savol_Veiculos_CPT {
             return new \WP_REST_Response(['ok' => false, 'message' => 'Selecione uma justificativa válida.'], 422);
         }
 
+        $details = sanitize_textarea_field((string) $request->get_param('details'));
         update_post_meta($post_id, self::PRICE_OVERRIDE_REASON_META, $justification);
-        update_post_meta($post_id, self::PRICE_OVERRIDE_DETAILS_META, sanitize_textarea_field((string) $request->get_param('details')));
+        update_post_meta($post_id, self::PRICE_OVERRIDE_DETAILS_META, $details);
         $result = wp_update_post(['ID' => $post_id, 'post_status' => 'publish'], true);
         if (is_wp_error($result) || get_post_status($post_id) !== 'publish') {
             return new \WP_REST_Response(['ok' => false, 'message' => 'Não foi possível publicar o veículo.'], 500);
         }
 
         self::record_price_override_publisher($post_id);
+        if ($user instanceof \WP_User) {
+            $description = $justification . ($details !== '' ? ': ' . $details : '');
+            self::record_dashboard_audit(
+                $user,
+                'vehicle_publication_authorized',
+                'vehicle',
+                $post_id,
+                (string) get_the_title($post_id),
+                (string) get_post_meta($post_id, 'placa', true),
+                'publication_authorization',
+                'Não autorizado',
+                $description
+            );
+        }
         return new \WP_REST_Response(['ok' => true, 'message' => 'Veículo autorizado e publicado.'], 200);
     }
 
     public static function handle_dashboard_create_user_request(\WP_REST_Request $request): \WP_REST_Response {
         $email = sanitize_email((string) $request->get_param('email'));
         $name = sanitize_text_field((string) $request->get_param('name'));
+        $username = sanitize_user((string) $request->get_param('username'), true);
+        $requested_password = (string) $request->get_param('password');
         if (!is_email($email)) {
             return new \WP_REST_Response(['ok' => false, 'message' => 'E-mail inválido.'], 422);
         }
         if (email_exists($email)) {
             return new \WP_REST_Response(['ok' => false, 'message' => 'Já existe um acesso com este e-mail.'], 409);
         }
-        $username = sanitize_user(strstr($email, '@', true) ?: $email, true);
-        if (username_exists($username)) {
-            $username .= '-' . wp_generate_password(4, false, false);
+        if ($username === '') {
+            $username = sanitize_user(strstr($email, '@', true) ?: $email, true);
         }
-        $password = wp_generate_password(20, true, true);
+        if (username_exists($username)) {
+            return new \WP_REST_Response(['ok' => false, 'message' => 'Já existe um acesso com este usuário.'], 409);
+        }
+        if ($requested_password !== '' && strlen($requested_password) < 12) {
+            return new \WP_REST_Response(['ok' => false, 'message' => 'A senha deve ter pelo menos 12 caracteres.'], 422);
+        }
+        $password = $requested_password !== '' ? $requested_password : wp_generate_password(20, true, true);
         $user_id = wp_insert_user([
             'user_login' => $username,
             'user_email' => $email,
@@ -1531,7 +1617,286 @@ final class Savol_Veiculos_CPT {
         if (is_wp_error($user_id)) {
             return new \WP_REST_Response(['ok' => false, 'message' => $user_id->get_error_message()], 500);
         }
+        $current = wp_get_current_user();
+        if ($current instanceof \WP_User && (int) $current->ID > 0) {
+            self::record_dashboard_audit(
+                $current,
+                'user_created',
+                'user',
+                (int) $user_id,
+                $name !== '' ? $name : $username,
+                '',
+                'user_account',
+                '',
+                $username . ' · ' . $email
+            );
+        }
         return new \WP_REST_Response(['ok' => true, 'user' => ['id' => (int) $user_id, 'username' => $username, 'email' => $email], 'temporaryPassword' => $password], 201);
+    }
+
+    private static function dashboard_user_payload(\WP_User $user): array {
+        $is_administrator = in_array('administrator', (array) $user->roles, true);
+        return [
+            'id' => (int) $user->ID,
+            'name' => (string) $user->display_name,
+            'username' => (string) $user->user_login,
+            'email' => (string) $user->user_email,
+            'role' => $is_administrator ? 'administrator' : self::GESTOR_ROLE,
+            'roleLabel' => $is_administrator ? 'Administrador' : 'Administrador da dashboard',
+            'scope' => self::dashboard_observations_only($user) ? 'vehicle_observations' : 'full',
+            'registeredAt' => (string) $user->user_registered,
+        ];
+    }
+
+    public static function handle_dashboard_users_request(): \WP_REST_Response {
+        $users = get_users([
+            'role__in' => ['administrator', self::GESTOR_ROLE],
+            'orderby' => 'display_name',
+            'order' => 'ASC',
+        ]);
+        return new \WP_REST_Response([
+            'items' => array_values(array_map([__CLASS__, 'dashboard_user_payload'], $users)),
+        ], 200);
+    }
+
+    private static function audit_field_labels(): array {
+        return [
+            'title' => 'Nome do veículo', 'content' => 'Descrição', 'excerpt' => 'Resumo', 'post_status' => 'Publicação',
+            'condicao' => 'Condição', 'placa' => 'Placa', 'ano' => 'Ano de fabricação', 'ano_modelo' => 'Ano do modelo',
+            'km' => 'Quilometragem', 'preco' => 'Preço anunciado', 'status' => 'Status do cadastro',
+            'combustivel' => 'Combustível', 'cambio' => 'Câmbio', 'categoria' => 'Categoria', 'carroceria' => 'Carroceria',
+            'portas' => 'Portas', 'lugares' => 'Lugares', 'tracao' => 'Tração', 'motor' => 'Motor',
+            'potencia_cv' => 'Potência', 'torque_nm' => 'Torque', 'qtd_donos' => 'Número de donos',
+            'ipva_pago' => 'IPVA pago', 'licenciado' => 'Licenciado', 'blindado' => 'Blindado',
+            'negociacao' => 'Negociado', 'repasse' => 'Repasse', 'transito' => 'Em trânsito',
+            'premiada' => 'Chave premiada', 'motivo_sem_foto' => 'Motivo sem foto',
+            'observacoes_gerais' => 'Observações gerais', 'veiculo_marca' => 'Marca', 'veiculo_modelo' => 'Modelo',
+            'veiculo_versao' => 'Versão', 'veiculo_cor' => 'Cor', 'veiculo_cidade' => 'Cidade', 'veiculo_uf' => 'UF',
+            'veiculo_unidade' => 'Unidade', 'veiculo_informacao_destaque' => 'Informações de destaque',
+            'veiculo_destaque_secundario' => 'Destaques secundários', 'publication_authorization' => 'Autorização de publicação',
+            'display_name' => 'Nome', 'user_email' => 'E-mail', 'user_pass' => 'Senha', 'user_account' => 'Acesso',
+        ];
+    }
+
+    private static function audit_value($value, string $field_key = ''): string {
+        if (in_array($field_key, ['ipva_pago', 'licenciado', 'blindado', 'negociacao', 'repasse', 'transito', 'premiada'], true)) {
+            return empty($value) ? 'Não' : 'Sim';
+        }
+        if ($field_key === 'post_status') {
+            return $value === 'publish' ? 'Publicado' : ($value === 'draft' ? 'Rascunho' : (string) $value);
+        }
+        if (is_array($value)) {
+            $value = implode(', ', array_map('strval', $value));
+        } elseif (is_bool($value)) {
+            $value = $value ? 'Sim' : 'Não';
+        } elseif ($value === null) {
+            $value = '';
+        }
+        $text = trim((string) $value);
+        return mb_substr($text, 0, self::AUDIT_VALUE_MAX_LENGTH);
+    }
+
+    private static function record_dashboard_audit(
+        \WP_User $user,
+        string $action,
+        string $entity_type,
+        int $entity_id,
+        string $entity_name,
+        string $plate,
+        string $field_key,
+        $old_value,
+        $new_value
+    ): void {
+        global $wpdb;
+        $labels = self::audit_field_labels();
+        $wpdb->insert(self::audit_table(), [
+            'user_id' => (int) $user->ID,
+            'user_login' => sanitize_user($user->user_login),
+            'user_name' => sanitize_text_field($user->display_name),
+            'action' => sanitize_key($action),
+            'entity_type' => sanitize_key($entity_type),
+            'entity_id' => $entity_id,
+            'entity_name' => sanitize_text_field($entity_name),
+            'vehicle_plate' => sanitize_text_field($plate),
+            'field_key' => sanitize_key($field_key),
+            'field_label' => sanitize_text_field($labels[$field_key] ?? $field_key),
+            'old_value' => self::audit_value($old_value, $field_key),
+            'new_value' => self::audit_value($new_value, $field_key),
+            'created_at' => current_time('mysql'),
+            'created_at_gmt' => current_time('mysql', true),
+        ], ['%d', '%s', '%s', '%s', '%s', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s']);
+    }
+
+    private static function dashboard_vehicle_audit_snapshot(int $post_id, array $payload): array {
+        $snapshot = [];
+        foreach (['title' => 'post_title', 'content' => 'post_content', 'excerpt' => 'post_excerpt', 'status' => 'post_status'] as $request_key => $post_field) {
+            if (array_key_exists($request_key, $payload)) {
+                $snapshot[$request_key === 'status' ? 'post_status' : $request_key] = get_post_field($post_field, $post_id);
+            }
+        }
+        foreach ((array) ($payload['meta'] ?? []) as $key => $_value) {
+            $snapshot[$key] = get_post_meta($post_id, $key, true);
+        }
+        foreach (['veiculo_marca', 'veiculo_modelo', 'veiculo_versao', 'veiculo_cor', 'veiculo_cidade', 'veiculo_uf', 'veiculo_unidade', 'veiculo_informacao_destaque', 'veiculo_destaque_secundario'] as $taxonomy) {
+            if (array_key_exists($taxonomy, $payload)) {
+                $terms = wp_get_object_terms($post_id, $taxonomy, ['fields' => 'names']);
+                $snapshot[$taxonomy] = is_wp_error($terms) ? '' : implode(', ', $terms);
+            }
+        }
+        return $snapshot;
+    }
+
+    private static function record_dashboard_vehicle_changes(\WP_User $user, int $post_id, array $before, array $after): void {
+        $plate = (string) get_post_meta($post_id, 'placa', true);
+        $name = (string) get_the_title($post_id);
+        foreach ($after as $field_key => $new_value) {
+            $old_value = $before[$field_key] ?? '';
+            if (self::audit_value($old_value, $field_key) === self::audit_value($new_value, $field_key)) {
+                continue;
+            }
+            self::record_dashboard_audit($user, 'vehicle_field_updated', 'vehicle', $post_id, $name, $plate, $field_key, $old_value, $new_value);
+        }
+    }
+
+    public static function handle_dashboard_update_user_request(\WP_REST_Request $request): \WP_REST_Response {
+        $user_id = absint($request->get_param('id'));
+        $target = get_user_by('id', $user_id);
+        $current = wp_get_current_user();
+        if (!($target instanceof \WP_User)
+            || (!in_array('administrator', (array) $target->roles, true) && !in_array(self::GESTOR_ROLE, (array) $target->roles, true))) {
+            return new \WP_REST_Response(['ok' => false, 'message' => 'Usuário não encontrado.'], 404);
+        }
+        if (!($current instanceof \WP_User) || !user_can($current, 'edit_user', $user_id)) {
+            return new \WP_REST_Response(['ok' => false, 'message' => 'Você não pode editar este usuário.'], 403);
+        }
+
+        $email = sanitize_email((string) $request->get_param('email'));
+        $name = sanitize_text_field((string) $request->get_param('name'));
+        $password = (string) $request->get_param('password');
+        if ($email === '' || !is_email($email)) {
+            return new \WP_REST_Response(['ok' => false, 'message' => 'E-mail inválido.'], 422);
+        }
+        $existing_email_user = get_user_by('email', $email);
+        if ($existing_email_user instanceof \WP_User && (int) $existing_email_user->ID !== $user_id) {
+            return new \WP_REST_Response(['ok' => false, 'message' => 'Este e-mail já pertence a outro usuário.'], 409);
+        }
+        if ($name === '') {
+            return new \WP_REST_Response(['ok' => false, 'message' => 'Informe o nome do usuário.'], 422);
+        }
+        if ($password !== '' && strlen($password) < 12) {
+            return new \WP_REST_Response(['ok' => false, 'message' => 'A senha deve ter pelo menos 12 caracteres.'], 422);
+        }
+
+        $payload = [
+            'ID' => $user_id,
+            'display_name' => $name,
+            'user_email' => $email,
+        ];
+        $old_name = (string) $target->display_name;
+        $old_email = (string) $target->user_email;
+        if ($password !== '') {
+            $payload['user_pass'] = $password;
+        }
+        $result = wp_update_user($payload);
+        if (is_wp_error($result)) {
+            return new \WP_REST_Response(['ok' => false, 'message' => $result->get_error_message()], 500);
+        }
+
+        $updated = get_user_by('id', $user_id);
+        if (!($updated instanceof \WP_User)) {
+            return new \WP_REST_Response(['ok' => false, 'message' => 'Não foi possível carregar o usuário atualizado.'], 500);
+        }
+        if ($old_name !== (string) $updated->display_name) {
+            self::record_dashboard_audit($current, 'user_field_updated', 'user', $user_id, (string) $updated->display_name, '', 'display_name', $old_name, $updated->display_name);
+        }
+        if ($old_email !== (string) $updated->user_email) {
+            self::record_dashboard_audit($current, 'user_field_updated', 'user', $user_id, (string) $updated->display_name, '', 'user_email', $old_email, $updated->user_email);
+        }
+        if ($password !== '') {
+            self::record_dashboard_audit($current, 'user_password_reset', 'user', $user_id, (string) $updated->display_name, '', 'user_pass', '', 'Redefinida');
+        }
+        return new \WP_REST_Response([
+            'ok' => true,
+            'user' => self::dashboard_user_payload($updated),
+            'passwordChanged' => $password !== '',
+        ], 200);
+    }
+
+    public static function handle_dashboard_audit_logs_request(\WP_REST_Request $request): \WP_REST_Response {
+        global $wpdb;
+        $table = self::audit_table();
+        $page = max(1, absint($request->get_param('page')));
+        $per_page = min(100, max(10, absint($request->get_param('perPage')) ?: 40));
+        $where = ['1=1'];
+        $params = [];
+
+        $user_id = absint($request->get_param('userId'));
+        if ($user_id > 0) {
+            $where[] = 'user_id = %d';
+            $params[] = $user_id;
+        }
+        $entity_type = sanitize_key((string) $request->get_param('entityType'));
+        if (in_array($entity_type, ['vehicle', 'user'], true)) {
+            $where[] = 'entity_type = %s';
+            $params[] = $entity_type;
+        }
+        $date_start = sanitize_text_field((string) $request->get_param('dateStart'));
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $date_start)) {
+            $where[] = 'created_at >= %s';
+            $params[] = $date_start . ' 00:00:00';
+        }
+        $date_end = sanitize_text_field((string) $request->get_param('dateEnd'));
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $date_end)) {
+            $where[] = 'created_at <= %s';
+            $params[] = $date_end . ' 23:59:59';
+        }
+        $search = sanitize_text_field((string) $request->get_param('search'));
+        if ($search !== '') {
+            $like = '%' . $wpdb->esc_like($search) . '%';
+            $where[] = '(user_login LIKE %s OR user_name LIKE %s OR entity_name LIKE %s OR vehicle_plate LIKE %s OR field_label LIKE %s OR old_value LIKE %s OR new_value LIKE %s)';
+            array_push($params, $like, $like, $like, $like, $like, $like, $like);
+        }
+
+        $where_sql = implode(' AND ', $where);
+        $count_sql = "SELECT COUNT(*) FROM {$table} WHERE {$where_sql}";
+        $total = (int) $wpdb->get_var($params ? $wpdb->prepare($count_sql, $params) : $count_sql);
+        $offset = ($page - 1) * $per_page;
+        $rows_sql = "SELECT * FROM {$table} WHERE {$where_sql} ORDER BY id DESC LIMIT %d OFFSET %d";
+        $row_params = array_merge($params, [$per_page, $offset]);
+        $rows = $wpdb->get_results($wpdb->prepare($rows_sql, $row_params));
+        $users = $wpdb->get_results("SELECT audit.user_id, audit.user_login, audit.user_name
+            FROM {$table} audit
+            INNER JOIN (SELECT user_id, MAX(id) latest_id FROM {$table} GROUP BY user_id) latest ON latest.latest_id = audit.id
+            ORDER BY audit.user_name ASC");
+
+        return new \WP_REST_Response([
+            'items' => array_map(static function ($row): array {
+                return [
+                    'id' => (int) $row->id,
+                    'userId' => (int) $row->user_id,
+                    'username' => (string) $row->user_login,
+                    'userName' => (string) $row->user_name,
+                    'action' => (string) $row->action,
+                    'entityType' => (string) $row->entity_type,
+                    'entityId' => (int) $row->entity_id,
+                    'entityName' => (string) $row->entity_name,
+                    'plate' => (string) $row->vehicle_plate,
+                    'field' => (string) $row->field_label,
+                    'oldValue' => (string) $row->old_value,
+                    'newValue' => (string) $row->new_value,
+                    'createdAt' => get_date_from_gmt((string) $row->created_at_gmt, DATE_ATOM),
+                ];
+            }, $rows),
+            'users' => array_map(static function ($row): array {
+                return ['id' => (int) $row->user_id, 'username' => (string) $row->user_login, 'name' => (string) $row->user_name];
+            }, $users),
+            'pagination' => [
+                'page' => $page,
+                'perPage' => $per_page,
+                'total' => $total,
+                'pages' => max(1, (int) ceil($total / $per_page)),
+            ],
+        ], 200);
     }
 
     public static function handle_dashboard_login_request(\WP_REST_Request $request): \WP_REST_Response {
