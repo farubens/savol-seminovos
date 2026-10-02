@@ -16,6 +16,7 @@ final class Savol_Veiculos_CPT {
     private const ASSIGNED_SELLER_META = '_savol_vsc_assigned_seller_id';
     private const GESTOR_ROLE = 'gestor_savol';
     private const OBSERVATIONS_ONLY_LOGINS = ['alan'];
+    private const READ_ONLY_LOGINS = ['mayara', 'joao'];
     private const MANAGE_DELEGATION_CAPABILITY = 'savol_manage_venda_seu_carro_delegation';
     private const SELLER_USER_CAPS = [
         'list_users',
@@ -1293,7 +1294,7 @@ final class Savol_Veiculos_CPT {
             [
                 'methods' => \WP_REST_Server::READABLE,
                 'callback' => [__CLASS__, 'handle_dashboard_users_request'],
-                'permission_callback' => [__CLASS__, 'dashboard_can_create_users'],
+                'permission_callback' => [__CLASS__, 'dashboard_can_view_admin_data'],
             ],
             [
                 'methods' => \WP_REST_Server::CREATABLE,
@@ -1311,7 +1312,7 @@ final class Savol_Veiculos_CPT {
         register_rest_route('savol/v1', '/dashboard/audit-logs', [
             'methods' => \WP_REST_Server::READABLE,
             'callback' => [__CLASS__, 'handle_dashboard_audit_logs_request'],
-            'permission_callback' => [__CLASS__, 'dashboard_can_create_users'],
+            'permission_callback' => [__CLASS__, 'dashboard_can_view_admin_data'],
         ]);
     }
 
@@ -1362,14 +1363,25 @@ final class Savol_Veiculos_CPT {
         return in_array(strtolower((string) $user->user_login), self::OBSERVATIONS_ONLY_LOGINS, true);
     }
 
+    private static function dashboard_read_only(\WP_User $user): bool {
+        return in_array(strtolower((string) $user->user_login), self::READ_ONLY_LOGINS, true);
+    }
+
+    private static function dashboard_scope(\WP_User $user): string {
+        if (self::dashboard_observations_only($user)) {
+            return 'vehicle_observations';
+        }
+        return self::dashboard_read_only($user) ? 'read_only' : 'full';
+    }
+
     public static function handle_dashboard_session_request(\WP_REST_Request $request) {
         $user = self::dashboard_request_user($request);
-        if (!$user || (!self::dashboard_observations_only($user) && !user_can($user, 'edit_posts'))) {
+        if (!$user || (!self::dashboard_observations_only($user) && !self::dashboard_read_only($user) && !user_can($user, 'edit_posts'))) {
             return new \WP_Error('savol_dashboard_session_expired', 'Sessao expirada.', ['status' => 401]);
         }
         return new \WP_REST_Response([
             'id' => (int) $user->ID,
-            'scope' => self::dashboard_observations_only($user) ? 'vehicle_observations' : 'full',
+            'scope' => self::dashboard_scope($user),
             'token' => self::create_dashboard_token($user),
         ], 200);
     }
@@ -1377,7 +1389,7 @@ final class Savol_Veiculos_CPT {
     public static function handle_dashboard_application_token_request() {
         $user = wp_get_current_user();
         if (!($user instanceof \WP_User) || (int) $user->ID <= 0
-            || (!self::dashboard_observations_only($user) && !user_can($user, 'edit_posts'))) {
+            || (!self::dashboard_observations_only($user) && !self::dashboard_read_only($user) && !user_can($user, 'edit_posts'))) {
             return new \WP_Error('savol_dashboard_forbidden', 'Acesso nao autorizado.', ['status' => 403]);
         }
         return new \WP_REST_Response([
@@ -1387,7 +1399,7 @@ final class Savol_Veiculos_CPT {
                 'name' => $user->display_name,
                 'username' => $user->user_login,
                 'email' => $user->user_email,
-                'scope' => self::dashboard_observations_only($user) ? 'vehicle_observations' : 'full',
+                'scope' => self::dashboard_scope($user),
             ],
         ], 200);
     }
@@ -1395,7 +1407,7 @@ final class Savol_Veiculos_CPT {
     public static function dashboard_can_manage_vehicle(\WP_REST_Request $request) {
         $user = self::dashboard_request_user($request);
         $post_id = absint($request->get_param('id'));
-        if (!$user || self::dashboard_observations_only($user) || $post_id <= 0 || !user_can($user, 'edit_post', $post_id)) {
+        if (!$user || self::dashboard_observations_only($user) || self::dashboard_read_only($user) || $post_id <= 0 || !user_can($user, 'edit_post', $post_id)) {
             return new \WP_Error('savol_dashboard_forbidden', 'Acesso nao autorizado.', ['status' => 403]);
         }
         wp_set_current_user((int) $user->ID);
@@ -1405,8 +1417,11 @@ final class Savol_Veiculos_CPT {
     public static function dashboard_can_edit_vehicle(\WP_REST_Request $request) {
         $user = self::dashboard_request_user($request);
         $post_id = absint($request->get_param('id'));
+        if ($user && self::dashboard_read_only($user) && $request->get_method() !== 'GET') {
+            return new \WP_Error('savol_dashboard_read_only', 'Este acesso é somente para consulta.', ['status' => 403]);
+        }
         if (!$user || $post_id <= 0 || get_post_type($post_id) !== self::POST_TYPE
-            || (!self::dashboard_observations_only($user) && !user_can($user, 'edit_post', $post_id))) {
+            || (!self::dashboard_observations_only($user) && !self::dashboard_read_only($user) && !user_can($user, 'edit_post', $post_id))) {
             return new \WP_Error('savol_dashboard_forbidden', 'Acesso não autorizado.', ['status' => 403]);
         }
         wp_set_current_user((int) $user->ID);
@@ -1417,7 +1432,7 @@ final class Savol_Veiculos_CPT {
         $user = self::dashboard_request_user($request);
         $post_id = absint($request->get_param('id'));
         if (!$user || get_post_type($post_id) !== self::POST_TYPE
-            || (!self::dashboard_observations_only($user) && !user_can($user, 'read'))) {
+            || (!self::dashboard_observations_only($user) && !self::dashboard_read_only($user) && !user_can($user, 'read'))) {
             return new \WP_Error('savol_dashboard_forbidden', 'Acesso nao autorizado.', ['status' => 403]);
         }
         return true;
@@ -1535,9 +1550,19 @@ final class Savol_Veiculos_CPT {
         }
     }
 
+    public static function dashboard_can_view_admin_data(\WP_REST_Request $request) {
+        $user = self::dashboard_request_user($request);
+        if (!$user || self::dashboard_observations_only($user)
+            || (!self::dashboard_read_only($user) && !user_can($user, 'list_users'))) {
+            return new \WP_Error('savol_dashboard_forbidden', 'Acesso não autorizado.', ['status' => 403]);
+        }
+        wp_set_current_user((int) $user->ID);
+        return true;
+    }
+
     public static function dashboard_can_create_users(\WP_REST_Request $request) {
         $user = self::dashboard_request_user($request);
-        if (!$user || self::dashboard_observations_only($user) || !user_can($user, 'create_users')) {
+        if (!$user || self::dashboard_observations_only($user) || self::dashboard_read_only($user) || !user_can($user, 'create_users')) {
             return new \WP_Error('savol_dashboard_forbidden', 'Acesso não autorizado.', ['status' => 403]);
         }
         wp_set_current_user((int) $user->ID);
@@ -1643,7 +1668,7 @@ final class Savol_Veiculos_CPT {
             'email' => (string) $user->user_email,
             'role' => $is_administrator ? 'administrator' : self::GESTOR_ROLE,
             'roleLabel' => $is_administrator ? 'Administrador' : 'Administrador da dashboard',
-            'scope' => self::dashboard_observations_only($user) ? 'vehicle_observations' : 'full',
+            'scope' => self::dashboard_scope($user),
             'registeredAt' => (string) $user->user_registered,
         ];
     }
@@ -1918,7 +1943,7 @@ final class Savol_Veiculos_CPT {
             ], 401);
         }
 
-        if (!self::dashboard_observations_only($user) && !user_can($user, 'edit_posts')) {
+        if (!self::dashboard_observations_only($user) && !self::dashboard_read_only($user) && !user_can($user, 'edit_posts')) {
             return new \WP_REST_Response([
                 'ok' => false,
                 'message' => 'Usuario sem permissao para acessar o painel.',
@@ -1934,7 +1959,7 @@ final class Savol_Veiculos_CPT {
                 'username' => $user->user_login,
                 'email' => $user->user_email,
                 'roles' => array_values((array) $user->roles),
-                'scope' => self::dashboard_observations_only($user) ? 'vehicle_observations' : 'full',
+                'scope' => self::dashboard_scope($user),
             ],
         ], 200);
     }
