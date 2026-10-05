@@ -317,6 +317,9 @@ final class Savol_Veiculos_CPT {
     }
 
     public static function init(): void {
+        add_filter('wp_mail_from_name', [__CLASS__, 'brand_default_mail_sender'], PHP_INT_MAX);
+        add_filter('retrieve_password_title', [__CLASS__, 'brand_password_reset_title']);
+        add_filter('password_change_email', [__CLASS__, 'brand_password_change_email']);
         add_action('init', [__CLASS__, 'sync_seller_role'], 30);
         add_action('init', [__CLASS__, 'register_post_type']);
         add_action('init', [__CLASS__, 'register_taxonomies']);
@@ -1302,6 +1305,12 @@ final class Savol_Veiculos_CPT {
             ],
         ]);
 
+        register_rest_route('savol/v1', '/dashboard/me', [
+            'methods' => ['GET', 'PATCH'],
+            'callback' => [__CLASS__, 'handle_dashboard_account_request'],
+            'permission_callback' => [__CLASS__, 'dashboard_can_view_data'],
+        ]);
+
         register_rest_route('savol/v1', '/dashboard/users', [
             [
                 'methods' => \WP_REST_Server::READABLE,
@@ -1710,6 +1719,51 @@ final class Savol_Veiculos_CPT {
         return new \WP_REST_Response(['ok' => true, 'user' => ['id' => (int) $user_id, 'username' => $username, 'email' => $email], 'temporaryPassword' => $password], 201);
     }
 
+    public static function handle_dashboard_account_request(\WP_REST_Request $request) {
+        $user = self::dashboard_request_user($request);
+        if (!$user) {
+            return new \WP_Error('savol_dashboard_session_expired', 'Sessao expirada.', ['status' => 401]);
+        }
+        if ($request->get_method() === 'GET') {
+            return new \WP_REST_Response(['user' => self::dashboard_user_payload($user), 'scope' => self::dashboard_scope($user)], 200);
+        }
+
+        $current_password = (string) $request->get_param('currentPassword');
+        if ($current_password === '' || !wp_check_password($current_password, $user->user_pass, $user->ID)) {
+            return new \WP_REST_Response(['message' => 'Senha atual incorreta.'], 403);
+        }
+        $name = sanitize_text_field((string) $request->get_param('name'));
+        $email = sanitize_email((string) $request->get_param('email'));
+        $password = (string) $request->get_param('password');
+        if ($name === '' || !is_email($email)) {
+            return new \WP_REST_Response(['message' => 'Informe nome e e-mail validos.'], 422);
+        }
+        if ($password !== '' && strlen($password) < 12) {
+            return new \WP_REST_Response(['message' => 'A senha deve ter pelo menos 12 caracteres.'], 422);
+        }
+        $payload = ['ID' => (int) $user->ID, 'display_name' => $name, 'user_email' => $email];
+        if ($password !== '') {
+            $payload['user_pass'] = $password;
+        }
+        $result = wp_update_user($payload);
+        if (is_wp_error($result)) {
+            return new \WP_REST_Response(['message' => $result->get_error_message()], 422);
+        }
+        $updated = get_user_by('id', (int) $user->ID);
+        if (!($updated instanceof \WP_User)) {
+            return new \WP_REST_Response(['message' => 'Nao foi possivel carregar a conta atualizada.'], 500);
+        }
+        foreach (['display_name', 'user_email'] as $field) {
+            if ($user->$field !== $updated->$field) {
+                self::record_dashboard_audit($user, 'user_field_updated', 'user', (int) $user->ID, $updated->display_name, '', $field, $user->$field, $updated->$field);
+            }
+        }
+        if ($password !== '') {
+            self::record_dashboard_audit($user, 'user_password_reset', 'user', (int) $user->ID, $updated->display_name, '', 'user_pass', '', 'Redefinida');
+        }
+        return new \WP_REST_Response(['ok' => true, 'user' => self::dashboard_user_payload($updated), 'scope' => self::dashboard_scope($updated), 'passwordChanged' => $password !== ''], 200);
+    }
+
     private static function dashboard_user_payload(\WP_User $user): array {
         $is_administrator = in_array('administrator', (array) $user->roles, true);
         return [
@@ -2060,7 +2114,7 @@ final class Savol_Veiculos_CPT {
 
         $sent = wp_mail(
             $email,
-            'Codigo de acesso - Painel Savol',
+            'Codigo de acesso - Dash Savol',
             "Seu codigo de verificacao e: {$code}\n\nEle expira em 10 minutos. Se voce nao solicitou este acesso, ignore esta mensagem."
         );
         if (!$sent) {
@@ -2078,6 +2132,20 @@ final class Savol_Veiculos_CPT {
             'maskedEmail' => self::dashboard_mask_email($email),
             'expiresIn' => self::DASHBOARD_2FA_TTL,
         ], 202);
+    }
+
+    public static function brand_default_mail_sender(string $name): string {
+        return trim($name) === '' || strcasecmp(trim($name), 'WordPress') === 0 ? 'Dash Savol' : $name;
+    }
+
+    public static function brand_password_reset_title(string $title): string {
+        return 'Redefinicao de senha - Dash Savol';
+    }
+
+    public static function brand_password_change_email(array $email): array {
+        $email['subject'] = 'Senha alterada - Dash Savol';
+        $email['message'] = str_replace('###SITENAME###', 'Dash Savol', (string) $email['message']);
+        return $email;
     }
 
     public static function handle_dashboard_2fa_verify_request(\WP_REST_Request $request): \WP_REST_Response {
