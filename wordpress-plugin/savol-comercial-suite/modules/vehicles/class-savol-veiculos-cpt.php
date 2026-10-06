@@ -2060,6 +2060,10 @@ final class Savol_Veiculos_CPT {
         return 'savol_dash_2fa_' . hash('sha256', $challenge);
     }
 
+    private static function dashboard_2fa_enabled(): bool {
+        return defined('SAVOL_DASHBOARD_2FA_ENABLED') && SAVOL_DASHBOARD_2FA_ENABLED === true;
+    }
+
     public static function handle_dashboard_login_request(\WP_REST_Request $request): \WP_REST_Response {
         $username = sanitize_user((string) $request->get_param('username'));
         $password = (string) $request->get_param('password');
@@ -2093,6 +2097,15 @@ final class Savol_Veiculos_CPT {
                 'ok' => false,
                 'message' => 'Usuario ou senha invalidos.',
             ], 401);
+        }
+
+        if (!self::dashboard_2fa_enabled()) {
+            delete_transient($rate_key);
+            return new \WP_REST_Response([
+                'ok' => true,
+                'token' => self::create_dashboard_token($user),
+                'user' => self::dashboard_user_payload($user),
+            ], 200);
         }
 
         $email = sanitize_email((string) $user->user_email);
@@ -2149,6 +2162,9 @@ final class Savol_Veiculos_CPT {
     }
 
     public static function handle_dashboard_2fa_verify_request(\WP_REST_Request $request): \WP_REST_Response {
+        if (!self::dashboard_2fa_enabled()) {
+            return new \WP_REST_Response(['ok' => false, 'message' => 'Entre novamente com usuario e senha.'], 410);
+        }
         $challenge = sanitize_text_field((string) $request->get_param('challenge'));
         $code = preg_replace('/\D+/', '', (string) $request->get_param('code'));
         if (strlen($challenge) < 32 || strlen($code) !== 6) {
@@ -6378,13 +6394,14 @@ JS;
 
     private static function extract_city_from_unidade(string $unit_name): string {
         $normalized = self::canonicalize_text($unit_name);
-        if (str_contains($normalized, 'sao caetano')) {
+        $tokens = ' ' . $normalized . ' ';
+        if (str_contains($normalized, 'sao caetano') || str_contains($tokens, ' scs ')) {
             return 'São Caetano do Sul';
         }
         if (str_contains($normalized, 'santo andre')) {
             return 'Santo André';
         }
-        if (str_contains($normalized, 'sao bernardo')) {
+        if (str_contains($normalized, 'sao bernardo') || str_contains($tokens, ' sbc ')) {
             return 'São Bernardo do Campo';
         }
         if (str_contains($normalized, 'sao paulo') || str_contains($normalized, 'analia franco') || str_contains($normalized, 'ipiranga')) {
@@ -6395,6 +6412,9 @@ JS;
         }
         if (str_contains($normalized, 'praia grande')) {
             return 'Praia Grande';
+        }
+        if (str_contains($normalized, 'dom pedro') || str_contains($normalized, 'pereira barreto')) {
+            return 'Santo André';
         }
 
         return self::extract_city($unit_name);

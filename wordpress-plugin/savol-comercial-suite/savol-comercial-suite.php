@@ -2,7 +2,7 @@
 /**
  * Plugin Name: SAVOL Comercial Suite
  * Description: Plugin all-in-one SAVOL para veiculos, painel comercial, Venda Seu Carro, financiamento e conta de clientes.
- * Version: 1.0.79
+ * Version: 1.0.80
  * Author: SAVOL
  */
 
@@ -11,7 +11,10 @@ if (!defined('ABSPATH')) {
 }
 
 if (!defined('SAVOL_COMERCIAL_SUITE_VERSION')) {
-    define('SAVOL_COMERCIAL_SUITE_VERSION', '1.0.79');
+    define('SAVOL_COMERCIAL_SUITE_VERSION', '1.0.80');
+}
+if (!defined('SAVOL_DASHBOARD_2FA_ENABLED')) {
+    define('SAVOL_DASHBOARD_2FA_ENABLED', false);
 }
 if (!defined('SAVOL_COMERCIAL_SUITE_FILE')) {
     define('SAVOL_COMERCIAL_SUITE_FILE', __FILE__);

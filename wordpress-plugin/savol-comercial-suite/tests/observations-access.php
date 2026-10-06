@@ -1,6 +1,7 @@
 <?php
 define('ABSPATH', __DIR__);
 define('HOUR_IN_SECONDS', 3600);
+define('SAVOL_DASHBOARD_2FA_ENABLED', getenv('SAVOL_TEST_2FA') === '1');
 
 class WP_User {
     public int $ID = 7;
@@ -140,13 +141,26 @@ $login = Savol_Veiculos_CPT::handle_dashboard_login_request(new WP_REST_Request(
     'username' => 'joao',
     'password' => 'correct-password',
 ]));
-if ($login->status !== 202 || empty($login->data['requires2fa']) || !empty($login->data['token'])) throw new RuntimeException('Password login bypassed 2FA');
-if (!preg_match('/(\d{6})/', (string) ($last_mail['message'] ?? ''), $code_match)) throw new RuntimeException('2FA code was not sent');
-$verification = Savol_Veiculos_CPT::handle_dashboard_2fa_verify_request(new WP_REST_Request([
-    'challenge' => $login->data['challenge'],
-    'code' => $code_match[1],
-]));
-if ($verification->status !== 200 || empty($verification->data['token'])) throw new RuntimeException('Valid 2FA code did not create a session');
+if (SAVOL_DASHBOARD_2FA_ENABLED) {
+    if ($login->status !== 202 || empty($login->data['requires2fa']) || !empty($login->data['token'])) throw new RuntimeException('Password login bypassed 2FA');
+    if (!preg_match('/(\d{6})/', (string) ($last_mail['message'] ?? ''), $code_match)) throw new RuntimeException('2FA code was not sent');
+    $verification = Savol_Veiculos_CPT::handle_dashboard_2fa_verify_request(new WP_REST_Request([
+        'challenge' => $login->data['challenge'],
+        'code' => $code_match[1],
+    ]));
+    if ($verification->status !== 200 || empty($verification->data['token'])) throw new RuntimeException('Valid 2FA code did not create a session');
+} else {
+    if ($login->status !== 200 || empty($login->data['token']) || !empty($login->data['requires2fa'])) throw new RuntimeException('Password-only login did not create a session');
+    if ($last_mail !== []) throw new RuntimeException('Disabled 2FA sent an email');
+    if ($login->data['user']['scope'] !== 'read_only') throw new RuntimeException('Login changed user scope');
+    $session = Savol_Veiculos_CPT::handle_dashboard_session_request(new WP_REST_Request([], [], 'Bearer ' . $login->data['token']));
+    if ($session->status !== 200) throw new RuntimeException('Password-only token is invalid');
+    $disabled = Savol_Veiculos_CPT::handle_dashboard_2fa_verify_request(new WP_REST_Request(['challenge' => str_repeat('a', 48), 'code' => '123456']));
+    if ($disabled->status !== 410) throw new RuntimeException('Disabled 2FA endpoint accepted a challenge');
+}
+
+$denied = Savol_Veiculos_CPT::handle_dashboard_login_request(new WP_REST_Request(['username' => 'not-authorized', 'password' => 'correct-password']));
+if ($denied->status !== 401 || !empty($denied->data['token'])) throw new RuntimeException('Unauthorized user received a token');
 
 for ($attempt = 1; $attempt <= 5; $attempt++) {
     $invalid_login = Savol_Veiculos_CPT::handle_dashboard_login_request(new WP_REST_Request([
