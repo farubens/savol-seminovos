@@ -10,14 +10,14 @@ const SAVOL_TECHNICAL_STORE_RULES: StoreRule[] = [
   { id: 25815, aliases: ["unidade savol toyota sao bernardo do campo", "savol toyota sao bernardo", "savol toyota sbc", "toyota sao bernardo", "toyota sbc"] },
   { id: 25817, aliases: ["savol toyota santo andre", "toyota santo andre", "toyota dom pedro"] },
   { id: 25820, aliases: ["savol toyota praia grande", "toyota praia grande"] },
-  { id: 101181625, aliases: ["savol citroen peugeot santo andre", "citroen santo andre", "peugeot santo andre"] },
-  { id: 101181626, aliases: ["savol citroen peugeot sao bernardo", "citroen sao bernardo", "peugeot sao bernardo"] },
+  { id: 101181625, aliases: ["savol citroen peugeot santo andre", "peugeot citroen santo andre", "citroen santo andre", "peugeot santo andre"] },
+  { id: 101181626, aliases: ["savol citroen peugeot sao bernardo", "peugeot citroen sao bernardo", "peugeot citroen sbc", "citroen sao bernardo", "citroen sbc", "peugeot sao bernardo", "peugeot sbc"] },
   { id: 101199580, aliases: ["savol kia ipiranga", "kia ipiranga", "kia sao paulo"] },
   { id: 101199581, aliases: ["savol kia santo andre", "kia santo andre"] },
-  { id: 101199584, aliases: ["savol fiat sao caetano", "fiat sao caetano"] },
+  { id: 101199584, aliases: ["savol fiat sao caetano", "savol fiat scs", "fiat sao caetano", "fiat scs"] },
   { id: 101199585, aliases: ["savol fiat santo andre", "fiat santo andre"] },
-  { id: 101236779, aliases: ["savol fiat sao bernardo", "fiat sao bernardo"] },
-  { id: 101252001, aliases: ["savol peugeot sao caetano", "peugeot sao caetano", "jetour", "mg motor", "mg"] }
+  { id: 101236779, aliases: ["savol fiat sao bernardo", "savol fiat sbc", "fiat sao bernardo", "fiat sbc"] },
+  { id: 101252001, aliases: ["savol peugeot sao caetano", "peugeot citroen sao caetano", "peugeot citroen scs", "peugeot sao caetano", "peugeot scs", "citroen sao caetano", "citroen scs", "jetour", "mg motor", "mg"] }
 ];
 
 const SAVOL_TECHNICAL_BRAND_FALLBACKS: StoreRule[] = [

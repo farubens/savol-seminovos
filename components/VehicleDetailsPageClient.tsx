@@ -75,15 +75,25 @@ type StoreApiResponse = {
 };
 
 const STORE_UNIT_ALIAS_GROUPS = [
-  ["mg motor", "mg"],
-  ["jetour"],
-  ["fiat"],
-  ["peugeot"],
-  ["citroen", "citro"],
-  ["kia"],
-  ["savol toyota sbc", "toyota sbc", "savol toyota sao bernardo", "toyota sao bernardo", "sao bernardo do campo"],
-  ["toyota"],
-  ["volkswagen", "volks", "vw"]
+  ["mg motor analia franco", "mg analia franco"],
+  ["mg motor sao caetano", "mg sao caetano"],
+  ["jetour sao caetano", "jetour scs"],
+  ["jetour dom pedro", "jetour santo andre"],
+  ["fiat sao bernardo", "fiat sbc"],
+  ["fiat sao caetano", "fiat scs"],
+  ["fiat santo andre"],
+  ["peugeot citroen sao bernardo", "peugeot citroen sbc", "peugeot sao bernardo", "peugeot sbc", "citroen sao bernardo", "citroen sbc"],
+  ["peugeot citroen sao caetano", "peugeot citroen scs", "peugeot sao caetano", "peugeot scs", "citroen sao caetano", "citroen scs"],
+  ["peugeot citroen santo andre", "peugeot santo andre", "citroen santo andre"],
+  ["kia sao paulo", "kia ipiranga"],
+  ["kia santo andre"],
+  ["toyota sao bernardo", "toyota sbc"],
+  ["toyota praia grande"],
+  ["toyota dom pedro"],
+  ["toyota santo andre"],
+  ["toyota maua"],
+  ["volkswagen pereira barreto", "volks pereira barreto", "vw pereira barreto"],
+  ["volkswagen santo andre", "volks santo andre", "vw santo andre"]
 ];
 
 type LeadForm = {
@@ -301,6 +311,7 @@ function getStoreMatch(storeName: string, stores: StoreItem[], vehicle?: ApiVehi
     return normalizedStore === normalizedVehicleStore || normalizedStore.includes(normalizedVehicleStore) || normalizedVehicleStore.includes(normalizedStore);
   });
   if (exactMatch) return exactMatch;
+  if (!storeUnitAliases.length) return null;
 
   const scoredMatches = stores
     .map((store) => {

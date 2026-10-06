@@ -6306,20 +6306,11 @@ JS;
     private static function resolve_official_unidade_name(array $apolo_item, string $fallback_entity_name): string {
         $cnpj = preg_replace('/\D+/', '', (string) ($apolo_item['cnpj'] ?? ''));
         $fantasy_name = trim((string) ($apolo_item['nome_fantasia'] ?? ''));
-        $normalized = self::canonicalize_text($fantasy_name . ' ' . $fallback_entity_name);
-
-        if (str_contains($normalized, 'mg') || str_contains($normalized, 'motor')) {
-            if (str_contains($normalized, 'analia')) {
-                return 'Unidade SAVOL MG Motor Anália Franco';
+        foreach ([$fantasy_name, $fallback_entity_name, $fantasy_name . ' ' . $fallback_entity_name] as $candidate) {
+            $official_name = self::resolve_known_unidade_name($candidate);
+            if ($official_name !== '') {
+                return $official_name;
             }
-            return 'Unidade SAVOL MG Motor São Caetano';
-        }
-
-        if (str_contains($normalized, 'jetour')) {
-            if (str_contains($normalized, 'sao caetano') || str_contains($normalized, 'scs')) {
-                return 'Unidade SAVOL JETOUR São Caetano do Sul';
-            }
-            return 'Unidade SAVOL JETOUR Santo André';
         }
 
         $by_cnpj = [
@@ -6331,6 +6322,48 @@ JS;
         }
 
         return trim($fallback_entity_name);
+    }
+
+    private static function resolve_known_unidade_name(string $name): string {
+        $normalized = self::canonicalize_text($name);
+        if ($normalized === '') {
+            return '';
+        }
+        $candidate = ' ' . $normalized . ' ';
+        $rules = [
+            [['toyota dom pedro'], 'Unidade SAVOL Toyota Dom Pedro II'],
+            [['toyota praia grande'], 'Unidade SAVOL Toyota Praia Grande'],
+            [['toyota maua'], 'Unidade SAVOL Toyota Mauá'],
+            [['toyota sao bernardo', 'toyota sbc'], 'Unidade SAVOL Toyota São Bernardo do Campo'],
+            [['toyota santo andre'], 'Unidade SAVOL Toyota Santo André'],
+            [['volkswagen pereira barreto', 'volks pereira barreto', 'vw pereira barreto'], 'Unidade SAVOL Volkswagen Pereira Barreto'],
+            [['volkswagen santo andre', 'volks santo andre', 'vw santo andre'], 'Unidade SAVOL Volkswagen Santo André'],
+            [['peugeot citroen sao bernardo', 'peugeot citroen sbc', 'peugeot sao bernardo', 'peugeot sbc'], 'Unidade SAVOL Peugeot São Bernardo do Campo'],
+            [['peugeot citroen sao caetano', 'peugeot citroen scs', 'peugeot sao caetano', 'peugeot scs'], 'Unidade SAVOL Peugeot São Caetano do Sul'],
+            [['peugeot citroen santo andre', 'peugeot santo andre'], 'Unidade SAVOL Peugeot Santo André'],
+            [['citroen sao bernardo', 'citroen sbc'], 'Unidade SAVOL Citroen São Bernardo do Campo'],
+            [['citroen sao caetano', 'citroen scs'], 'Unidade SAVOL Citroen São Caetano do Sul'],
+            [['citroen santo andre'], 'Unidade SAVOL Citroen Santo André'],
+            [['fiat sao bernardo', 'fiat sbc'], 'Unidade SAVOL Fiat São Bernardo do Campo'],
+            [['fiat sao caetano', 'fiat scs'], 'Unidade SAVOL Fiat São Caetano do Sul'],
+            [['fiat santo andre'], 'Unidade SAVOL Fiat Santo André'],
+            [['kia sao paulo', 'kia ipiranga'], 'Unidade SAVOL Kia São Paulo'],
+            [['kia santo andre'], 'Unidade SAVOL Kia Santo André'],
+            [['mg motor analia franco', 'mg analia franco'], 'Unidade SAVOL MG Motor Anália Franco'],
+            [['mg motor sao caetano', 'mg sao caetano'], 'Unidade SAVOL MG Motor São Caetano'],
+            [['jetour sao caetano', 'jetour scs'], 'Unidade SAVOL JETOUR São Caetano do Sul'],
+            [['jetour dom pedro', 'jetour santo andre'], 'Unidade SAVOL JETOUR Santo André'],
+        ];
+
+        foreach ($rules as [$aliases, $official_name]) {
+            foreach ($aliases as $alias) {
+                if (str_contains($candidate, ' ' . $alias . ' ')) {
+                    return $official_name;
+                }
+            }
+        }
+
+        return '';
     }
 
     private static function assign_unidade_term_with_contacts(int $post_id, string $entity_name): void {
@@ -6367,12 +6400,16 @@ JS;
     private static function find_unidade_contacts(string $name): array {
         $normalized_name = self::normalize_text($name);
         $canonical_name = self::canonicalize_text($name);
+        $official_name = self::resolve_known_unidade_name($name);
         $candidates = array_values(array_unique([
             $normalized_name,
             'unidade ' . $normalized_name,
             $canonical_name,
             self::canonicalize_text('unidade ' . $name),
+            self::normalize_text($official_name),
+            self::canonicalize_text($official_name),
         ]));
+        $candidates = array_values(array_filter($candidates));
 
         foreach (self::UNIDADE_CONTACTS as $key => $contacts) {
             $key_canonical = self::canonicalize_text($key);
@@ -6421,10 +6458,10 @@ JS;
     }
 
     private static function normalize_text(string $value): string {
-        $value = strtolower($value);
         if (function_exists('remove_accents')) {
             $value = remove_accents($value);
         }
+        $value = strtolower($value);
         $value = preg_replace('/\s+/', ' ', $value);
         return trim((string) $value);
     }
