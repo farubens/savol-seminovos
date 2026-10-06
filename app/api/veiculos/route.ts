@@ -102,8 +102,13 @@ type CachedVehicles = {
 };
 
 type ApoloSituationIndex = {
-  byPlate: Map<string, string>;
-  byChassi: Map<string, string>;
+  byPlate: Map<string, ApoloVehicleState>;
+  byChassi: Map<string, ApoloVehicleState>;
+};
+
+type ApoloVehicleState = {
+  situation: string;
+  proposalDays: number | null;
 };
 
 type CachedApoloSituations = {
@@ -501,12 +506,16 @@ async function fetchApoloSituationIndex(): Promise<ApoloSituationIndex> {
           if (!row || typeof row !== "object") continue;
           const source = row as Record<string, unknown>;
           const situation = normalizeApoloSituation(String(source.situacao ?? ""));
-          if (!situation) continue;
+          const rawProposalDays = Number(source.dias_proposta);
+          const proposalDays = Number.isFinite(rawProposalDays) && rawProposalDays > 0
+            ? Math.trunc(rawProposalDays)
+            : null;
 
           const plate = normalizePlateValue(String(source.placa ?? ""));
           const chassi = normalizeVehicleLookupKey(String(source.chassi ?? ""));
-          if (plate) emptyIndex.byPlate.set(plate, situation);
-          if (chassi) emptyIndex.byChassi.set(chassi, situation);
+          const state = { situation, proposalDays };
+          if (plate) emptyIndex.byPlate.set(plate, state);
+          if (chassi) emptyIndex.byChassi.set(chassi, state);
         }
       } catch {
         // The WP data still renders the catalog if APOLO is temporarily unavailable.
@@ -837,10 +846,12 @@ function mapVehicle(vehicle: WpVehicle, apoloSituations?: ApoloSituationIndex): 
     getMetaField(vehicle, "premiado") ||
     getMetaField(vehicle, "veiculo_premiada") ||
     getMetaField(vehicle, "veiculo_premiado");
+  const currentApoloState =
+    (metaPlate ? apoloSituations?.byPlate.get(metaPlate) : undefined) ||
+    (metaChassi ? apoloSituations?.byChassi.get(metaChassi) : undefined);
   const apoloSituation =
     normalizeApoloSituation(metaApoloSituation) ||
-    (metaPlate ? apoloSituations?.byPlate.get(metaPlate) : "") ||
-    (metaChassi ? apoloSituations?.byChassi.get(metaChassi) : "") ||
+    currentApoloState?.situation ||
     "";
   const embeddedImage = getEmbeddedImage(vehicle);
   const galleryFromMeta = parseGalleryUrls(metaGalleryUrls);
@@ -872,9 +883,10 @@ function mapVehicle(vehicle: WpVehicle, apoloSituations?: ApoloSituationIndex): 
   const parsedStockDays = Number.parseInt(metaStockDays, 10);
   const stockDays = Number.isFinite(parsedStockDays) ? Math.max(0, parsedStockDays) : 0;
   const parsedProposalDays = Number.parseInt(metaProposalDays, 10);
-  const proposalDays = metaProposalDays.trim() !== "" && Number.isFinite(parsedProposalDays) && parsedProposalDays > 0
+  const storedProposalDays = metaProposalDays.trim() !== "" && Number.isFinite(parsedProposalDays) && parsedProposalDays > 0
     ? parsedProposalDays
     : null;
+  const proposalDays = currentApoloState ? currentApoloState.proposalDays : storedProposalDays;
   const year = extractYear(title, content, metaAno, metaAnoModelo);
   const visibleYear = toVisibleSpecLabel(year);
   const visibleModelYear = toVisibleSpecLabel(metaAnoModelo || year.split("/").at(-1) || year);
