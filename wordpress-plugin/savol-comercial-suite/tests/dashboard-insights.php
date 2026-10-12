@@ -41,6 +41,14 @@ $filtered = Savol_Dashboard_Insights::summarize([$a, $b, $c], $events, $leads, 4
 check($filtered['totals'] === ['views' => 12, 'sellLeads' => 0, 'leads' => 3, 'bankSimulations' => 2], 'Unit totals ignore filter');
 check(count($filtered['stores']) === 1 && count($filtered['rankings']['views']) === 2, 'Unit rankings ignore filter');
 check(count($filtered['storeOptions']) === 3, 'Unit options lost on filtering');
+$details = array_column($filtered['vehicles'], null, 'id');
+check(count($details) === 2 && !isset($details[3]), 'Unit vehicle details include another unit');
+check($details[1]['views'] === 12 && $details[1]['leads'] === 2 && $details[1]['bankSimulations'] === 2, 'Vehicle visit/lead/bank counts incorrect');
+check($details[2]['views'] === 0 && $details[2]['leads'] === 0 && $details[2]['bankSimulations'] === 0, 'Zero-activity vehicle omitted or inflated');
+check($filtered['unlinkedLeads'] === 1, 'Unit lead without a vehicle lost or assigned to a car');
+$all_details = array_column($all['vehicles'], null, 'id');
+check($all_details[3]['leads'] === 1 && $all_details[3]['bankSimulations'] === 0, 'Generic finance lead counted as bank simulation');
+check($all['unlinkedLeads'] === 6, 'Unattributed leads excluded from reconciliation');
 $empty = Savol_Dashboard_Insights::summarize([], [], [], 0, '', false);
 check(!$empty['analyticsAvailable'] && $empty['stores'] === [], 'Unavailable analytics represented as measured data');
 check(Savol_Dashboard_Insights::is_bank_lead('banco-volks-card', []), 'Bank form ignored');

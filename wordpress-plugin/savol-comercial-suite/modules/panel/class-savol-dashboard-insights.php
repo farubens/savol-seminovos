@@ -138,7 +138,7 @@ final class Savol_Dashboard_Insights {
         };
         $add_vehicle = static function (array $vehicle) use (&$ranked, &$ids, $ensure_store): void {
             $unit = $ensure_store($vehicle['store']);
-            if (!isset($ranked[$vehicle['key']])) $ranked[$vehicle['key']] = array_merge($vehicle, ['storeKey' => $unit, 'views' => 0, 'bankSimulations' => 0]);
+            if (!isset($ranked[$vehicle['key']])) $ranked[$vehicle['key']] = array_merge($vehicle, ['storeKey' => $unit, 'views' => 0, 'leads' => 0, 'bankSimulations' => 0]);
             if ($vehicle['id']) $ids[$vehicle['id']] = $vehicle['key'];
         };
         foreach ($vehicles as $vehicle) $add_vehicle($vehicle);
@@ -160,6 +160,7 @@ final class Savol_Dashboard_Insights {
             if ($lead['bank']) $stores[$unit]['bankSimulations']++;
             if ($lead['vehicle']) {
                 $add_vehicle($lead['vehicle']);
+                $ranked[$lead['vehicle']['key']]['leads']++;
                 if ($lead['bank']) $ranked[$lead['vehicle']['key']]['bankSimulations']++;
             }
         }
@@ -180,9 +181,12 @@ final class Savol_Dashboard_Insights {
         if ($selected !== '') $stores = array_filter($stores, static fn($s) => $s['key'] === $selected);
         $totals = ['views' => 0, 'sellLeads' => 0, 'leads' => 0, 'bankSimulations' => 0];
         foreach ($stores as $row) foreach ($totals as $key => $_) $totals[$key] += $row[$key];
+        $vehicle_details = array_values(array_filter($view_rank, static fn($v) => $selected === '' || $v['storeKey'] === $selected));
         return ['totals' => $totals, 'stores' => array_values($stores), 'storeOptions' => $options,
+            'vehicles' => $vehicle_details,
+            'unlinkedLeads' => max(0, $totals['leads'] - array_sum(array_column($vehicle_details, 'leads'))),
             'rankings' => [
-                'views' => array_values(array_filter($view_rank, static fn($v) => $selected === '' || $v['storeKey'] === $selected)),
+                'views' => $vehicle_details,
                 'simulations' => array_values(array_filter($bank_rank, static fn($v) => $selected === '' || $v['storeKey'] === $selected)),
             ], 'analyticsAvailable' => $available];
     }
