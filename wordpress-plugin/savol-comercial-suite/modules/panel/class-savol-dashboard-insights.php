@@ -42,7 +42,7 @@ final class Savol_Dashboard_Insights {
         return $this->vehicles[$id] = [
             'key' => 'vehicle-' . $id, 'id' => $id, 'name' => wp_strip_all_tags($post->post_title),
             'plate' => (string) get_post_meta($id, 'placa', true), 'store' => $store,
-            'image' => get_the_post_thumbnail_url($id, 'thumbnail') ?: '',
+            'image' => get_the_post_thumbnail_url($id, 'medium') ?: '',
         ];
     }
 
