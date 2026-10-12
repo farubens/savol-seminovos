@@ -81,6 +81,8 @@ $token = $payload . '.' . hash_hmac('sha256', $payload, wp_salt('auth'));
 $request = static fn(array $body = [], string $method = 'GET') => new WP_REST_Request(['id' => 42], $body, 'Bearer ' . $token, $method);
 
 $anonymous_data = Savol_Veiculos_CPT::dashboard_can_view_data(new WP_REST_Request());
+if (!(Savol_Veiculos_CPT::dashboard_can_view_insights(new WP_REST_Request()) instanceof WP_Error)) throw new RuntimeException('Insights accessible anonymously');
+if (!(Savol_Veiculos_CPT::dashboard_can_view_insights($request()) instanceof WP_Error)) throw new RuntimeException('Restricted user can view insights');
 if (!$anonymous_data instanceof WP_Error || $anonymous_data->data['status'] !== 403) throw new RuntimeException('Dashboard data is public');
 $legacy_payload = rtrim(strtr(base64_encode(json_encode(['user_id' => 7, 'expires_at' => time() + 3600])), '+/', '-_'), '=');
 $legacy_token = $legacy_payload . '.' . hash_hmac('sha256', $legacy_payload, wp_salt('auth'));
@@ -123,6 +125,7 @@ $publish = Savol_Veiculos_CPT::dashboard_can_manage_vehicle($request());
 if (!$publish instanceof WP_Error || $publish->data['status'] !== 403) throw new RuntimeException('Restricted user can publish');
 
 $current_login = 'joao';
+if (Savol_Veiculos_CPT::dashboard_can_view_insights($request()) !== true) throw new RuntimeException('Read-only user cannot view insights');
 $read_only_session = Savol_Veiculos_CPT::handle_dashboard_session_request($request());
 if ($read_only_session->status !== 200 || $read_only_session->data['scope'] !== 'read_only') throw new RuntimeException('Joao scope is not read-only');
 if (Savol_Veiculos_CPT::dashboard_can_edit_vehicle($request()) !== true) throw new RuntimeException('Read-only user cannot view vehicle details');

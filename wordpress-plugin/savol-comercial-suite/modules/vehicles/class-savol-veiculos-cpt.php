@@ -1311,6 +1311,12 @@ final class Savol_Veiculos_CPT {
             'permission_callback' => [__CLASS__, 'dashboard_can_view_data'],
         ]);
 
+        register_rest_route('savol/v1', '/dashboard/insights', [
+            'methods' => \WP_REST_Server::READABLE,
+            'callback' => ['Savol_Dashboard_Insights', 'handle'],
+            'permission_callback' => [__CLASS__, 'dashboard_can_view_insights'],
+        ]);
+
         register_rest_route('savol/v1', '/dashboard/users', [
             [
                 'methods' => \WP_REST_Server::READABLE,
@@ -1418,6 +1424,16 @@ final class Savol_Veiculos_CPT {
             return new \WP_Error('savol_dashboard_forbidden', 'Acesso nao autorizado.', ['status' => 403]);
         }
         wp_set_current_user((int) $user->ID);
+        return true;
+    }
+
+    public static function dashboard_can_view_insights(\WP_REST_Request $request) {
+        $permission = self::dashboard_can_view_data($request);
+        if (is_wp_error($permission)) return $permission;
+        $user = self::dashboard_request_user($request);
+        if (!$user || self::dashboard_observations_only($user)) {
+            return new \WP_Error('savol_dashboard_forbidden', 'Acesso nao autorizado.', ['status' => 403]);
+        }
         return true;
     }
 
