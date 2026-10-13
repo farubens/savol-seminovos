@@ -4768,7 +4768,7 @@ JS;
                 'empresa' => preg_replace('/\D+/', '', (string) ($row['empresa'] ?? '')),
                 'revenda_origem' => preg_replace('/\D+/', '', (string) ($row['revenda_origem'] ?? '')),
                 'situacao' => strtoupper(trim((string) ($row['situacao'] ?? ''))),
-                'val_compra' => self::parse_money_value($row['val_compra'] ?? null),
+                'val_compra' => self::parse_money_value($row['valor_compra'] ?? $row['val_compra'] ?? null),
                 'valor_venda' => self::parse_money_value($row['valor_venda'] ?? null),
                 'des_cor' => trim((string) ($row['des_cor'] ?? '')),
                 'des_modelo' => trim((string) ($row['des_modelo'] ?? '')),
