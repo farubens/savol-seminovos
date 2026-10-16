@@ -732,7 +732,14 @@ final class Savol_Veiculos_CPT {
             'QUEDA DE MERCADO',
             'PROBLEMAS MECANICOS APÓS ENTRADA',
             'PREÇO DO USADO MUITO PERTO DO ZERO KM',
+            'TEST DRIVE',
+            'OUTROS',
         ];
+    }
+
+    private static function valid_price_override_justification(string $reason, string $details): bool {
+        return in_array($reason, self::price_override_reason_options(), true)
+            && ($reason !== 'OUTROS' || preg_match('/(*UCP)\S/u', $details) === 1);
     }
 
     public static function render_price_override_meta_box(\WP_Post $post): void {
@@ -765,8 +772,30 @@ final class Savol_Veiculos_CPT {
         }
         echo '</select>';
 
-        echo '<p><label for="' . esc_attr(self::PRICE_OVERRIDE_DETAILS_META) . '"><strong>Detalhes da justificativa</strong></label></p>';
-        echo '<textarea id="' . esc_attr(self::PRICE_OVERRIDE_DETAILS_META) . '" name="' . esc_attr(self::PRICE_OVERRIDE_DETAILS_META) . '" rows="6" style="width:100%;max-width:720px;" placeholder="Descreva melhor a justificativa para publicar este veiculo.">' . esc_textarea($details) . '</textarea>';
+        echo '<details id="savol-price-override-details"' . ($selected === 'OUTROS' || trim($details) !== '' ? ' open' : '') . '>';
+        echo '<summary id="savol-price-override-summary">Detalhes adicionais (opcional)</summary>';
+        echo '<p><label id="savol-price-override-details-label" for="' . esc_attr(self::PRICE_OVERRIDE_DETAILS_META) . '"><strong>Detalhes da justificativa</strong></label></p>';
+        echo '<textarea id="' . esc_attr(self::PRICE_OVERRIDE_DETAILS_META) . '" name="' . esc_attr(self::PRICE_OVERRIDE_DETAILS_META) . '" rows="6" style="width:100%;max-width:720px;"' . ($selected === 'OUTROS' ? ' required' : '') . ' placeholder="Descreva o motivo da publicacao.">' . esc_textarea($details) . '</textarea>';
+        echo '</details>';
+        echo <<<'HTML'
+<script>
+(function () {
+    var reason = document.getElementById('publicacao_preco_justificativa_motivo');
+    var details = document.getElementById('publicacao_preco_justificativa_detalhes');
+    var panel = document.getElementById('savol-price-override-details');
+    if (!reason || !details || !panel) return;
+    function update() {
+        var other = reason.value === 'OUTROS';
+        details.required = other;
+        panel.open = other || details.value.trim() !== '';
+        document.getElementById('savol-price-override-summary').textContent = other ? 'Justificativa para Outros' : 'Detalhes adicionais (opcional)';
+        document.getElementById('savol-price-override-details-label').textContent = other ? 'Justificativa para Outros *' : 'Detalhes da justificativa';
+    }
+    reason.addEventListener('change', update);
+    update();
+}());
+</script>
+HTML;
 
         echo '<hr />';
         if ($published_user_id > 0 || $published_user_name !== '') {
@@ -992,6 +1021,9 @@ final class Savol_Veiculos_CPT {
             $details = isset($_POST[self::PRICE_OVERRIDE_DETAILS_META])
                 ? sanitize_textarea_field((string) wp_unslash($_POST[self::PRICE_OVERRIDE_DETAILS_META]))
                 : '';
+            if (!self::valid_price_override_justification($selected_reason, $details)) {
+                $selected_reason = '';
+            }
 
             update_post_meta($post_id, self::PRICE_OVERRIDE_REASON_META, $selected_reason);
             update_post_meta($post_id, self::PRICE_OVERRIDE_DETAILS_META, $details);
@@ -1139,7 +1171,10 @@ final class Savol_Veiculos_CPT {
             ? $submitted_reason
             : (string) get_post_meta($post_id, self::PRICE_OVERRIDE_REASON_META, true);
 
-        if (!in_array($selected_reason, self::price_override_reason_options(), true)) {
+        $details = isset($_POST[self::PRICE_OVERRIDE_DETAILS_META])
+            ? sanitize_textarea_field((string) wp_unslash($_POST[self::PRICE_OVERRIDE_DETAILS_META]))
+            : (string) get_post_meta($post_id, self::PRICE_OVERRIDE_DETAILS_META, true);
+        if (!self::valid_price_override_justification($selected_reason, $details)) {
             $data['post_status'] = 'draft';
             self::set_price_override_required_notice();
         }
@@ -1149,7 +1184,8 @@ final class Savol_Veiculos_CPT {
 
     private static function has_price_override_justification(int $post_id): bool {
         $selected_reason = (string) get_post_meta($post_id, self::PRICE_OVERRIDE_REASON_META, true);
-        return in_array($selected_reason, self::price_override_reason_options(), true);
+        $details = (string) get_post_meta($post_id, self::PRICE_OVERRIDE_DETAILS_META, true);
+        return self::valid_price_override_justification($selected_reason, $details);
     }
 
     private static function has_manual_status_lock(int $post_id): bool {
@@ -1181,7 +1217,7 @@ final class Savol_Veiculos_CPT {
     private static function set_price_override_required_notice(): void {
         set_transient(
             self::price_override_notice_key(),
-            'Para publicar este veiculo, selecione uma justificativa para preco de venda abaixo do preco de compra.',
+            'Para publicar este veiculo, selecione uma justificativa valida e, ao escolher Outros, descreva o motivo.',
             60
         );
     }
@@ -1575,11 +1611,10 @@ final class Savol_Veiculos_CPT {
         if (($payload['status'] ?? '') === 'publish') {
             $cost = (float) get_post_meta($post_id, 'apolo_val_compra', true);
             $price = (float) ($payload['meta']['preco'] ?? get_post_meta($post_id, 'preco', true));
-            $justification = (string) get_post_meta($post_id, self::PRICE_OVERRIDE_REASON_META, true);
             if ($price <= 0) {
                 return new \WP_Error('savol_dashboard_missing_price', 'Informe um preco antes de publicar.', ['status' => 422]);
             }
-            if ($cost > 0 && $price > 0 && $price < $cost && $justification === '') {
+            if ($cost > 0 && $price > 0 && $price < $cost && !self::has_price_override_justification($post_id)) {
                 return new \WP_Error('savol_dashboard_price_override_required', 'Preco abaixo do custo. Use a autorizacao de publicacao.', ['status' => 409]);
             }
         }
@@ -1657,11 +1692,11 @@ final class Savol_Veiculos_CPT {
             return new \WP_REST_Response(['ok' => false, 'message' => 'Este veículo não está bloqueado por diferença de preço.'], 409);
         }
         $justification = sanitize_text_field((string) $request->get_param('justification'));
-        if (!in_array($justification, self::price_override_reason_options(), true)) {
-            return new \WP_REST_Response(['ok' => false, 'message' => 'Selecione uma justificativa válida.'], 422);
-        }
-
         $details = sanitize_textarea_field((string) $request->get_param('details'));
+        if (!self::valid_price_override_justification($justification, $details)) {
+            $message = $justification === 'OUTROS' ? 'Informe a justificativa ao selecionar Outros.' : 'Selecione uma justificativa válida.';
+            return new \WP_REST_Response(['ok' => false, 'message' => $message], 422);
+        }
         update_post_meta($post_id, self::PRICE_OVERRIDE_REASON_META, $justification);
         update_post_meta($post_id, self::PRICE_OVERRIDE_DETAILS_META, $details);
         $result = wp_update_post(['ID' => $post_id, 'post_status' => 'publish'], true);
