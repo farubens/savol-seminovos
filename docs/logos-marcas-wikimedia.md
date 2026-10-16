@@ -29,6 +29,7 @@ exibe uma marca quando ela existe no estoque retornado pela API.
 - [Porsche](https://commons.wikimedia.org/wiki/File:Porsche_Schriftzug.svg)
 - [RAM](https://commons.wikimedia.org/wiki/File:Ram_Trucks_2009_wordmark.svg)
 - [Rolls-Royce](https://commons.wikimedia.org/wiki/File:Rolls-Royce_Motor_Cars_logo.svg)
+- [Subaru](https://commons.wikimedia.org/wiki/File:Subarulogo.png)
 - [Suzuki](https://commons.wikimedia.org/wiki/File:Suzuki_logo_2025.svg)
 - [Volvo](https://commons.wikimedia.org/wiki/File:Volvo-Iron-Mark-Black.svg)
 - [Zeekr](https://commons.wikimedia.org/wiki/File:Zeekr_logo.svg)

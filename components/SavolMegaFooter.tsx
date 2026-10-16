@@ -1,6 +1,6 @@
 ﻿import Image from "next/image";
 import Link from "next/link";
-import { Facebook, Headphones, Instagram, MapPin, Phone, ShieldCheck } from "lucide-react";
+import { Headphones, Instagram, MapPin, Phone, ShieldCheck } from "lucide-react";
 
 export function SavolMegaFooter() {
   return (
@@ -13,10 +13,7 @@ export function SavolMegaFooter() {
             </Link>
             <p>Somos um grupo empresarial familiar, sólido e com forte presença nas regiões do Grande ABC, São Paulo e Baixada Santista.</p>
             <div className="savol-footer-socials">
-              <a href="https://www.facebook.com/gruposavol/" target="_blank" rel="noopener noreferrer" aria-label="Facebook SAVOL">
-                <Facebook size={18} />
-              </a>
-              <a href="https://www.instagram.com/gruposavol/" target="_blank" rel="noopener noreferrer" aria-label="Instagram SAVOL">
+              <a href="https://www.instagram.com/savolseminovos" target="_blank" rel="noopener noreferrer" aria-label="Instagram SAVOL Seminovos">
                 <Instagram size={18} />
               </a>
             </div>

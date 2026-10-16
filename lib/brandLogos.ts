@@ -41,6 +41,7 @@ const BRAND_LOGOS: Record<string, string> = {
   ram: "/images/brands/ram.png",
   renault: "/images/brands/renault.svg",
   "rolls-royce": "/images/brands/rolls-royce.png",
+  subaru: "/images/brands/subaru.png",
   suzuki: "/images/brands/suzuki.png",
   toyota: "/images/brands/toyota.png",
   volkswagen: "/images/brands/volkswagen.png",

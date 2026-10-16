@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Facebook, Heart, Instagram, Menu, Search, ShieldCheck, X } from "lucide-react";
+import { Heart, Instagram, Menu, Search, ShieldCheck, X } from "lucide-react";
 import { SITE_FEATURES } from "@/lib/features";
 
 type HeaderProps = {
@@ -68,10 +68,7 @@ export function SiteHeader({ active = "home", showEnvNote = false }: HeaderProps
           <div className="topbar-social-spacer" aria-hidden="true" />
           <p className="topbar-schedule">Segunda a sexta: 08h às 19h | Sábado: 09h às 18h</p>
           <div className="topbar-social" aria-label="Redes sociais">
-            <a className="topbar-social-link" href="https://www.facebook.com/gruposavol/" target="_blank" rel="noopener noreferrer" aria-label="Facebook SAVOL">
-              <Facebook size={14} />
-            </a>
-            <a className="topbar-social-link" href="https://www.instagram.com/gruposavol/" target="_blank" rel="noopener noreferrer" aria-label="Instagram SAVOL">
+            <a className="topbar-social-link" href="https://www.instagram.com/savolseminovos" target="_blank" rel="noopener noreferrer" aria-label="Instagram SAVOL Seminovos">
               <Instagram size={14} />
             </a>
           </div>
